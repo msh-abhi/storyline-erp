@@ -1,0 +1,154 @@
+-- Example: Create a public.users table for application-specific profiles
+-- If you already have a 'profiles' or 'app_users' table, adapt this.
+CREATE TABLE public.users (
+    id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    name TEXT,
+    is_admin BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS for public.users
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
+-- Policies for public.users (adjust as needed)
+CREATE POLICY "Public users can view their own profile."
+ON public.users FOR SELECT
+USING (auth.uid() = id);
+
+CREATE POLICY "Public users can update their own profile."
+ON public.users FOR UPDATE
+USING (auth.uid() = id);
+
+-- Function to create a public.users entry when a new auth.user is created
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.users (id, email)
+  VALUES (NEW.id, NEW.email);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to call the function when a new auth.user is created
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+  -- 1. Add 'portal_enabled' to the existing 'customers' table
+ALTER TABLE customers
+ADD COLUMN portal_enabled BOOLEAN DEFAULT FALSE;
+
+-- 2. Create 'customer_portal_users' table
+CREATE TABLE customer_portal_users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
+    email TEXT UNIQUE NOT NULL,
+    auth_provider_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, -- Link to Supabase auth.users
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_login_at TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT fk_customer
+        FOREIGN KEY(customer_id)
+        REFERENCES customers(id)
+        ON DELETE CASCADE
+);
+
+-- Add index for faster lookups
+CREATE INDEX idx_customer_portal_users_email ON customer_portal_users (email);
+CREATE INDEX idx_customer_portal_users_customer_id ON customer_portal_users (customer_id);
+CREATE INDEX idx_customer_portal_users_auth_provider_id ON customer_portal_users (auth_provider_id);
+
+-- Set up Row Level Security for customer_portal_users
+ALTER TABLE customer_portal_users ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Customers can view their own portal user entry."
+ON customer_portal_users FOR SELECT
+USING (auth_provider_id = auth.uid());
+
+CREATE POLICY "Customers can update their own portal user entry."
+ON customer_portal_users FOR UPDATE
+USING (auth_provider_id = auth.uid());
+
+-- 3. Create 'customer_credentials' table for IPTV credentials
+CREATE TABLE customer_credentials (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
+    server_id TEXT NOT NULL,
+    password TEXT NOT NULL, -- Consider encrypting this in your application layer
+    server_url TEXT NOT NULL,
+    notes TEXT,
+    mac_address TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    expires_at TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT fk_customer_credentials
+        FOREIGN KEY(customer_id)
+        REFERENCES customers(id)
+        ON DELETE CASCADE
+);
+
+-- Add index for faster lookups
+CREATE INDEX idx_customer_credentials_customer_id ON customer_credentials (customer_id);
+
+-- Set up Row Level Security for customer_credentials
+ALTER TABLE customer_credentials ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Customers can view their own credentials."
+ON customer_credentials FOR SELECT
+USING (customer_id IN (SELECT customer_id FROM customer_portal_users WHERE auth_provider_id = auth.uid()));
+
+-- Admins can manage credentials (assuming admin role check)
+CREATE POLICY "Admins can manage all credentials."
+ON customer_credentials FOR ALL
+USING (auth.role() = 'authenticated' AND EXISTS (SELECT 1 FROM public.users WHERE public.users.id = auth.uid() AND public.users.is_admin = TRUE));
+
+
+-- 4. Create 'customer_messages' table for contact form submissions
+CREATE TABLE customer_messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id UUID REFERENCES customers(id) ON DELETE SET NULL, -- SET NULL if customer is deleted
+    subject TEXT NOT NULL,
+    category TEXT NOT NULL, -- e.g., 'billing', 'technical', 'general'
+    message TEXT NOT NULL,
+    status TEXT DEFAULT 'new' NOT NULL, -- e.g., 'new', 'read', 'resolved'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    admin_notes TEXT,
+    CONSTRAINT fk_customer_messages
+        FOREIGN KEY(customer_id)
+        REFERENCES customers(id)
+        ON DELETE SET NULL
+);
+
+-- Add index for faster lookups
+CREATE INDEX idx_customer_messages_customer_id ON customer_messages (customer_id);
+
+-- Set up Row Level Security for customer_messages
+ALTER TABLE customer_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Customers can view their own messages."
+ON customer_messages FOR SELECT
+USING (customer_id IN (SELECT customer_id FROM customer_portal_users WHERE auth_provider_id = auth.uid()));
+
+CREATE POLICY "Customers can create their own messages."
+ON customer_messages FOR INSERT
+WITH CHECK (customer_id IN (SELECT customer_id FROM customer_portal_users WHERE auth_provider_id = auth.uid()));
+
+-- Admins can manage messages
+CREATE POLICY "Admins can manage all messages."
+ON customer_messages FOR ALL
+USING (auth.role() = 'authenticated' AND EXISTS (SELECT 1 FROM public.users WHERE public.users.id = auth.uid() AND public.users.is_admin = TRUE));
+
+-- Update 'updated_at' columns automatically
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_customer_credentials_updated_at
+BEFORE UPDATE ON customer_credentials
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
