@@ -1,12 +1,13 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { supabase, initializeSupabaseSession, testSupabaseConnection, getAndLogCurrentSession } from '../lib/supabase';
+import { supabase, testSupabaseConnection, getAndLogCurrentSession } from '../lib/supabase';
 import {
   signInWithMagicLink,
-  updateCustomerPortalUser as updateCustomerPortalUserService, // Renamed to avoid conflict
+  updateCustomerPortalUser as updateCustomerPortalUserService,
   getUserProfile,
   getCustomerPortalUserByAuthId,
   createCustomerPortalUser,
+  updateUserProfileService, // FIX: Import the new service
 } from '../services/supabaseService';
 import { CustomerPortalUser, UserProfile } from '../types';
 import { User, Session } from '@supabase/supabase-js';
@@ -38,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Helper function to process a session and update state
   const processSession = useCallback(async (session: Session | null) => {
-    setLoading(true); // Set loading true at the start of session processing
+    setLoading(true);
     setError(null);
 
     if (!session) {
@@ -47,20 +48,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAdmin(false);
       setCustomerPortalUser(null);
       setUserProfile(null);
-      setLoading(false); // Set loading false after clearing state
+      setLoading(false);
       return;
     }
 
     console.log('AuthProvider: Processing session for user ID:', session.user.id);
     setUser(session.user);
 
-    // --- CRITICAL DEBUGGING STEP: Log the session and test connection ---
-    // This will now call the getAndLogCurrentSession from supabase.ts
-    // which should contain the 'DEBUG: getAndLogCurrentSession: Raw result...' log.
     await getAndLogCurrentSession();
     const { user: supabaseUser, authenticated, userData, queryError } = await testSupabaseConnection();
     console.log('AuthProvider: DEBUG: Detailed database query test result (users table):', { authenticated, userData, queryError });
-    // --- END CRITICAL DEBUGGING STEP ---
 
     if (!authenticated || !supabaseUser) {
       console.log('AuthProvider: ℹ️ User not authenticated or profile not found after connection test. Clearing state.');
@@ -106,12 +103,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []); // useCallback with empty dependency array
+  }, []);
 
   useEffect(() => {
     const initializeAuth = async () => {
       console.log('AuthProvider: 🚀 Initializing authentication on mount...');
-      setInitialized(false); // Reset initialized state at the start of initialization
 
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -127,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCustomerPortalUser(null);
         setUserProfile(null);
       } finally {
-        setInitialized(true); // Mark as initialized after the first run
+        setInitialized(true);
       }
     };
 
@@ -142,24 +138,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else if (event === 'SIGNED_OUT') {
         console.log('AuthProvider: User signed out, clearing session...');
         await processSession(null);
-        setInitialized(false); // Reset initialized state on sign out
       }
     });
 
     return () => {
       authListener?.subscription?.unsubscribe();
     };
-  }, [processSession]); // Dependency array includes processSession
+  }, [processSession]);
 
   const signIn = async (email: string) => {
     setLoading(true);
     setError(null);
     try {
       await signInWithMagicLink(email);
-      toast.info("Check your email for the magic link!");
+      toast.success("Magic link sent! Check your email.");
     } catch (err: any) {
       setError(err.message || "Failed to send magic link.");
-      toast.error(`Sign-in failed: ${err.message}`);
+      toast.error(`Login failed: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -169,14 +164,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
-      // processSession(null) will handle clearing state
-      toast.success("Signed out successfully!");
+      await supabase.auth.signOut();
+      toast.info("You have been signed out.");
     } catch (err: any) {
       setError(err.message || "Failed to sign out.");
-      toast.error(`Sign-out failed: ${err.message}`);
+      toast.error(`Logout failed: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -190,9 +182,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      // Assuming getUserProfile returns the full profile, and updateCustomerPortalUserService updates it
-      const updatedProfile = await updateCustomerPortalUserService(userProfile.id, profile);
-      setUserProfile(prev => ({ ...prev, ...updatedProfile }));
+      const updatedProfile = await updateUserProfileService(userProfile.id, profile); // FIX: Use new service
+      setUserProfile(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          ...updatedProfile,
+          is_admin: updatedProfile.is_admin, // FIX: is_admin is now guaranteed boolean from service
+        };
+      });
       toast.success("User profile updated!");
     } catch (err: any) {
       setError(err.message || "Failed to update user profile.");
@@ -211,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const updatedUser = await updateCustomerPortalUserService(customerPortalUser.id, userData);
-      setCustomerPortalUser(prev => ({ ...prev, ...updatedUser }));
+      setCustomerPortalUser(prev => ({ ...prev!, ...updatedUser }));
       toast.success("Customer portal user updated!");
     } catch (err: any) {
       setError(err.message || "Failed to update customer portal user.");

@@ -1,10 +1,10 @@
 import React from 'react';
 import { Bell, Search, User } from 'lucide-react';
 import LanguageSelector from './LanguageSelector';
-import { useApp } from '../context/AppContext';
+import { useAppContext } from '../context/AppContext'; // FIX: Changed useApp to useAppContext
 
 export default function TopBar() {
-  const { state, actions } = useApp();
+  const { state, actions } = useAppContext();
   
   const handleLanguageChange = async (language: 'en' | 'da') => {
     if (state.settings) {

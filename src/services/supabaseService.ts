@@ -1,13 +1,13 @@
-import { supabase } from '../lib/supabase'; // <--- CHANGE THIS LINE: Import from src/lib/supabase.ts
+import { supabase } from '../lib/supabase';
 import {
   Customer, Reseller, Supplier, DigitalCode, TVBox, Sale, Purchase,
   Subscription, SubscriptionProduct, EmailTemplate, Invoice, Payment,
-  PaymentTransaction, Settings, ExchangeRates, SupportedCurrency,
+  PaymentTransaction, Settings, ExchangeRates,
   CustomerPortalUser,
   CustomerCredential,
   CustomerMessage,
-  UserProfile // <-- ADD THIS IMPORT
-} from '../types';
+  UserProfile
+} from '../types'; // FIX: Removed SupportedCurrency
 
 // Helper functions to convert database row to app type
 const convertCustomerFromDb = (row: any): Customer => ({
@@ -52,8 +52,13 @@ const convertDigitalCodeFromDb = (row: any): DigitalCode => ({
   id: row.id,
   code: row.code,
   value: row.value,
+  quantity: row.quantity, // FIX: Added
   soldQuantity: row.sold_quantity,
   status: row.status,
+  customerPrice: row.customer_price, // FIX: Added
+  resellerPrice: row.reseller_price, // FIX: Added
+  purchasePrice: row.purchase_price, // FIX: Added
+  name: row.name, // FIX: Added
   createdAt: row.created_at,
   updatedAt: row.updated_at
 });
@@ -62,8 +67,12 @@ const convertTVBoxFromDb = (row: any): TVBox => ({
   id: row.id,
   serialNumber: row.serial_number,
   model: row.model,
+  quantity: row.quantity, // FIX: Added
   soldQuantity: row.sold_quantity,
   status: row.status,
+  customerPrice: row.customer_price, // FIX: Added
+  resellerPrice: row.reseller_price, // FIX: Added
+  purchasePrice: row.purchase_price, // FIX: Added
   createdAt: row.created_at,
   updatedAt: row.updated_at
 });
@@ -72,8 +81,17 @@ const convertSaleFromDb = (row: any): Sale => ({
   id: row.id,
   customerId: row.customer_id,
   productId: row.product_id,
+  productName: row.product_name, // FIX: Added
+  productType: row.product_type, // FIX: Added
+  buyerId: row.buyer_id, // FIX: Added
+  buyerName: row.buyer_name, // FIX: Added
+  buyerType: row.buyer_type, // FIX: Added
   quantity: row.quantity,
+  unitPrice: row.unit_price, // FIX: Added
   totalPrice: row.total_price,
+  profit: row.profit, // FIX: Added
+  paymentStatus: row.payment_status, // FIX: Added
+  status: row.status, // FIX: Added
   saleDate: row.sale_date,
   createdAt: row.created_at,
   updatedAt: row.updated_at
@@ -102,10 +120,16 @@ const convertEmailTemplateFromDb = (row: any): EmailTemplate => ({
 const convertSubscriptionFromDb = (row: any): Subscription => ({
   id: row.id,
   customer_id: row.customer_id,
+  customerName: row.customer_name, // FIX: Added
+  productId: row.product_id, // FIX: Added
+  productName: row.product_name, // FIX: Added
   status: row.status,
   startDate: row.start_date,
   endDate: row.end_date,
   price: row.price,
+  durationMonths: row.duration_months, // FIX: Added
+  reminder7Sent: row.reminder_7_sent, // FIX: Added
+  reminder3Sent: row.reminder_3_sent, // FIX: Added
   createdAt: row.created_at,
   updatedAt: row.updated_at
 });
@@ -115,7 +139,8 @@ const convertSubscriptionProductFromDb = (row: any): SubscriptionProduct => ({
   name: row.name,
   description: row.description,
   price: row.price,
-  duration: row.duration,
+  durationMonths: row.duration_months, // FIX: Changed to durationMonths
+  isActive: row.is_active, // FIX: Added
   createdAt: row.created_at,
   updatedAt: row.updated_at
 });
@@ -157,7 +182,9 @@ const convertPaymentTransactionFromDb = (row: any): PaymentTransaction => ({
 const convertSettingsFromDb = (row: any): Settings => ({
   id: row.id,
   currency: row.currency,
-  emailSettings: row.email_settings,
+  language: row.language, // Assuming language exists in DB
+  companyName: row.company_name, // FIX: Added companyName
+  emailSettings: row.email_settings, // FIX: Added emailSettings
   createdAt: row.created_at,
   updatedAt: row.updated_at
 });
@@ -171,14 +198,13 @@ const convertExchangeRatesFromDb = (row: any): ExchangeRates => ({
 
 const convertCustomerPortalUserFromDb = (row: any): CustomerPortalUser => ({
   id: row.id,
-  auth_id: row.auth_provider_id, // <-- MAP 'auth_provider_id' to 'auth_id'
+  auth_id: row.auth_provider_id,
   customer_id: row.customer_id,
   email: row.email,
   created_at: row.created_at,
   last_login_at: row.last_login_at,
 });
 
-// UPDATE THIS CONVERTER
 const convertCustomerCredentialFromDb = (row: any): CustomerCredential => ({
   id: row.id,
   customer_id: row.customer_id,
@@ -192,7 +218,6 @@ const convertCustomerCredentialFromDb = (row: any): CustomerCredential => ({
   expires_at: row.expires_at,
 });
 
-// UPDATE THIS CONVERTER
 const convertCustomerMessageFromDb = (row: any): CustomerMessage => ({
   id: row.id,
   customer_id: row.customer_id,
@@ -204,41 +229,44 @@ const convertCustomerMessageFromDb = (row: any): CustomerMessage => ({
   admin_notes: row.admin_notes,
 });
 
-// ADD THIS NEW CONVERTER
 const convertUserProfileFromDb = (row: any): UserProfile => ({
     id: row.id,
+    auth_id: row.auth_id, // FIX: Added
+    customer_id: row.customer_id, // FIX: Added
     email: row.email,
     name: row.name,
     is_admin: row.is_admin,
+    created_at: row.created_at, // Assuming these exist in the 'users' table
+    last_login_at: row.last_login_at, // Assuming these exist in the 'users' table
 });
 
 // Generic service factory
 const createGenericService = <T extends { id: string }>(
   tableName: string,
-  converter: (row: any) => T // Add a converter function
+  converter: (row: any) => T
 ) => {
   return {
     async getAll(): Promise<T[]> {
       const { data, error } = await supabase.from(tableName).select('*');
       if (error) throw error;
-      return data.map(converter); // Use the converter
+      return data.map(converter);
     },
     async getById(id: string): Promise<T | null> {
       const { data, error } = await supabase.from(tableName).select('*').eq('id', id).single();
       if (error) throw error;
-      return data ? converter(data) : null; // Use the converter
+      return data ? converter(data) : null;
     },
     async create(
-      item: Omit<T, 'id' | 'createdAt' | 'updatedAt' | 'paymentHistory' | 'soldQuantity' | 'saleDate' | 'purchaseDate' | 'created_at' | 'updated_at'> // Expanded Omit for generic types
+      item: Omit<T, 'id' | 'createdAt' | 'updatedAt' | 'paymentHistory' | 'soldQuantity' | 'saleDate' | 'purchaseDate' | 'created_at' | 'updated_at' | 'auth_id' | 'customer_id' | 'last_login_at' | 'name' | 'is_admin' | 'emailSettings' | 'language' | 'companyName' | 'durationMonths' | 'isActive' | 'customerName' | 'productId' | 'productName' | 'productType' | 'buyerId' | 'buyerName' | 'buyerType' | 'unitPrice' | 'profit' | 'paymentStatus' | 'status' | 'quantity' | 'customerPrice' | 'resellerPrice' | 'purchasePrice' | 'code' | 'value' | 'serialNumber' | 'model' | 'reminder7Sent' | 'reminder3Sent' | 'subject' | 'category' | 'message' | 'admin_notes' | 'server_id' | 'password' | 'server_url' | 'notes' | 'mac_address' | 'expires_at'>
     ): Promise<T> {
       const { data, error } = await supabase.from(tableName).insert(item as any).select().single();
       if (error) throw error;
-      return converter(data); // Use the converter
+      return converter(data);
     },
     async update(id: string, item: Partial<T>): Promise<T> {
       const { data, error } = await supabase.from(tableName).update(item as any).eq('id', id).select().single();
       if (error) throw error;
-      return converter(data); // Use the converter
+      return converter(data);
     },
     async delete(id: string): Promise<void> {
       const { error } = await supabase.from(tableName).delete().eq('id', id);
@@ -263,7 +291,6 @@ export const paymentService = createGenericService<Payment>('payments', convertP
 export const paymentTransactionService = createGenericService<PaymentTransaction>('payment_transactions', convertPaymentTransactionFromDb);
 export const customerPortalUserService = createGenericService<CustomerPortalUser>('customer_portal_users', convertCustomerPortalUserFromDb);
 export const customerCredentialService = createGenericService<CustomerCredential>('customer_credentials', convertCustomerCredentialFromDb);
-// ADD THIS NEW SERVICE EXPORT
 export const customerMessageService = createGenericService<CustomerMessage>('customer_messages', convertCustomerMessageFromDb);
 
 
@@ -272,7 +299,7 @@ export const signInWithMagicLink = async (email: string) => {
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: window.location.origin, // Redirect back to the app after magic link click
+      emailRedirectTo: window.location.origin,
     },
   });
   if (error) {
@@ -280,7 +307,6 @@ export const signInWithMagicLink = async (email: string) => {
   }
 };
 
-// ADD THIS NEW FUNCTION TO GET USER PROFILE FOR ADMIN CHECK
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
     const { data, error } = await supabase
         .from('users') // This is your public.users table
@@ -295,13 +321,24 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
     return data ? convertUserProfileFromDb(data) : null;
 };
 
+// NEW: Dedicated service for updating UserProfile
+export const updateUserProfileService = async (id: string, profile: Partial<UserProfile>): Promise<UserProfile> => {
+  const { data, error } = await supabase
+    .from('users') // Assuming 'users' is the table for UserProfile
+    .update(profile as any)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return convertUserProfileFromDb(data);
+};
 
-// UPDATE THIS FUNCTION to use 'auth_provider_id'
+
 export const getCustomerPortalUserByAuthId = async (authId: string): Promise<CustomerPortalUser | null> => {
   const { data, error } = await supabase
     .from('customer_portal_users')
     .select('*')
-    .eq('auth_provider_id', authId) // <-- USE 'auth_provider_id'
+    .eq('auth_provider_id', authId)
     .single();
   if (error && error.code !== 'PGRST116') {
     throw error;
@@ -309,12 +346,11 @@ export const getCustomerPortalUserByAuthId = async (authId: string): Promise<Cus
   return data ? convertCustomerPortalUserFromDb(data) : null;
 };
 
-// UPDATE THIS FUNCTION to insert 'auth_provider_id'
 export const createCustomerPortalUser = async (user: Omit<CustomerPortalUser, 'id' | 'created_at' | 'last_login_at'>): Promise<CustomerPortalUser> => {
   const { data, error } = await supabase
     .from('customer_portal_users')
     .insert({
-        auth_provider_id: user.auth_id, // <-- MAP 'auth_id' to 'auth_provider_id'
+        auth_provider_id: user.auth_id,
         customer_id: user.customer_id,
         email: user.email,
     })
@@ -327,7 +363,7 @@ export const createCustomerPortalUser = async (user: Omit<CustomerPortalUser, 'i
 export const updateCustomerPortalUser = async (id: string, user: Partial<Omit<CustomerPortalUser, 'id' | 'created_at' | 'last_login_at'>>): Promise<CustomerPortalUser> => {
   const { data, error } = await supabase
     .from('customer_portal_users')
-    .update(user as any) // Cast to any for update
+    .update(user as any)
     .eq('id', id)
     .select()
     .single();
@@ -361,7 +397,7 @@ export const getCustomerMessages = async (customerId: string): Promise<CustomerM
     .from('customer_messages')
     .select('*')
     .eq('customer_id', customerId)
-    .order('created_at', { ascending: true }); // Show oldest messages first
+    .order('created_at', { ascending: true });
 
   if (error) {
     console.error("Error fetching customer messages:", error);
@@ -389,7 +425,7 @@ export const createCustomerMessage = async (message: Omit<CustomerMessage, 'id' 
 export const settingsService = {
   async get(): Promise<Settings | null> {
     const { data, error } = await supabase.from('settings').select('*').order('created_at', { ascending: false }).limit(1).single();
-    if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine for settings
+    if (error && error.code !== 'PGRST116') {
       console.error("Error fetching settings:", error);
       throw error;
     }

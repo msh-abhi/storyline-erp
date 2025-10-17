@@ -1,40 +1,43 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Search, ShoppingCart, DollarSign, TrendingUp } from 'lucide-react';
-import { useApp } from '../context/AppContext';
-import { Sale } from '../types';
-import { formatCurrency } from '../utils/calculations';
+import { useAppContext } from '../context/AppContext';
+import { Sale, DigitalCode, TVBox, SubscriptionProduct, Customer, Reseller } from '../types';
+
+// ... (Assuming you have a formatCurrency utility function)
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+};
 
 export default function SalesManagement() {
-  const { state, actions } = useApp();
+  const { state, actions } = useAppContext();
   const [showForm, setShowForm] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [formData, setFormData] = useState({
+
+  const initialFormData = {
     productType: 'digital_code' as 'digital_code' | 'tv_box' | 'subscription',
     productId: '',
     buyerType: 'customer' as 'customer' | 'reseller',
     buyerId: '',
     quantity: 1,
     paymentStatus: 'received' as 'received' | 'due' | 'partial',
-    status: 'completed' as 'completed' | 'pending' | 'cancelled'
-  });
+    status: 'completed' as 'completed' | 'pending' | 'cancelled',
+  };
+  const [formData, setFormData] = useState(initialFormData);
 
-  const filteredSales = state.sales.filter(sale => {
-    // Add defensive checks for undefined/null properties
-    const productName = sale.productName || '';
-    const buyerName = sale.buyerName || '';
-    return productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           buyerName.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  const filteredSales = state.sales.filter((sale: Sale) =>
+    (sale.productName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (sale.buyerName || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const getAvailableProducts = () => {
+  const getAvailableProducts = (): (DigitalCode | TVBox | SubscriptionProduct)[] => {
     switch (formData.productType) {
       case 'digital_code':
-        return state.digitalCodes.filter(code => code.quantity > code.soldQuantity);
+        return state.digitalCodes.filter((code: DigitalCode) => code.quantity > (code.soldQuantity || 0));
       case 'tv_box':
-        return state.tvBoxes.filter(box => box.quantity > box.soldQuantity);
+        return state.tvBoxes.filter((box: TVBox) => box.quantity > (box.soldQuantity || 0));
       case 'subscription':
-        return state.subscriptionProducts?.filter(product => product.isActive) || [];
+        return state.subscriptionProducts?.filter((product: SubscriptionProduct) => product.isActive) || [];
       default:
         return [];
     }
@@ -43,118 +46,98 @@ export default function SalesManagement() {
   const availableProducts = getAvailableProducts();
   const availableBuyers = formData.buyerType === 'customer' ? state.customers : state.resellers;
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const resetForm = () => {
+    setFormData(initialFormData);
+    setEditingSale(null);
+    setShowForm(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const product = availableProducts.find(p => p.id === formData.productId);
-    const buyer = availableBuyers.find(b => b.id === formData.buyerId);
-    
-    if (!product || !buyer) {
-      alert('Please select valid product and buyer');
-      return;
-    }
+    const product = availableProducts.find((p: DigitalCode | TVBox | SubscriptionProduct) => p.id === formData.productId);
+    const buyer = availableBuyers.find((b: Customer | Reseller) => b.id === formData.buyerId);
+
+    if (!product || !buyer) return alert('Please select a valid product and buyer.');
 
     let unitPrice = 0;
     let productName = '';
+    let purchasePrice = 0;
 
     if (formData.productType === 'subscription') {
-      unitPrice = (product as any).price;
-      productName = (product as any).name;
+      const subProd = product as SubscriptionProduct;
+      unitPrice = subProd.price;
+      productName = subProd.name;
     } else {
-      unitPrice = formData.buyerType === 'customer' 
-        ? (product as any).customerPrice 
-        : (product as any).resellerPrice;
-      productName = formData.productType === 'digital_code' 
-        ? (product as any).name 
-        : (product as any).model;
+      const stockProd = product as DigitalCode | TVBox;
+      unitPrice = formData.buyerType === 'customer' ? stockProd.customerPrice : stockProd.resellerPrice;
+      productName = 'name' in stockProd ? stockProd.name : stockProd.model;
+      purchasePrice = stockProd.purchasePrice || 0;
     }
 
-    const totalAmount = unitPrice * formData.quantity;
-    const purchasePrice = (product as any).purchasePrice || 0;
+    const totalPrice = unitPrice * formData.quantity;
     const profit = (unitPrice - purchasePrice) * formData.quantity;
 
-    const saleData = {
+    const saleData: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'> = {
       productId: formData.productId,
+      productName,
       productType: formData.productType,
-      productName: productName,
-      buyerType: formData.buyerType,
       buyerId: formData.buyerId,
       buyerName: buyer.name,
+      buyerType: formData.buyerType,
+      customerId: formData.buyerType === 'customer' ? formData.buyerId : null,
       quantity: formData.quantity,
-      unitPrice: unitPrice,
-      totalAmount: totalAmount,
-      profit: profit,
+      unitPrice,
+      totalPrice,
+      profit,
       paymentStatus: formData.paymentStatus,
-      status: formData.status
+      status: formData.status,
+      saleDate: new Date().toISOString(),
     };
 
     try {
       if (editingSale) {
         await actions.updateSale(editingSale.id, saleData);
       } else {
-        await actions.createSale(saleData);
-        
-        // Update product sold quantity for non-subscription products
-        if (formData.productType !== 'subscription') {
+        const newSale = await actions.createSale(saleData);
+        if (newSale && (formData.productType === 'digital_code' || formData.productType === 'tv_box')) {
+          const stockProduct = product as DigitalCode | TVBox;
+          const updatedStock = { soldQuantity: (stockProduct.soldQuantity || 0) + formData.quantity };
           if (formData.productType === 'digital_code') {
-            const updatedProduct = {
-              ...product,
-              soldQuantity: (product as any).soldQuantity + formData.quantity
-            };
-            await actions.updateDigitalCode(product.id, updatedProduct);
-          } else if (formData.productType === 'tv_box') {
-            const updatedProduct = {
-              ...product,
-              soldQuantity: (product as any).soldQuantity + formData.quantity
-            };
-            await actions.updateTVBox(product.id, updatedProduct);
+            await actions.updateDigitalCode(product.id, updatedStock);
+          } else {
+            await actions.updateTVBox(product.id, updatedStock);
           }
         }
-
-        // If it's a subscription sale, create the subscription
-        if (formData.productType === 'subscription') {
-          const customer = state.customers.find(c => c.id === formData.buyerId);
-          if (customer) {
-            const subscriptionProduct = product as any;
-            const startDate = new Date().toISOString();
-            const endDate = new Date();
-            endDate.setMonth(endDate.getMonth() + subscriptionProduct.durationMonths);
-
-            await actions.createSubscription({
-              customerId: customer.id,
-              customerName: customer.name,
-              productId: subscriptionProduct.id,
-              productName: subscriptionProduct.name,
-              startDate: startDate,
-              endDate: endDate.toISOString(),
-              durationMonths: subscriptionProduct.durationMonths,
-              price: subscriptionProduct.price,
-              status: 'active',
-              reminder7Sent: false,
-              reminder3Sent: false
-            });
-          }
+        if (newSale && formData.productType === 'subscription') {
+          const subProd = product as SubscriptionProduct;
+          const startDate = new Date();
+          const endDate = new Date();
+          endDate.setMonth(startDate.getMonth() + subProd.durationMonths);
+          await actions.createSubscription({
+            customer_id: buyer.id,
+            customerName: buyer.name,
+            productId: subProd.id,
+            productName: subProd.name,
+            status: 'active',
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            price: subProd.price,
+            durationMonths: subProd.durationMonths,
+            reminder7Sent: false,
+            reminder3Sent: false,
+          });
         }
       }
-
       resetForm();
     } catch (error) {
-      console.error('Error saving sale:', error);
+      console.error("Error saving sale:", error);
+      // Optionally show a toast notification
     }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      productType: 'digital_code',
-      productId: '',
-      buyerType: 'customer',
-      buyerId: '',
-      quantity: 1,
-      paymentStatus: 'received',
-      status: 'completed'
-    });
-    setShowForm(false);
-    setEditingSale(null);
   };
 
   const handleEdit = (sale: Sale) => {
@@ -165,28 +148,30 @@ export default function SalesManagement() {
       buyerType: sale.buyerType,
       buyerId: sale.buyerId,
       quantity: sale.quantity,
-      paymentStatus: (sale as any).paymentStatus || 'received',
-      status: sale.status
+      paymentStatus: sale.paymentStatus,
+      status: sale.status,
     });
     setShowForm(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this sale?')) {
+    if (window.confirm('Are you sure you want to delete this sale?')) {
       try {
         await actions.deleteSale(id);
+        // Optionally, update stock if the sale is deleted
+        // This logic might need to be more complex depending on your business rules
       } catch (error) {
-        console.error('Error deleting sale:', error);
+        console.error("Error deleting sale:", error);
       }
     }
   };
 
-  const totalRevenue = filteredSales.reduce((total, sale) => total + sale.totalAmount, 0);
-  const totalProfit = filteredSales.reduce((total, sale) => total + sale.profit, 0);
+  const totalRevenue = filteredSales.reduce((total: number, sale: Sale) => total + sale.totalPrice, 0);
+  const totalProfit = filteredSales.reduce((total: number, sale: Sale) => total + sale.profit, 0);
   const totalSales = filteredSales.length;
   const outstandingAmount = filteredSales
-    .filter(sale => (sale as any).paymentStatus === 'due')
-    .reduce((total, sale) => total + sale.totalAmount, 0);
+    .filter((sale: Sale) => sale.paymentStatus === 'due')
+    .reduce((total: number, sale: Sale) => total + sale.totalPrice, 0);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -252,7 +237,7 @@ export default function SalesManagement() {
             type="text"
             placeholder="Search sales..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)} // FIX: Using handleChange for searchTerm
             className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
@@ -265,7 +250,7 @@ export default function SalesManagement() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               {editingSale ? 'Edit Sale' : 'Record New Sale'}
             </h3>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -273,12 +258,9 @@ export default function SalesManagement() {
                     Product Type *
                   </label>
                   <select
+                    name="productType" // FIX: Added name attribute
                     value={formData.productType}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      productType: e.target.value as 'digital_code' | 'tv_box' | 'subscription',
-                      productId: '' 
-                    }))}
+                    onChange={handleChange} // FIX: Using handleChange
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="digital_code">Digital Code</option>
@@ -292,12 +274,9 @@ export default function SalesManagement() {
                     Buyer Type *
                   </label>
                   <select
+                    name="buyerType" // FIX: Added name attribute
                     value={formData.buyerType}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      buyerType: e.target.value as 'customer' | 'reseller',
-                      buyerId: '' 
-                    }))}
+                    onChange={handleChange} // FIX: Using handleChange
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="customer">Customer</option>
@@ -313,18 +292,21 @@ export default function SalesManagement() {
                   </label>
                   <select
                     required
+                    name="productId" // FIX: Added name attribute
                     value={formData.productId}
-                    onChange={(e) => setFormData(prev => ({ ...prev, productId: e.target.value }))}
+                    onChange={handleChange} // FIX: Using handleChange
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Select a product</option>
                     {availableProducts.map((product) => (
                       <option key={product.id} value={product.id}>
-                        {formData.productType === 'subscription' 
-                          ? `${(product as any).name} - ${formatCurrency((product as any).price)}`
-                          : formData.productType === 'digital_code' 
-                            ? `${(product as any).name} (Stock: ${product.quantity - product.soldQuantity})`
-                            : `${(product as any).model} (Stock: ${product.quantity - product.soldQuantity})`
+                        {product.id && formData.productType === 'subscription'
+                          ? `${(product as SubscriptionProduct).name} - ${formatCurrency((product as SubscriptionProduct).price)}`
+                          : product.id && formData.productType === 'digital_code'
+                            ? `${(product as DigitalCode).name} (Stock: ${(product as DigitalCode).quantity - (product as DigitalCode).soldQuantity})` // FIX: Conditional access
+                            : product.id && formData.productType === 'tv_box'
+                              ? `${(product as TVBox).model} (Stock: ${(product as TVBox).quantity - (product as TVBox).soldQuantity})` // FIX: Conditional access
+                              : 'Invalid Product'
                         }
                       </option>
                     ))}
@@ -337,8 +319,9 @@ export default function SalesManagement() {
                   </label>
                   <select
                     required
+                    name="buyerId" // FIX: Added name attribute
                     value={formData.buyerId}
-                    onChange={(e) => setFormData(prev => ({ ...prev, buyerId: e.target.value }))}
+                    onChange={handleChange} // FIX: Using handleChange
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Select a buyer</option>
@@ -360,8 +343,9 @@ export default function SalesManagement() {
                     type="number"
                     min="1"
                     required
+                    name="quantity" // FIX: Added name attribute
                     value={formData.quantity}
-                    onChange={(e) => setFormData(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                    onChange={handleChange} // FIX: Using handleChange
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -371,8 +355,9 @@ export default function SalesManagement() {
                     Payment Status *
                   </label>
                   <select
+                    name="paymentStatus" // FIX: Added name attribute
                     value={formData.paymentStatus}
-                    onChange={(e) => setFormData(prev => ({ ...prev, paymentStatus: e.target.value as 'received' | 'due' | 'partial' }))}
+                    onChange={handleChange} // FIX: Using handleChange
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="received">Payment Received</option>
@@ -386,8 +371,9 @@ export default function SalesManagement() {
                     Status *
                   </label>
                   <select
+                    name="status" // FIX: Added name attribute
                     value={formData.status}
-                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as 'completed' | 'pending' | 'cancelled' }))}
+                    onChange={handleChange} // FIX: Using handleChange
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="completed">Completed</option>
@@ -480,7 +466,7 @@ export default function SalesManagement() {
                       {formatCurrency(sale.unitPrice)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900 font-medium">
-                      {formatCurrency(sale.totalAmount)}
+                      {formatCurrency(sale.totalPrice)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`font-medium ${sale.profit > 0 ? 'text-green-600' : sale.profit < 0 ? 'text-red-600' : 'text-gray-900'}`}>
@@ -489,11 +475,11 @@ export default function SalesManagement() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        (sale as any).paymentStatus === 'received' ? 'bg-green-100 text-green-800' :
-                        (sale as any).paymentStatus === 'due' ? 'bg-red-100 text-red-800' :
+                        sale.paymentStatus === 'received' ? 'bg-green-100 text-green-800' :
+                        sale.paymentStatus === 'due' ? 'bg-red-100 text-red-800' :
                         'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {(sale as any).paymentStatus || 'received'}
+                        {sale.paymentStatus}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

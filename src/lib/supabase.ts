@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient, Session, User } from '@supabase/supabase-js'; // Added User import
+import { createClient, Session, User } from '@supabase/supabase-js'; // Removed unused SupabaseClient import
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;

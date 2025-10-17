@@ -52,32 +52,50 @@ export interface Supplier {
 export interface DigitalCode {
   id: string;
   code: string;
-  value: number;
-  soldQuantity: number; // Ensure this is present
-  status: string; // Example
-  createdAt?: string;
-  updatedAt?: string;
+  value: string;
+  quantity: number; // FIX: Added quantity
+  soldQuantity: number;
+  status: string;
+  customerPrice: number; // FIX: Added customerPrice
+  resellerPrice: number; // FIX: Added resellerPrice
+  purchasePrice: number; // FIX: Added purchasePrice
+  name: string; // FIX: Added name for display
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface TVBox {
   id: string;
   serialNumber: string;
   model: string;
-  soldQuantity: number; // Ensure this is present
-  status: string; // Example
-  createdAt?: string;
-  updatedAt?: string;
+  quantity: number; // FIX: Added quantity
+  soldQuantity: number;
+  status: string;
+  customerPrice: number; // FIX: Added customerPrice
+  resellerPrice: number; // FIX: Added resellerPrice
+  purchasePrice: number; // FIX: Added purchasePrice
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Sale {
   id: string;
-  customerId: string;
-  productId: string; // Or digitalCodeId/tvBoxId
+  productId: string;
+  productName: string; // FIX: Added
+  productType: 'digital_code' | 'tv_box' | 'subscription'; // FIX: Added
+  buyerId: string; // FIX: Added
+  buyerName: string; // FIX: Added
+  buyerType: 'customer' | 'reseller'; // FIX: Added
+  customerId: string | null; // FIX: Changed to allow null
   quantity: number;
+  unitPrice: number; // FIX: Added
   totalPrice: number;
-  saleDate: string; // Ensure this is present
-  createdAt?: string;
-  updatedAt?: string;
+  profit: number; // FIX: Added
+  paymentStatus: 'received' | 'due' | 'partial'; // FIX: Added
+  status: 'completed' | 'pending' | 'cancelled'; // FIX: Added
+  saleDate: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Purchase {
@@ -102,13 +120,19 @@ export interface EmailTemplate {
 
 export interface Subscription {
   id: string;
-  customer_id: string; // Corrected to snake_case as per Supabase convention
-  status: string; // Example
-  startDate: string; // Example
-  endDate: string; // Example
-  price: number; // Example
-  createdAt?: string;
-  updatedAt?: string;
+  customer_id: string;
+  customerName: string; // FIX: Added customerName
+  productId: string; // FIX: Added
+  productName: string; // FIX: Added
+  status: 'active' | 'inactive' | 'cancelled' | 'expired';
+  startDate: string;
+  endDate: string;
+  price: number;
+  durationMonths: number; // FIX: Added
+  reminder7Sent: boolean; // FIX: Added
+  reminder3Sent: boolean; // FIX: Added
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SubscriptionProduct {
@@ -116,9 +140,10 @@ export interface SubscriptionProduct {
   name: string;
   description: string;
   price: number;
-  duration: string; // e.g., 'monthly', 'yearly'
-  createdAt?: string;
-  updatedAt?: string;
+  durationMonths: number; // FIX: Changed from 'duration' to 'durationMonths'
+  isActive: boolean; // FIX: Added isActive
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type SupportedCurrency = 'DKK' | 'USD' | 'EUR'; // Example currencies
@@ -154,9 +179,11 @@ export interface EmailSettings {
 export interface Settings {
   id: string;
   currency: SupportedCurrency;
-  emailSettings: EmailSettings;
-  createdAt?: string;
-  updatedAt?: string;
+  language: string;
+  companyName: string; // FIX: Added companyName
+  emailSettings: any; // FIX: Added emailSettings to match DB conversion
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ExchangeRates {
@@ -201,12 +228,31 @@ export interface CustomerMessage {
 
 // This new type represents a row in your public.users table
 export interface UserProfile {
-    id: string;
-    email: string;
-    name?: string;
-    is_admin: boolean;
+  id: string;
+  auth_id: string; // FIX: Added
+  customer_id: string | null; // FIX: Added
+  email: string;
+  created_at?: string;
+  last_login_at?: string;
+  name?: string;
+  is_admin: boolean;
 }
 
-export type ActiveSection = 'dashboard' | 'customers' | 'resellers' | 'suppliers' | 'digital-codes' | 'tv-boxes' | 'sales' | 'purchases' | 'subscriptions' | 'invoices' | 'payments' | 'email-templates' | 'email-logs' | 'woocommerce-orders' | 'settings';
+export type ActiveSection =
+  | 'dashboard'
+  | 'customers'
+  | 'subscriptions'
+  | 'resellers'
+  | 'suppliers'
+  | 'digital-codes'
+  | 'tv-boxes'
+  | 'sales'
+  | 'purchases'
+  | 'invoices'
+  | 'emails'
+  | 'email-logs'
+  | 'email-templates'
+  | 'woocommerce-orders'
+  | 'settings';
 
-// ...rest of your types...
+// ... rest of your types

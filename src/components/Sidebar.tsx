@@ -1,10 +1,10 @@
 import React from 'react';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Store, 
-  Package, 
-  Tv, 
+import {
+  LayoutDashboard,
+  Users,
+  Store,
+  Package,
+  Tv,
   Mail,
   Code,
   ShoppingCart,
@@ -13,10 +13,10 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
-  FileText // New icon for Invoices
+  FileText
 } from 'lucide-react';
 import { ActiveSection } from '../types';
-import { useApp } from '../context/AppContext';
+import { useAppContext } from '../context/AppContext'; // FIX: Changed useApp to useAppContext
 
 interface SidebarProps {
   activeSection: ActiveSection;
@@ -24,7 +24,7 @@ interface SidebarProps {
 }
 
 interface MenuItem {
-  id: ActiveSection | 'invoices'; // Add 'invoices' to ActiveSection type for menu
+  id: ActiveSection;
   label: string;
   icon: React.ComponentType<any>;
   children?: MenuItem[];
@@ -66,15 +66,15 @@ const menuItems: MenuItem[] = [
     children: [
       { id: 'sales', label: 'Sales', icon: ShoppingCart },
       { id: 'purchases', label: 'Purchases', icon: CreditCard },
-      { id: 'invoices', label: 'Invoices', icon: FileText } // New menu item
+      { id: 'invoices', label: 'Invoices', icon: FileText }
     ]
   },
   {
-    id: 'emails',
+    id: 'emails', // Parent ID
     label: 'Email Management',
     icon: Mail,
     children: [
-      { id: 'emails', label: 'Email Templates', icon: Mail },
+      { id: 'email-templates', label: 'Email Templates', icon: Mail }, // FIX: Changed to 'email-templates'
       { id: 'email-logs', label: 'Email Logs', icon: Mail }
     ]
   },
@@ -83,7 +83,7 @@ const menuItems: MenuItem[] = [
 ];
 
 export default function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
-  const { state } = useApp();
+  const { state } = useAppContext();
   const [expandedMenus, setExpandedMenus] = React.useState<Set<string>>(new Set());
 
   const toggleMenu = (menuId: string) => {
@@ -110,7 +110,7 @@ export default function Sidebar({ activeSection, onSectionChange }: SidebarProps
             if (hasChildren) {
               toggleMenu(item.id);
             } else {
-              onSectionChange(item.id as ActiveSection); // Cast to ActiveSection
+              onSectionChange(item.id);
             }
           }}
           className={`w-full flex items-center justify-between px-4 py-3 text-left transition-all duration-200 rounded-lg mx-2 ${
@@ -126,12 +126,12 @@ export default function Sidebar({ activeSection, onSectionChange }: SidebarProps
             <span>{item.label}</span>
           </div>
           {hasChildren && (
-            isExpanded ? 
-              <ChevronDown className="h-4 w-4 text-slate-400" /> : 
+            isExpanded ?
+              <ChevronDown className="h-4 w-4 text-slate-400" /> :
               <ChevronRight className="h-4 w-4 text-slate-400" />
           )}
         </button>
-        
+
         {hasChildren && isExpanded && (
           <div className="mt-1 space-y-1">
             {item.children?.map(child => renderMenuItem(child, level + 1))}
