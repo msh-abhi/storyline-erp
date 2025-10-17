@@ -146,7 +146,8 @@ export interface SubscriptionProduct {
   updatedAt: string;
 }
 
-export type SupportedCurrency = 'DKK' | 'USD' | 'EUR'; // Example currencies
+export type SupportedCurrency = 'USD' | 'EUR' | 'GBP' | 'DKK'; // Example currencies
+export type SupportedLanguage = 'en' | 'da'; // FIX: Define supported languages
 
 export interface Invoice {
   id: string;
@@ -179,9 +180,9 @@ export interface EmailSettings {
 export interface Settings {
   id: string;
   currency: SupportedCurrency;
-  language: string;
-  companyName: string; // FIX: Added companyName
-  emailSettings: any; // FIX: Added emailSettings to match DB conversion
+  language: SupportedLanguage; // FIX: Use SupportedLanguage type
+  companyName: string;
+  emailSettings: any;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,14 +1,18 @@
-import React from 'react';
 import { Bell, Search, User } from 'lucide-react';
 import LanguageSelector from './LanguageSelector';
-import { useAppContext } from '../context/AppContext'; // FIX: Changed useApp to useAppContext
+import { useAppContext } from '../context/AppContext';
+import { SupportedLanguage } from '../types';
 
 export default function TopBar() {
   const { state, actions } = useAppContext();
-  
-  const handleLanguageChange = async (language: 'en' | 'da') => {
-    if (state.settings) {
-      await actions.updateSettings(state.settings.id, { language });
+
+  const currentLanguage: SupportedLanguage = (state.settings?.language || 'en') as SupportedLanguage;
+
+  const handleLanguageChange = (lang: SupportedLanguage) => {
+    if (state.settings?.id) {
+      actions.updateSettings(state.settings.id, { language: lang });
+    } else {
+      console.warn("Settings not found, cannot update language. Consider creating default settings.");
     }
   };
 
@@ -30,7 +34,7 @@ export default function TopBar() {
         {/* Right side */}
         <div className="flex items-center space-x-4">
           <LanguageSelector 
-            currentLanguage={state.settings?.language || 'en'}
+            currentLanguage={currentLanguage}
             onLanguageChange={handleLanguageChange}
           />
           
