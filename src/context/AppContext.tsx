@@ -1,238 +1,28 @@
-import React, { createContext, useContext, useReducer, useEffect, useMemo, Dispatch, useCallback } from 'react';
-import { useAuth } from '../components/AuthProvider';
-import {
-  Customer, Reseller, Supplier, DigitalCode, TVBox, Sale, Purchase,
-  Subscription, SubscriptionProduct, EmailTemplate, Invoice, Payment,
-  PaymentTransaction, Settings, ExchangeRates, SupportedCurrency
-} from '../types';
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  useMemo,
+  Dispatch,
+  useCallback,
+  useRef // Added useRef
+} from 'react';
+import { useAuth } from '../components/AuthProvider'; // Ensure this path is correct
 import {
   customerService, resellerService, supplierService, digitalCodeService,
   tvBoxService, saleService, purchaseService, subscriptionService,
-  invoiceService, paymentService, settingsService,
+  invoiceService, paymentService, settingsService, exchangeRateService, // Added exchangeRateService
   paymentTransactionService, emailTemplateService, subscriptionProductService,
 } from '../services/supabaseService';
+import {
+  AppState, AppAction, initialState, appReducer, // Assuming these are defined elsewhere in your file
+  Customer, Reseller, Supplier, DigitalCode, TVBox, Sale, Purchase,
+  Subscription, Invoice, PaymentTransaction, EmailTemplate, SubscriptionProduct,
+  ExchangeRates, SupportedCurrency, Settings, Payment // Assuming Payment type exists
+} from '../types'; // Ensure all types are imported
 
-// Define State and Action types
-interface AppState {
-  loading: boolean;
-  error: string | null;
-  customers: Customer[];
-  resellers: Reseller[];
-  suppliers: Supplier[];
-  digitalCodes: DigitalCode[];
-  tvBoxes: TVBox[];
-  sales: Sale[];
-  purchases: Purchase[];
-  subscriptions: Subscription[];
-  subscriptionProducts: SubscriptionProduct[];
-  emailTemplates: EmailTemplate[];
-  invoices: Invoice[];
-  payments: Payment[];
-  paymentTransactions: PaymentTransaction[];
-  settings: Settings | null;
-  exchangeRates: ExchangeRates | null;
-}
-
-type AppAction =
-  | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'SET_INITIAL_DATA'; payload: Omit<AppState, 'loading' | 'error'> }
-  | { type: 'SET_CUSTOMERS'; payload: Customer[] }
-  | { type: 'ADD_CUSTOMER'; payload: Customer }
-  | { type: 'UPDATE_CUSTOMER'; payload: Customer }
-  | { type: 'DELETE_CUSTOMER'; payload: string }
-  | { type: 'SET_RESELLERS'; payload: Reseller[] }
-  | { type: 'ADD_RESELLER'; payload: Reseller }
-  | { type: 'UPDATE_RESELLER'; payload: Reseller }
-  | { type: 'DELETE_RESELLER'; payload: string }
-  | { type: 'SET_SUPPLIERS'; payload: Supplier[] }
-  | { type: 'ADD_SUPPLIER'; payload: Supplier }
-  | { type: 'UPDATE_SUPPLIER'; payload: Supplier }
-  | { type: 'DELETE_SUPPLIER'; payload: string }
-  | { type: 'SET_DIGITAL_CODES'; payload: DigitalCode[] }
-  | { type: 'ADD_DIGITAL_CODE'; payload: DigitalCode }
-  | { type: 'UPDATE_DIGITAL_CODE'; payload: DigitalCode }
-  | { type: 'DELETE_DIGITAL_CODE'; payload: string }
-  | { type: 'SET_TV_BOXES'; payload: TVBox[] }
-  | { type: 'ADD_TV_BOX'; payload: TVBox }
-  | { type: 'UPDATE_TV_BOX'; payload: TVBox }
-  | { type: 'DELETE_TV_BOX'; payload: string }
-  | { type: 'SET_SALES'; payload: Sale[] }
-  | { type: 'ADD_SALE'; payload: Sale }
-  | { type: 'UPDATE_SALE'; payload: Sale }
-  | { type: 'DELETE_SALE'; payload: string }
-  | { type: 'SET_PURCHASES'; payload: Purchase[] }
-  | { type: 'ADD_PURCHASE'; payload: Purchase }
-  | { type: 'UPDATE_PURCHASE'; payload: Purchase }
-  | { type: 'DELETE_PURCHASE'; payload: string }
-  | { type: 'SET_SUBSCRIPTIONS'; payload: Subscription[] }
-  | { type: 'ADD_SUBSCRIPTION'; payload: Subscription }
-  | { type: 'UPDATE_SUBSCRIPTION'; payload: Subscription }
-  | { type: 'DELETE_SUBSCRIPTION'; payload: string }
-  | { type: 'SET_SUBSCRIPTION_PRODUCTS'; payload: SubscriptionProduct[] }
-  | { type: 'ADD_SUBSCRIPTION_PRODUCT'; payload: SubscriptionProduct }
-  | { type: 'UPDATE_SUBSCRIPTION_PRODUCT'; payload: SubscriptionProduct }
-  | { type: 'DELETE_SUBSCRIPTION_PRODUCT'; payload: string }
-  | { type: 'SET_EMAIL_TEMPLATES'; payload: EmailTemplate[] }
-  | { type: 'ADD_EMAIL_TEMPLATE'; payload: EmailTemplate }
-  | { type: 'UPDATE_EMAIL_TEMPLATE'; payload: EmailTemplate }
-  | { type: 'DELETE_EMAIL_TEMPLATE'; payload: string }
-  | { type: 'SET_INVOICES'; payload: Invoice[] }
-  | { type: 'ADD_INVOICE'; payload: Invoice }
-  | { type: 'UPDATE_INVOICE'; payload: Invoice }
-  | { type: 'DELETE_INVOICE'; payload: string }
-  | { type: 'SET_PAYMENTS'; payload: Payment[] }
-  | { type: 'ADD_PAYMENT'; payload: Payment }
-  | { type: 'UPDATE_PAYMENT'; payload: Payment }
-  | { type: 'DELETE_PAYMENT'; payload: string }
-  | { type: 'SET_PAYMENT_TRANSACTIONS'; payload: PaymentTransaction[] }
-  | { type: 'ADD_PAYMENT_TRANSACTION'; payload: PaymentTransaction }
-  | { type: 'UPDATE_PAYMENT_TRANSACTION'; payload: PaymentTransaction }
-  | { type: 'DELETE_PAYMENT_TRANSACTION'; payload: string }
-  | { type: 'SET_SETTINGS'; payload: Settings | null }
-  | { type: 'SET_EXCHANGE_RATES'; payload: ExchangeRates | null };
-
-const initialState: AppState = {
-  loading: true,
-  error: null,
-  customers: [],
-  resellers: [],
-  suppliers: [],
-  digitalCodes: [],
-  tvBoxes: [],
-  sales: [],
-  purchases: [],
-  subscriptions: [],
-  subscriptionProducts: [],
-  emailTemplates: [],
-  invoices: [],
-  payments: [],
-  paymentTransactions: [],
-  settings: null,
-  exchangeRates: null,
-};
-
-const appReducer = (state: AppState, action: AppAction): AppState => {
-  switch (action.type) {
-    case 'SET_LOADING':
-      return { ...state, loading: action.payload };
-    case 'SET_ERROR':
-      return { ...state, error: action.payload, loading: false };
-    case 'SET_INITIAL_DATA':
-      return { ...state, ...action.payload, loading: false, error: null };
-    case 'SET_CUSTOMERS':
-      return { ...state, customers: action.payload };
-    case 'ADD_CUSTOMER':
-      return { ...state, customers: [...state.customers, action.payload] };
-    case 'UPDATE_CUSTOMER':
-      return { ...state, customers: state.customers.map(c => c.id === action.payload.id ? action.payload : c) };
-    case 'DELETE_CUSTOMER':
-      return { ...state, customers: state.customers.filter(c => c.id !== action.payload) };
-    case 'SET_RESELLERS':
-      return { ...state, resellers: action.payload };
-    case 'ADD_RESELLER':
-      return { ...state, resellers: [...state.resellers, action.payload] };
-    case 'UPDATE_RESELLER':
-      return { ...state, resellers: state.resellers.map(r => r.id === action.payload.id ? action.payload : r) };
-    case 'DELETE_RESELLER':
-      return { ...state, resellers: state.resellers.filter(r => r.id !== action.payload) };
-    case 'SET_SUPPLIERS':
-      return { ...state, suppliers: action.payload };
-    case 'ADD_SUPPLIER':
-      return { ...state, suppliers: [...state.suppliers, action.payload] };
-    case 'UPDATE_SUPPLIER':
-      return { ...state, suppliers: state.suppliers.map(s => s.id === action.payload.id ? action.payload : s) };
-    case 'DELETE_SUPPLIER':
-      return { ...state, suppliers: state.suppliers.filter(s => s.id !== action.payload) };
-    case 'SET_DIGITAL_CODES':
-      return { ...state, digitalCodes: action.payload };
-    case 'ADD_DIGITAL_CODE':
-      return { ...state, digitalCodes: [...state.digitalCodes, action.payload] };
-    case 'UPDATE_DIGITAL_CODE':
-      return { ...state, digitalCodes: state.digitalCodes.map(d => d.id === action.payload.id ? action.payload : d) };
-    case 'DELETE_DIGITAL_CODE':
-      return { ...state, digitalCodes: state.digitalCodes.filter(d => d.id !== action.payload) };
-    case 'SET_TV_BOXES':
-      return { ...state, tvBoxes: action.payload };
-    case 'ADD_TV_BOX':
-      return { ...state, tvBoxes: [...state.tvBoxes, action.payload] };
-    case 'UPDATE_TV_BOX':
-      return { ...state, tvBoxes: state.tvBoxes.map(t => t.id === action.payload.id ? action.payload : t) };
-    case 'DELETE_TV_BOX':
-      return { ...state, tvBoxes: state.tvBoxes.filter(t => t.id !== action.payload) };
-    case 'SET_SALES':
-      return { ...state, sales: action.payload };
-    case 'ADD_SALE':
-      return { ...state, sales: [...state.sales, action.payload] };
-    case 'UPDATE_SALE':
-      return { ...state, sales: state.sales.map(s => s.id === action.payload.id ? action.payload : s) };
-    case 'DELETE_SALE':
-      return { ...state, sales: state.sales.filter(s => s.id !== action.payload) };
-    case 'SET_PURCHASES':
-      return { ...state, purchases: action.payload };
-    case 'ADD_PURCHASE':
-      return { ...state, purchases: [...state.purchases, action.payload] };
-    case 'UPDATE_PURCHASE':
-      return { ...state, purchases: state.purchases.map(p => p.id === action.payload.id ? action.payload : p) };
-    case 'DELETE_PURCHASE':
-      return { ...state, purchases: state.purchases.filter(p => p.id !== action.payload) };
-    case 'SET_SUBSCRIPTIONS':
-      return { ...state, subscriptions: action.payload };
-    case 'ADD_SUBSCRIPTION':
-      return { ...state, subscriptions: [...state.subscriptions, action.payload] };
-    case 'UPDATE_SUBSCRIPTION':
-      return { ...state, subscriptions: state.subscriptions.map(s => s.id === action.payload.id ? action.payload : s) };
-    case 'DELETE_SUBSCRIPTION':
-      return { ...state, subscriptions: state.subscriptions.filter(s => s.id !== action.payload) };
-    case 'SET_SUBSCRIPTION_PRODUCTS':
-      return { ...state, subscriptionProducts: action.payload };
-    case 'ADD_SUBSCRIPTION_PRODUCT':
-      return { ...state, subscriptionProducts: [...state.subscriptionProducts, action.payload] };
-    case 'UPDATE_SUBSCRIPTION_PRODUCT':
-      return { ...state, subscriptionProducts: state.subscriptionProducts.map(sp => sp.id === action.payload.id ? action.payload : sp) };
-    case 'DELETE_SUBSCRIPTION_PRODUCT':
-      return { ...state, subscriptionProducts: state.subscriptionProducts.filter(sp => sp.id !== action.payload) };
-    case 'SET_EMAIL_TEMPLATES':
-      return { ...state, emailTemplates: action.payload };
-    case 'ADD_EMAIL_TEMPLATE':
-      return { ...state, emailTemplates: [...state.emailTemplates, action.payload] };
-    case 'UPDATE_EMAIL_TEMPLATE':
-      return { ...state, emailTemplates: state.emailTemplates.map(et => et.id === action.payload.id ? action.payload : et) };
-    case 'DELETE_EMAIL_TEMPLATE':
-      return { ...state, emailTemplates: state.emailTemplates.filter(et => et.id !== action.payload) };
-    case 'SET_INVOICES':
-      return { ...state, invoices: action.payload };
-    case 'ADD_INVOICE':
-      return { ...state, invoices: [...state.invoices, action.payload] };
-    case 'UPDATE_INVOICE':
-      return { ...state, invoices: state.invoices.map(i => i.id === action.payload.id ? action.payload : i) };
-    case 'DELETE_INVOICE':
-      return { ...state, invoices: state.invoices.filter(i => i.id !== action.payload) };
-    case 'SET_PAYMENTS':
-      return { ...state, payments: action.payload };
-    case 'ADD_PAYMENT':
-      return { ...state, payments: [...state.payments, action.payload] };
-    case 'UPDATE_PAYMENT':
-      return { ...state, payments: state.payments.map(p => p.id === action.payload.id ? action.payload : p) };
-    case 'DELETE_PAYMENT':
-      return { ...state, payments: state.payments.filter(p => p.id !== action.payload) };
-    case 'SET_PAYMENT_TRANSACTIONS':
-      return { ...state, paymentTransactions: action.payload };
-    case 'ADD_PAYMENT_TRANSACTION':
-      return { ...state, paymentTransactions: [...state.paymentTransactions, action.payload] };
-    case 'UPDATE_PAYMENT_TRANSACTION':
-      return { ...state, paymentTransactions: state.paymentTransactions.map(pt => pt.id === action.payload.id ? action.payload : pt) };
-    case 'DELETE_PAYMENT_TRANSACTION':
-      return { ...state, paymentTransactions: state.paymentTransactions.filter(pt => pt.id !== action.payload) };
-    case 'SET_SETTINGS':
-      return { ...state, settings: action.payload };
-    case 'SET_EXCHANGE_RATES':
-      return { ...state, exchangeRates: action.payload };
-    default:
-      return state;
-  }
-};
-
+// Define AppContextType to match the structure of your context value
 interface AppContextType {
   state: AppState;
   dispatch: Dispatch<AppAction>;
@@ -278,6 +68,13 @@ interface AppContextType {
     createSettings: (settings: Omit<Settings, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Settings>;
     addPaymentTransaction: (pt: Omit<PaymentTransaction, 'id' | 'createdAt' | 'updatedAt'>) => Promise<PaymentTransaction>;
     updatePaymentTransaction: (id: string, pt: Partial<PaymentTransaction>) => Promise<PaymentTransaction>;
+    createInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Invoice>;
+    updateInvoice: (id: string, invoice: Partial<Invoice>) => Promise<Invoice>;
+    deleteInvoice: (id: string) => Promise<void>;
+    createPayment: (payment: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Payment>;
+    updatePayment: (id: string, payment: Partial<Payment>) => Promise<Payment>;
+    deletePayment: (id: string) => Promise<void>;
+    refreshExchangeRates: () => Promise<void>;
     revolut: { getPaymentStatus: (paymentRequestId: string) => Promise<{ success: boolean; data?: any; error?: string }> };
   };
 }
@@ -287,96 +84,124 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
-  const { isAdmin, loading: authLoading, initialized: authInitialized } = useAuth();
+  // Use the renamed state variables from the updated AuthProvider
+  const { authLoading, authInitialized, isAdmin, user } = useAuth(); // Use 'user' for basic auth user
+  const loadDataTriggered = useRef(false); // Add ref to prevent multiple calls
 
-  console.log('AppContext: AppProvider rendering. authInitialized:', authInitialized, 'authLoading:', authLoading, 'isAdmin:', isAdmin);
+  console.log('AppContext: AppProvider rendering.', { authInitialized, authLoading, isAdmin }); // Log state on each render
 
   const fetchExchangeRates = useCallback(async () => {
     try {
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-exchange-rates`, {
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            }
-        });
-        const data = await response.json();
-
-        if (data && data.rates) {
-            const rates = {
-                id: 'static-rates', // Mock ID - NOTE: ExchangeRates type in index.ts does NOT have 'id'
-                baseCurrency: data.base,
-                rates: data.rates,
-                lastUpdated: data.lastUpdated, // FIX: Changed from 'updatedAt' to 'lastUpdated'
-                success: data.success
-            };
-            // FIX: Cast to unknown first, then to ExchangeRates to satisfy TS if 'id' is not in ExchangeRates type
-            dispatch({ type: 'SET_EXCHANGE_RATES', payload: rates as unknown as ExchangeRates });
+        // Use the service directly
+        const rates = await exchangeRateService.getLatest(); // Assuming getLatest returns ExchangeRates | null
+        if (rates) {
+            dispatch({ type: 'SET_EXCHANGE_RATES', payload: rates });
+        } else {
+            console.warn("AppContext: No exchange rates fetched, using default/empty.");
+            // Optionally dispatch an action to clear/set default rates if none are found
         }
     } catch (error) {
-        console.error("AppContext: Error fetching exchange rates from Deno function:", error);
+        console.error("AppContext: Error fetching exchange rates from service:", error);
     }
   }, []);
 
+  // Define loadAllData using useCallback, dependent ONLY on necessary external values (like isAdmin for the check)
   const loadAllData = useCallback(async () => {
-    console.log('AppContext: 🔄 loadAllData (useCallback) called. authInitialized:', authInitialized, 'authLoading:', authLoading, 'isAdmin:', isAdmin);
+    console.debug("AppContext: loadAllData function executing..."); // Log when the function body runs
 
-    if (!authInitialized || authLoading || !isAdmin) {
-      if (!authInitialized) {
-          console.log('AppContext: ⚠️ Load skipped: Auth not initialized. Waiting...');
-      } else if (!isAdmin) {
-          console.log('AppContext: ⚠️ Load skipped: Not an admin user. UI will load for portal/login.');
-          dispatch({ type: 'SET_LOADING', payload: false });
-      }
+    // Prevent concurrent loads
+    if (loadDataTriggered.current) {
+      console.debug("AppContext: load already in progress, skipping");
       return;
     }
 
-    console.log("AppContext: ✅ Admin detected & Auth initialized. Loading all ERP data...");
     dispatch({ type: 'SET_LOADING', payload: true });
+    loadDataTriggered.current = true; // Mark that loading has started
 
     try {
-      const [
-        customers, resellers, suppliers, digitalCodes, tvBoxes, sales,
-        purchases, emailTemplates, subscriptions, subscriptionProducts,
-        invoices, payments, paymentTransactions, settings
-      ] = await Promise.all([
-        customerService.getAll(), resellerService.getAll(), supplierService.getAll(),
-        digitalCodeService.getAll(), tvBoxService.getAll(), saleService.getAll(),
-        purchaseService.getAll(), emailTemplateService.getAll(),
-        subscriptionService.getAll(), subscriptionProductService.getAll(),
-        invoiceService.getAll(), paymentService.getAll(), paymentTransactionService.getAll(),
-        settingsService.get(),
-      ]);
+      // Fetch data that ALL authenticated users might need (if any)
+      // For now, we'll fetch everything if admin, or minimal if not.
 
-      dispatch({
-        type: 'SET_INITIAL_DATA',
-        payload: {
+      let adminDataPayload: Partial<AppState> = {};
+      if (isAdmin) {
+        console.debug("AppContext: isAdmin is true, fetching admin-specific data...");
+        const [
+          customers, resellers, suppliers, digitalCodes, tvBoxes, sales,
+          purchases, emailTemplates, subscriptions, subscriptionProducts,
+          invoices, payments, paymentTransactions, settings
+        ] = await Promise.all([
+          customerService.getAll(), resellerService.getAll(), supplierService.getAll(),
+          digitalCodeService.getAll(), tvBoxService.getAll(), saleService.getAll(),
+          purchaseService.getAll(), emailTemplateService.getAll(),
+          subscriptionService.getAll(), subscriptionProductService.getAll(),
+          invoiceService.getAll(), paymentService.getAll(), paymentTransactionService.getAll(),
+          settingsService.get(),
+        ]);
+        adminDataPayload = {
           customers, resellers, suppliers, digitalCodes, tvBoxes, sales,
           purchases, emailTemplates, subscriptions, subscriptionProducts,
           invoices, payments, paymentTransactions,
           settings: settings || null,
-          exchangeRates: state.exchangeRates // Preserve rates if already fetched
+        };
+         console.debug("AppContext: 🎉 Admin data fetched.");
+      } else {
+         console.debug("AppContext: isAdmin is false, skipping admin data fetch.");
+         // Reset admin-specific data in state if needed for non-admin users
+         adminDataPayload = {
+             customers: [], resellers: [], suppliers: [], digitalCodes: [], tvBoxes: [], sales: [],
+             purchases: [], emailTemplates: [], subscriptions: [], subscriptionProducts: [],
+             invoices: [], payments: [], paymentTransactions: [], settings: null
+         };
+      }
+
+      // Combine common and admin data
+      dispatch({
+        type: 'SET_INITIAL_DATA',
+        payload: {
+          ...adminDataPayload, // Spread admin data (or empty arrays if not admin)
+          exchangeRates: state.exchangeRates // Preserve rates if already fetched, or will be fetched by fetchExchangeRates
         } as any // Cast to any to handle nested types not fitting the shallow Omit
       });
-      console.log("AppContext: 🎉 ERP data loaded successfully.");
 
-      fetchExchangeRates();
+      // Fetch exchange rates regardless of admin status (if needed by all users)
+      await fetchExchangeRates(); // Await this to ensure rates are in state before UI renders
 
     } catch (error: any) {
-      console.error("AppContext: ❌ Error loading initial data", error);
+      console.error("AppContext: ❌ Error loading data", error);
       dispatch({ type: 'SET_ERROR', payload: error.message });
     } finally {
-      dispatch({ type: 'SET_LOADING', payload: false }); // Ensure loading is set to false
+      // Ensure loading is set to false, even on error or if not admin
+      dispatch({ type: 'SET_LOADING', payload: false });
+      loadDataTriggered.current = false; // Reset the trigger flag
+      console.debug("AppContext: loadAllData finished, loading set to false.");
     }
-  }, [authLoading, isAdmin, authInitialized, state.exchangeRates, fetchExchangeRates]);
+  // Include dependencies needed *inside* the function, if any (e.g., fetchExchangeRates)
+  // But critically, DON'T include the auth states here.
+  }, [isAdmin, fetchExchangeRates, state.exchangeRates]); // Depend on isAdmin to re-create if it changes
 
+  // useEffect to TRIGGER loadAllData based on auth state changes
   useEffect(() => {
-    if (authInitialized) {
+    console.debug('AppContext: useEffect trigger check.', { authInitialized, authLoading, isAdmin, loadDataTriggered: loadDataTriggered.current });
+
+    // Condition to run loadAllData:
+    // 1. Auth MUST be initialized.
+    // 2. Auth MUST NOT be currently loading.
+    // 3. We haven't already triggered loading based on the current auth state.
+    // 4. If isAdmin is true, we want to ensure we load.
+    if (authInitialized && !authLoading && !loadDataTriggered.current) {
+        console.debug('AppContext: useEffect triggering loadAllData.');
         loadAllData();
+    } else if (!authInitialized || authLoading) {
+        console.debug('AppContext: useEffect condition not met, waiting for auth.');
+        // Reset the trigger flag if auth state changes back to loading/uninitialized
+        loadDataTriggered.current = false;
     }
-  }, [loadAllData, authInitialized]);
+  // This useEffect should run whenever the auth state potentially allows loading
+  }, [authInitialized, authLoading, isAdmin, loadAllData]);
+
 
   const allActions: AppContextType['actions'] = useMemo(() => ({
-    loadAllData: loadAllData,
+    loadAllData: loadAllData, // Provide the useCallback version
     getDisplayCurrency: (): SupportedCurrency => {
       return (state.settings?.currency as SupportedCurrency) || 'DKK';
     },
@@ -391,8 +216,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     },
     // --- FULL IMPLEMENTATION OF ALL ACTIONS TO SATISFY AppContextType interface ---
-    createCustomer: async (customer) => { try { const newC = await customerService.create(customer); dispatch({ type: 'ADD_CUSTOMER', payload: newC }); return newC; } catch (e: any) { console.error('createCustomer:', e); throw e; } },
-    updateCustomer: async (id, customer) => { try { const updatedC = await customerService.update(id, customer); dispatch({ type: 'UPDATE_CUSTOMER', payload: updatedC }); return updatedC; } catch (e: any) { console.error('updateCustomer:', e); throw e; } },
+    // You should replace these with your actual service calls
+    createCustomer: async (customer) => { try { const newC = await customerService.create(customer as any); dispatch({ type: 'ADD_CUSTOMER', payload: newC }); return newC; } catch (e: any) { console.error('createCustomer:', e); throw e; } },
+    updateCustomer: async (id, customer) => { try { const updatedC = await customerService.update(id, customer as any); dispatch({ type: 'UPDATE_CUSTOMER', payload: updatedC }); return updatedC; } catch (e: any) { console.error('updateCustomer:', e); throw e; } },
     deleteCustomer: async (id) => { try { await customerService.delete(id); dispatch({ type: 'DELETE_CUSTOMER', payload: id }); } catch (e: any) { console.error('deleteCustomer:', e); throw e; } },
     createReseller: async (reseller) => { try { const newR = await resellerService.create(reseller as any); dispatch({ type: 'ADD_RESELLER', payload: newR }); return newR; } catch (e: any) { console.error('createReseller:', e); throw e; } },
     updateReseller: async (id, reseller) => { try { const updatedR = await resellerService.update(id, reseller as any); dispatch({ type: 'UPDATE_RESELLER', payload: updatedR }); return updatedR; } catch (e: any) { console.error('updateReseller:', e); throw e; } },
@@ -429,16 +255,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     createSettings: async (settings) => { try { const newS = await settingsService.create(settings as any); dispatch({ type: 'SET_SETTINGS', payload: newS }); return newS; } catch (e: any) { console.error('createSettings:', e); throw e; } },
     addPaymentTransaction: async (_pt) => { console.log('Mocked addPaymentTransaction'); await loadAllData(); return _pt as PaymentTransaction; },
     updatePaymentTransaction: async (_id, _pt) => { console.log('Mocked updatePaymentTransaction'); await loadAllData(); return _pt as PaymentTransaction; },
+    createInvoice: async (invoice) => { try { const newI = await invoiceService.create(invoice as any); dispatch({ type: 'ADD_INVOICE', payload: newI }); return newI; } catch (e: any) { console.error('createInvoice:', e); throw e; } },
+    updateInvoice: async (id, invoice) => { try { const updatedI = await invoiceService.update(id, invoice as any); dispatch({ type: 'UPDATE_INVOICE', payload: updatedI }); return updatedI; } catch (e: any) { console.error('updateInvoice:', e); throw e; } },
+    deleteInvoice: async (id) => { try { await invoiceService.delete(id); dispatch({ type: 'DELETE_INVOICE', payload: id }); } catch (e: any) { console.error('deleteInvoice:', e); throw e; } },
+    createPayment: async (payment) => { try { const newP = await paymentService.create(payment as any); dispatch({ type: 'ADD_PAYMENT', payload: newP }); return newP; } catch (e: any) { console.error('createPayment:', e); throw e; } },
+    updatePayment: async (id, payment) => { try { const updatedP = await paymentService.update(id, payment as any); dispatch({ type: 'UPDATE_PAYMENT', payload: updatedP }); return updatedP; } catch (e: any) { console.error('updatePayment:', e); throw e; } },
+    deletePayment: async (id) => { try { await paymentService.delete(id); dispatch({ type: 'DELETE_PAYMENT', payload: id }); } catch (e: any) { console.error('deletePayment:', e); throw e; } },
+    refreshExchangeRates: async () => { await fetchExchangeRates(); },
     revolut: {
       getPaymentStatus: async (_paymentRequestId: string) => {
         console.log('Mock Revolut: Getting payment status for', _paymentRequestId);
-        // FIX: Return type must match AppContextType['actions']['revolut']['getPaymentStatus']
         return { success: true, data: { status: 'COMPLETED' } };
       },
     },
-  }), [state.settings, loadAllData]);
+  }), [state, loadAllData, fetchExchangeRates, dispatch]); // Added dispatch to dependencies
 
-  const value = useMemo(() => ({ state, dispatch, actions: allActions }), [state, allActions]);
+  const value = useMemo(() => ({ state, dispatch, actions: allActions }), [state, dispatch, allActions]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
@@ -450,3 +282,74 @@ export function useApp() {
   }
   return context;
 }
+
+// --- Assuming AppState, AppAction, initialState, appReducer are defined here or imported ---
+// If they are not, you'll need to provide them.
+// Example placeholder for AppState, AppAction, initialState, appReducer:
+/*
+export interface AppState {
+  loading: boolean;
+  error: string | null;
+  customers: Customer[];
+  resellers: Reseller[];
+  suppliers: Supplier[];
+  digitalCodes: DigitalCode[];
+  tvBoxes: TVBox[];
+  sales: Sale[];
+  purchases: Purchase[];
+  subscriptions: Subscription[];
+  invoices: Invoice[];
+  payments: Payment[];
+  paymentTransactions: PaymentTransaction[];
+  emailTemplates: EmailTemplate[];
+  subscriptionProducts: SubscriptionProduct[];
+  settings: Settings | null;
+  exchangeRates: ExchangeRates | null;
+}
+
+export type AppAction =
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'SET_INITIAL_DATA'; payload: Partial<AppState> }
+  | { type: 'SET_EXCHANGE_RATES'; payload: ExchangeRates }
+  | { type: 'SET_SETTINGS'; payload: Settings }
+  // ... other actions for adding/updating/deleting entities
+
+export const initialState: AppState = {
+  loading: true,
+  error: null,
+  customers: [],
+  resellers: [],
+  suppliers: [],
+  digitalCodes: [],
+  tvBoxes: [],
+  sales: [],
+  purchases: [],
+  subscriptions: [],
+  invoices: [],
+  payments: [],
+  paymentTransactions: [],
+  emailTemplates: [],
+  subscriptionProducts: [],
+  settings: null,
+  exchangeRates: null,
+};
+
+export function appReducer(state: AppState, action: AppAction): AppState {
+  switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload };
+    case 'SET_ERROR':
+      return { ...state, error: action.payload };
+    case 'SET_INITIAL_DATA':
+      return { ...state, ...action.payload };
+    case 'SET_EXCHANGE_RATES':
+      return { ...state, exchangeRates: action.payload };
+    case 'SET_SETTINGS':
+      return { ...state, settings: action.payload };
+    // ... handle other actions
+    default:
+      return state;
+  }
+}
+*/

@@ -203,35 +203,23 @@ export interface ExchangeRates {
 
 export interface CustomerPortalUser {
   id: string;
-  auth_id: string; // We keep this name in the app, but map it from 'auth_provider_id' in the service
-  customer_id: string | null;
+  auth_id: string; // Supabase auth.users.id
+  customer_id: string | null; // Link to public.customers.id
   email: string;
   created_at?: string;
-  last_login_at?: string;
-}
-
-export interface CustomerCredential {
-  id: string;
-  customer_id: string;
-  server_id: string;
-  password?: string;
-  server_url: string;
-  notes?: string;
-  mac_address?: string;
-  created_at?: string;
   updated_at?: string;
-  expires_at?: string;
 }
 
 export interface CustomerMessage {
   id: string;
-  customer_id: string | null;
+  customer_id: string;
   subject: string;
-  category: string;
   message: string;
-  status: string;
+  category: string;
+  status: 'open' | 'closed' | 'pending';
+  admin_notes: string | null;
   created_at?: string;
-  admin_notes?: string;
+  updated_at?: string;
 }
 
 // This new type represents a row in your public.users table
@@ -244,6 +232,20 @@ export interface UserProfile {
   last_login_at?: string;
   name?: string;
   is_admin: boolean;
+}
+
+export interface CustomerCredential {
+  id: string;
+  customer_id: string;
+  server_url: string;
+  server_id: string;
+  username?: string | null;
+  password?: string | null;
+  mac_address?: string | null;
+  expires_at?: string | null;
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export type ActiveSection =
@@ -263,4 +265,188 @@ export type ActiveSection =
   | 'woocommerce-orders'
   | 'settings';
 
-// ... rest of your types
+// --- App State and Actions ---
+export interface AppState {
+  loading: boolean;
+  error: string | null;
+  customers: Customer[];
+  resellers: Reseller[];
+  suppliers: Supplier[];
+  digitalCodes: DigitalCode[];
+  tvBoxes: TVBox[];
+  sales: Sale[];
+  purchases: Purchase[];
+  subscriptions: Subscription[];
+  invoices: Invoice[];
+  payments: Payment[];
+  paymentTransactions: PaymentTransaction[];
+  emailTemplates: EmailTemplate[];
+  subscriptionProducts: SubscriptionProduct[];
+  settings: Settings | null;
+  exchangeRates: ExchangeRates | null;
+}
+
+export type AppAction =
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'SET_INITIAL_DATA'; payload: Partial<AppState> }
+  | { type: 'SET_EXCHANGE_RATES'; payload: ExchangeRates | null } // Allow null for initial/no rates
+  | { type: 'SET_SETTINGS'; payload: Settings | null } // Allow null for initial/no settings
+  // Add specific actions for each entity if you have them, e.g.:
+  | { type: 'ADD_CUSTOMER'; payload: Customer }
+  | { type: 'UPDATE_CUSTOMER'; payload: Customer }
+  | { type: 'DELETE_CUSTOMER'; payload: string } // payload is id
+  // ... repeat for other entities (Reseller, Supplier, etc.)
+  | { type: 'ADD_RESELLER'; payload: Reseller }
+  | { type: 'UPDATE_RESELLER'; payload: Reseller }
+  | { type: 'DELETE_RESELLER'; payload: string }
+  | { type: 'ADD_SUPPLIER'; payload: Supplier }
+  | { type: 'UPDATE_SUPPLIER'; payload: Supplier }
+  | { type: 'DELETE_SUPPLIER'; payload: string }
+  | { type: 'ADD_DIGITAL_CODE'; payload: DigitalCode }
+  | { type: 'UPDATE_DIGITAL_CODE'; payload: DigitalCode }
+  | { type: 'DELETE_DIGITAL_CODE'; payload: string }
+  | { type: 'ADD_TV_BOX'; payload: TVBox }
+  | { type: 'UPDATE_TV_BOX'; payload: TVBox }
+  | { type: 'DELETE_TV_BOX'; payload: string }
+  | { type: 'ADD_SALE'; payload: Sale }
+  | { type: 'UPDATE_SALE'; payload: Sale }
+  | { type: 'DELETE_SALE'; payload: string }
+  | { type: 'ADD_PURCHASE'; payload: Purchase }
+  | { type: 'UPDATE_PURCHASE'; payload: Purchase }
+  | { type: 'DELETE_PURCHASE'; payload: string }
+  | { type: 'ADD_SUBSCRIPTION'; payload: Subscription }
+  | { type: 'UPDATE_SUBSCRIPTION'; payload: Subscription }
+  | { type: 'DELETE_SUBSCRIPTION'; payload: string }
+  | { type: 'ADD_INVOICE'; payload: Invoice }
+  | { type: 'UPDATE_INVOICE'; payload: Invoice }
+  | { type: 'DELETE_INVOICE'; payload: string }
+  | { type: 'ADD_PAYMENT'; payload: Payment }
+  | { type: 'UPDATE_PAYMENT'; payload: Payment }
+  | { type: 'DELETE_PAYMENT'; payload: string }
+  | { type: 'ADD_PAYMENT_TRANSACTION'; payload: PaymentTransaction }
+  | { type: 'UPDATE_PAYMENT_TRANSACTION'; payload: PaymentTransaction }
+  | { type: 'DELETE_PAYMENT_TRANSACTION'; payload: string } // Assuming you have this action
+  | { type: 'ADD_EMAIL_TEMPLATE'; payload: EmailTemplate }
+  | { type: 'UPDATE_EMAIL_TEMPLATE'; payload: EmailTemplate }
+  | { type: 'DELETE_EMAIL_TEMPLATE'; payload: string }
+  | { type: 'ADD_SUBSCRIPTION_PRODUCT'; payload: SubscriptionProduct }
+  | { type: 'UPDATE_SUBSCRIPTION_PRODUCT'; payload: SubscriptionProduct }
+  | { type: 'DELETE_SUBSCRIPTION_PRODUCT'; payload: string };
+
+
+export const initialState: AppState = {
+  loading: true,
+  error: null,
+  customers: [],
+  resellers: [],
+  suppliers: [],
+  digitalCodes: [],
+  tvBoxes: [],
+  sales: [],
+  purchases: [],
+  subscriptions: [],
+  invoices: [],
+  payments: [],
+  paymentTransactions: [],
+  emailTemplates: [],
+  subscriptionProducts: [],
+  settings: null,
+  exchangeRates: null,
+};
+
+export function appReducer(state: AppState, action: AppAction): AppState {
+  switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload };
+    case 'SET_ERROR':
+      return { ...state, error: action.payload };
+    case 'SET_INITIAL_DATA':
+      return { ...state, ...action.payload };
+    case 'SET_EXCHANGE_RATES':
+      return { ...state, exchangeRates: action.payload };
+    case 'SET_SETTINGS':
+      return { ...state, settings: action.payload };
+    // --- Handle specific entity actions ---
+    case 'ADD_CUSTOMER':
+      return { ...state, customers: [...state.customers, action.payload] };
+    case 'UPDATE_CUSTOMER':
+      return { ...state, customers: state.customers.map(c => c.id === action.payload.id ? action.payload : c) };
+    case 'DELETE_CUSTOMER':
+      return { ...state, customers: state.customers.filter(c => c.id !== action.payload) };
+    case 'ADD_RESELLER':
+      return { ...state, resellers: [...state.resellers, action.payload] };
+    case 'UPDATE_RESELLER':
+      return { ...state, resellers: state.resellers.map(r => r.id === action.payload.id ? action.payload : r) };
+    case 'DELETE_RESELLER':
+      return { ...state, resellers: state.resellers.filter(r => r.id !== action.payload) };
+    case 'ADD_SUPPLIER':
+      return { ...state, suppliers: [...state.suppliers, action.payload] };
+    case 'UPDATE_SUPPLIER':
+      return { ...state, suppliers: state.suppliers.map(s => s.id === action.payload.id ? action.payload : s) };
+    case 'DELETE_SUPPLIER':
+      return { ...state, suppliers: state.suppliers.filter(s => s.id !== action.payload) };
+    case 'ADD_DIGITAL_CODE':
+      return { ...state, digitalCodes: [...state.digitalCodes, action.payload] };
+    case 'UPDATE_DIGITAL_CODE':
+      return { ...state, digitalCodes: state.digitalCodes.map(d => d.id === action.payload.id ? action.payload : d) };
+    case 'DELETE_DIGITAL_CODE':
+      return { ...state, digitalCodes: state.digitalCodes.filter(d => d.id !== action.payload) };
+    case 'ADD_TV_BOX':
+      return { ...state, tvBoxes: [...state.tvBoxes, action.payload] };
+    case 'UPDATE_TV_BOX':
+      return { ...state, tvBoxes: state.tvBoxes.map(t => t.id === action.payload.id ? action.payload : t) };
+    case 'DELETE_TV_BOX':
+      return { ...state, tvBoxes: state.tvBoxes.filter(t => t.id !== action.payload) };
+    case 'ADD_SALE':
+      return { ...state, sales: [...state.sales, action.payload] };
+    case 'UPDATE_SALE':
+      return { ...state, sales: state.sales.map(s => s.id === action.payload.id ? action.payload : s) };
+    case 'DELETE_SALE':
+      return { ...state, sales: state.sales.filter(s => s.id !== action.payload) };
+    case 'ADD_PURCHASE':
+      return { ...state, purchases: [...state.purchases, action.payload] };
+    case 'UPDATE_PURCHASE':
+      return { ...state, purchases: state.purchases.map(p => p.id === action.payload.id ? action.payload : p) };
+    case 'DELETE_PURCHASE':
+      return { ...state, purchases: state.purchases.filter(p => p.id !== action.payload) };
+    case 'ADD_SUBSCRIPTION':
+      return { ...state, subscriptions: [...state.subscriptions, action.payload] };
+    case 'UPDATE_SUBSCRIPTION':
+      return { ...state, subscriptions: state.subscriptions.map(s => s.id === action.payload.id ? action.payload : s) };
+    case 'DELETE_SUBSCRIPTION':
+      return { ...state, subscriptions: state.subscriptions.filter(s => s.id !== action.payload) };
+    case 'ADD_INVOICE':
+      return { ...state, invoices: [...state.invoices, action.payload] };
+    case 'UPDATE_INVOICE':
+      return { ...state, invoices: state.invoices.map(i => i.id === action.payload.id ? action.payload : i) };
+    case 'DELETE_INVOICE':
+      return { ...state, invoices: state.invoices.filter(i => i.id !== action.payload) };
+    case 'ADD_PAYMENT':
+      return { ...state, payments: [...state.payments, action.payload] };
+    case 'UPDATE_PAYMENT':
+      return { ...state, payments: state.payments.map(p => p.id === action.payload.id ? action.payload : p) };
+    case 'DELETE_PAYMENT':
+      return { ...state, payments: state.payments.filter(p => p.id !== action.payload) };
+    case 'ADD_PAYMENT_TRANSACTION':
+      return { ...state, paymentTransactions: [...state.paymentTransactions, action.payload] };
+    case 'UPDATE_PAYMENT_TRANSACTION':
+      return { ...state, paymentTransactions: state.paymentTransactions.map(pt => pt.id === action.payload.id ? action.payload : pt) };
+    case 'DELETE_PAYMENT_TRANSACTION': // Assuming you have this action
+      return { ...state, paymentTransactions: state.paymentTransactions.filter(pt => pt.id !== action.payload) };
+    case 'ADD_EMAIL_TEMPLATE':
+      return { ...state, emailTemplates: [...state.emailTemplates, action.payload] };
+    case 'UPDATE_EMAIL_TEMPLATE':
+      return { ...state, emailTemplates: state.emailTemplates.map(et => et.id === action.payload.id ? action.payload : et) };
+    case 'DELETE_EMAIL_TEMPLATE':
+      return { ...state, emailTemplates: state.emailTemplates.filter(et => et.id !== action.payload) };
+    case 'ADD_SUBSCRIPTION_PRODUCT':
+      return { ...state, subscriptionProducts: [...state.subscriptionProducts, action.payload] };
+    case 'UPDATE_SUBSCRIPTION_PRODUCT':
+      return { ...state, subscriptionProducts: state.subscriptionProducts.map(sp => sp.id === action.payload.id ? action.payload : sp) };
+    case 'DELETE_SUBSCRIPTION_PRODUCT':
+      return { ...state, subscriptionProducts: state.subscriptionProducts.filter(sp => sp.id !== action.payload) };
+    default:
+      return state;
+  }
+}

@@ -100,10 +100,10 @@ function AdminAppContent() {
 
 // Main App component for routing and authentication logic
 function App() {
-  // FIX: Changed 'portalUser' to 'customerPortalUser' to match AuthContextType
-  const { user, loading, isAdmin, customerPortalUser } = useAuth();
+  // FIX: Changed 'loading' to 'authLoading' to match AuthContextType
+  const { user, authLoading, isAdmin, customerPortalUser } = useAuth();
 
-  if (loading) {
+  if (authLoading) { // FIX: Use authLoading here
     return (
       <div className="min-h-screen gradient-bg flex items-center justify-center">
         <div className="text-center">
