@@ -6,195 +6,204 @@ import React, {
   ReactNode,
   useCallback,
 } from "react";
-import { supabase, getCustomerPortalUserByAuthId, createCustomerPortalUser } from "../services/supabaseService"; // Import new service functions
-import { CustomerPortalUser } from '../types'; // Import CustomerPortalUser type
-
-type UserProfile = {
-  id: string;
-  email?: string | null;
-  is_admin?: boolean;
-};
+// Import the specific User type from supabase-js if needed, distinct from your UserProfile
+import { User as SupabaseAuthUser } from '@supabase/supabase-js'; // Renamed to avoid conflict
+import { supabase, getCustomerPortalUserByAuthId, createCustomerPortalUser, getUserProfile } from "../services/supabaseService"; // Import getUserProfile
+import { CustomerPortalUser, UserProfile } from '../types'; // Import UserProfile
 
 type AuthContextType = {
-  user: UserProfile | null;
-  customerPortalUser: CustomerPortalUser | null; // ADDED: Customer Portal User
-  authLoading: boolean;      // true while supabase auth is resolving
-  authInitialized: boolean;  // becomes true after first auth check completes
+  authUser: SupabaseAuthUser | null; // Raw Supabase auth user
+  userProfile: UserProfile | null; // Profile from 'users' table
+  customerPortalUser: CustomerPortalUser | null;
+  authLoading: boolean;
+  authInitialized: boolean;
   isAdmin: boolean;
-  // Add other auth actions if they exist in your original AuthProvider
+  error: string | null; // Added error state
   signIn: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
-  // ... any other actions like signUp, resetPassword, etc.
+  // Add other auth actions if they exist in your original AuthProvider
+  // updateUserProfile: (profileUpdate: Partial<UserProfile>) => Promise<void>; // Example
+  // updateCustomerPortalUser: (portalUpdate: Partial<CustomerPortalUser>) => Promise<void>; // Example
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [customerPortalUser, setCustomerPortalUser] = useState<CustomerPortalUser | null>(null); // ADDED: State for customer portal user
+  const [authUser, setAuthUser] = useState<SupabaseAuthUser | null>(null); // Store the raw Supabase user
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null); // Store profile from 'users' table
+  const [customerPortalUser, setCustomerPortalUser] = useState<CustomerPortalUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [authInitialized, setAuthInitialized] = useState(false);
+  const [authInitialized, setAuthInitialized] = useState(false); // Renamed from 'initialized' for consistency
   const [isAdmin, setIsAdmin] = useState(false);
+  const [error, setError] = useState<string | null>(null); // Add error state
 
-  // Helper: load profile from your "users" table (or whichever table you use)
-  const loadProfile = useCallback(async (uid: string | null, email: string | null) => {
-    if (!uid) {
-      console.debug("AuthProvider: loadProfile called with no uid -> clearing user");
-      setUser(null);
+  // Combined function to load profile and portal user based on auth user
+  const loadUserData = useCallback(async (currentAuthUser: SupabaseAuthUser | null) => {
+    if (!currentAuthUser) {
+      console.debug("AuthProvider: loadUserData - No auth user, clearing states.");
+      setUserProfile(null);
       setIsAdmin(false);
-      setCustomerPortalUser(null); // Clear portal user too
+      setCustomerPortalUser(null);
       return;
     }
+
+    const uid = currentAuthUser.id;
+    const email = currentAuthUser.email;
+    console.debug("AuthProvider: loadUserData - Loading data for user:", uid);
+
+    // Step 1: Fetch User Profile (determines isAdmin)
+    let isAdminStatus = false;
     try {
-      console.debug("AuthProvider: loading profile for uid", uid);
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, email, is_admin")
-        .eq("id", uid)
-        .limit(1)
-        .single(); // Use .maybeSingle() if your Supabase SDK supports it and you expect 0 rows
-
-      if (error) {
-        console.warn("AuthProvider: loadProfile error", error);
-        setUser({ id: uid, email: email }); // Set basic user even on profile error
-        setIsAdmin(false);
-      } else if (data) {
-        setUser({ id: data.id, email: data.email, is_admin: data.is_admin });
-        setIsAdmin(!!data.is_admin);
-        console.debug("AuthProvider: ✅ User profile loaded:", data);
+      console.debug("AuthProvider: Fetching profile from 'users' table...");
+      const profile = await getUserProfile(uid); // Use the new service function
+      if (profile) {
+        setUserProfile(profile);
+        isAdminStatus = profile.is_admin ?? false;
+        console.log(`AuthProvider: Profile fetched. Setting isAdmin state to: ${isAdminStatus}`);
+        setIsAdmin(isAdminStatus);
       } else {
-        // no row found in public.users table
-        setUser({ id: uid, email: email });
+        console.warn("AuthProvider: No profile found in DB for authenticated user. Setting isAdmin=false.");
+        setUserProfile(null);
         setIsAdmin(false);
-        console.debug("AuthProvider: no profile row found; user exists in auth but not in users table");
       }
+    } catch (profileError: any) {
+      console.error("AuthProvider: ❌ Error fetching user profile:", profileError);
+      setError(`Failed to load user profile: ${profileError.message}`); // Set error state
+      // Still set defaults even on profile error
+      setUserProfile(null);
+      setIsAdmin(false);
+    }
 
-      // --- Logic for Customer Portal User ---
-      if (!isAdmin) { // Only try to load/create portal user if not an admin
-        console.debug("AuthProvider: User is not admin, checking/creating portal user...");
+    // Step 2: Fetch/Create Customer Portal User (only if not admin)
+    if (!isAdminStatus) {
+      try {
+        console.debug("AuthProvider: User is not admin. Checking/creating portal user...");
         let portalUser = await getCustomerPortalUserByAuthId(uid);
         if (!portalUser && email) { // Only create if no existing portal user and we have an email
-          console.debug("AuthProvider: 📝 Creating customer portal user...");
+          console.debug("AuthProvider: 📝 Portal user not found, creating...");
           portalUser = await createCustomerPortalUser({
-            auth_id: uid,
+            auth_id: uid, // This maps to auth_provider_id in DB
             customer_id: null, // Assuming customer_id is linked later
             email: email,
           });
+          console.debug("AuthProvider: Portal user created:", portalUser);
+        } else {
+            console.debug("AuthProvider: Found existing portal user:", portalUser);
         }
         setCustomerPortalUser(portalUser);
-        console.debug("AuthProvider: Portal user set:", portalUser);
-      } else {
-        setCustomerPortalUser(null); // Clear portal user if admin
-        console.debug("AuthProvider: User is admin, portal user cleared.");
+      } catch (portalError: any) {
+        console.error("AuthProvider: ❌ Error fetching/creating customer portal user:", portalError);
+        setError(`Failed to load customer portal data: ${portalError.message}`);
+        setCustomerPortalUser(null); // Clear portal user on error
       }
-      // --- End Customer Portal User Logic ---
-
-    } catch (err) {
-      console.error("AuthProvider: unexpected error loading profile or portal user", err);
-      setUser({ id: uid, email: email });
-      setIsAdmin(false);
-      setCustomerPortalUser(null);
+    } else {
+      console.debug("AuthProvider: User is admin, clearing portal user state.");
+      setCustomerPortalUser(null); // Ensure portal user is null for admins
     }
-  }, [isAdmin]); // isAdmin is a dependency because portal user logic depends on it
 
-  // process session -> load profile
-  const processSession = useCallback(
-    async (sessionData: any) => {
-      if (!sessionData?.user?.id) {
-        console.debug("AuthProvider: No session to process, clearing user state.");
-        setUser(null);
-        setIsAdmin(false);
-        setCustomerPortalUser(null); // Clear portal user too
-        return;
-      }
-      const uid = sessionData.user.id;
-      const email = sessionData.user.email;
-      console.debug("AuthProvider: processSession - user id:", uid);
-      await loadProfile(uid, email);
-    },
-    [loadProfile]
-  );
+    console.debug("AuthProvider: loadUserData finished.");
 
+  }, []); // Empty dependency array - relies on passed-in currentAuthUser
+
+  // Main effect for initialization and auth state changes
   useEffect(() => {
-    let mounted = true;
-    // Declare authListener outside the IIFE so it's accessible in the cleanup function
+    let isMounted = true;
     let authListener: { subscription: { unsubscribe: () => void; }; } | null = null;
+    console.log('AuthProvider: Main useEffect starting.');
 
-    (async () => {
-      try {
-        console.debug("AuthProvider: 🚀 Initializing authentication...");
-        setAuthLoading(true);
+    setAuthLoading(true); // Start loading
 
-        const { data: sessionRes } = await supabase.auth.getSession();
-        console.debug("AuthProvider: getSession result:", sessionRes);
-        await processSession(sessionRes?.session ?? sessionRes);
-
-        // subscribe to auth changes
-        const { data } = supabase.auth.onAuthStateChange( // Get the data object directly
-          async (event, session) => {
-            console.debug(`AuthProvider: onAuthStateChange event=${event}`, { session });
-            if (!mounted) return;
-            try {
-              await processSession(session ?? {});
-            } catch (err) {
-              console.error("AuthProvider: error in onAuthStateChange handler", err);
-            } finally {
-              // Important: always ensure loading flag is cleared after event processed
-              if (mounted) setAuthLoading(false);
-            }
-          }
-        );
-        authListener = data; // Assign the listener data to the outer variable
-
-        // mark initialized (first pass complete)
-        if (mounted) {
-          setAuthInitialized(true);
-        }
-      } catch (err) {
-        console.error("AuthProvider: initialization error", err);
-      } finally {
-        if (mounted) setAuthLoading(false);
+    // Initial session check
+    supabase.auth.getSession().then(async ({ data: { session }, error: sessionError }) => {
+      if (!isMounted) return;
+      console.log('AuthProvider: Initial getSession completed.');
+      if (sessionError) {
+        console.error('AuthProvider: ❌ Initial session fetch error:', sessionError);
+        setError(sessionError.message);
       }
-    })();
+      setAuthUser(session?.user ?? null); // Set the raw Supabase user
+      await loadUserData(session?.user ?? null); // Load profile/portal based on initial session
+
+    }).catch(err => {
+      console.error('AuthProvider: ❌ Unexpected error during initial getSession:', err);
+      if (isMounted) setError(err.message || 'Failed to initialize auth');
+    }).finally(() => {
+      if (isMounted) {
+        console.log('AuthProvider: Initial processing done, setting authInitialized=true, authLoading=false.');
+        setAuthInitialized(true); // Use authInitialized
+        setAuthLoading(false);
+      }
+    });
+
+    // Listener for subsequent changes
+    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+       if (!isMounted) return;
+       console.log(`AuthProvider: 🔔 Auth state changed: ${event}`, { userId: session?.user?.id });
+
+       setAuthUser(session?.user ?? null); // Update the raw Supabase user immediately
+
+       // Reload profile/portal data based on the new auth user state
+       await loadUserData(session?.user ?? null);
+
+        // If signing out, ensure loading is false after processing
+       if (event === 'SIGNED_OUT' && isMounted) {
+           setAuthLoading(false);
+       }
+    });
+    authListener = data;
 
     return () => {
-      mounted = false;
-      // Use the outer variable to unsubscribe
+      console.log('AuthProvider: Cleaning up main useEffect.');
+      isMounted = false;
       authListener?.subscription?.unsubscribe();
     };
-  }, [processSession]); // processSession is a dependency
+  }, [loadUserData]); // Depend on loadUserData
 
-  // --- Add your existing signIn, signOut, etc. functions here ---
-  // Example placeholder functions:
-  const signIn = useCallback(async (email: string) => {
-    console.log('AuthProvider: Attempting signIn for', email);
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    if (error) throw error;
-    alert('Check your email for the login link!');
-  }, []);
 
-  const signOut = useCallback(async () => {
-    console.log('AuthProvider: Signing out...');
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-    setUser(null);
-    setIsAdmin(false);
-    setCustomerPortalUser(null); // Clear portal user on sign out
-    setAuthInitialized(false); // Reset initialized state on sign out
-    setAuthLoading(false);
-  }, []);
-  // --- End of placeholder functions ---
+  // --- signIn and signOut ---
+   const signIn = useCallback(async (email: string) => {
+     setAuthLoading(true); // Indicate loading during sign-in process
+     setError(null);
+     console.log('AuthProvider: Attempting signIn for', email);
+     const { error: signInError } = await supabase.auth.signInWithOtp({ email,
+        options: {
+            // Ensure this redirect URL matches exactly what's in your Supabase Auth settings
+            emailRedirectTo: window.location.origin
+        }
+     });
+     setAuthLoading(false); // Stop loading after attempt
+     if (signInError) {
+        console.error("AuthProvider: signIn error:", signInError);
+        setError(signInError.message);
+        throw signInError; // Re-throw for LoginForm to catch
+     }
+     alert('Check your email for the login link!');
+   }, []);
 
+   const signOut = useCallback(async () => {
+     setAuthLoading(true);
+     setError(null);
+     console.log('AuthProvider: Signing out...');
+     const { error: signOutError } = await supabase.auth.signOut();
+     // State will be cleared by onAuthStateChange listener
+     setAuthLoading(false);
+     if (signOutError) {
+        console.error("AuthProvider: signOut error:", signOutError);
+        setError(signOutError.message);
+        throw signOutError;
+     }
+   }, []);
 
   const value: AuthContextType = {
-    user,
-    customerPortalUser, // ADDED: Expose customerPortalUser
+    authUser, // Expose the raw Supabase user
+    userProfile, // Expose the profile from 'users' table
+    customerPortalUser,
     authLoading,
     authInitialized,
     isAdmin,
+    error, // Expose error state
     signIn,
     signOut,
-    // ... other actions
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

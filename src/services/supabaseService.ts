@@ -3,13 +3,31 @@ import {
   Customer, Reseller, Supplier, DigitalCode, TVBox, Sale, Purchase,
   Subscription, Invoice, PaymentTransaction, EmailTemplate, SubscriptionProduct,
   ExchangeRates, SupportedCurrency, Settings, Payment,
-  CustomerPortalUser, CustomerMessage, CustomerCredential // ADDED: CustomerCredential
+  CustomerPortalUser, CustomerMessage, CustomerCredential, UserProfile // ADDED: UserProfile
 } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// --- NEW: User Profile Service (for public.users table) ---
+export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
+  console.debug("supabaseService: Fetching user profile for uid:", uid);
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, email, is_admin")
+    .eq("id", uid)
+    .limit(1)
+    .maybeSingle(); // Use maybeSingle to handle 0 or 1 row gracefully
+
+  if (error) {
+    console.error("supabaseService: Error fetching user profile:", error);
+    throw error;
+  }
+  return data; // Data should already match UserProfile structure
+};
+
 
 // --- Services ---
 
@@ -259,17 +277,26 @@ export const paymentService = {
 export const settingsService = {
   get: async (): Promise<Settings | null> => {
     const { data, error } = await supabase.from('settings').select('*').single();
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+      console.error("supabaseService: Error fetching settings:", error);
+      throw error;
+    }
     return data || null;
   },
   update: async (id: string, settings: Partial<Settings>): Promise<Settings> => {
     const { data, error } = await supabase.from('settings').update(settings).eq('id', id).select().single();
-    if (error) throw error;
+    if (error) {
+      console.error("supabaseService: Error updating settings:", error);
+      throw error;
+    }
     return data;
   },
   create: async (settings: Omit<Settings, 'id' | 'createdAt' | 'updatedAt'>): Promise<Settings> => {
     const { data, error } = await supabase.from('settings').insert(settings).select().single();
-    if (error) throw error;
+    if (error) {
+      console.error("supabaseService: Error creating settings:", error);
+      throw error;
+    }
     return data;
   },
 };
@@ -278,27 +305,29 @@ export const exchangeRateService = {
   getLatest: async (): Promise<ExchangeRates | null> => {
     console.debug('supabaseService: DEBUG: Attempting to fetch exchange rates...');
     try {
+      // FIX: Query 'updated_at' instead of 'last_updated'
       const { data, error } = await supabase
         .from("exchange_rates")
-        .select("rates, last_updated, success")
-        .order("last_updated", { ascending: false })
-        .limit(1);
+        .select("rates, updated_at, success") // Select 'updated_at'
+        .order("updated_at", { ascending: false }) // Order by 'updated_at'
+        .limit(1)
+        .maybeSingle(); // Use maybeSingle to handle 0 or 1 row gracefully
 
       if (error) {
         console.error("supabaseService: DEBUG: Error fetching exchange rates:", error);
         return null;
       }
 
-      if (!data || data.length === 0) {
+      if (!data) { // If maybeSingle returns null, no rates found
         console.debug("supabaseService: DEBUG: No exchange rate rows found, returning null");
         return null;
       }
 
-      const latestRate = data[0];
+      // FIX: Map 'updated_at' to 'lastUpdated' in the returned object
       const convertedRate: ExchangeRates = {
-        rates: latestRate.rates,
-        lastUpdated: latestRate.last_updated,
-        success: latestRate.success,
+        rates: data.rates,
+        lastUpdated: data.updated_at, // Map from 'updated_at'
+        success: data.success ?? true, // Assume success if column doesn't exist or is null
       };
       console.debug("supabaseService: DEBUG: Successfully fetched exchange rates:", convertedRate);
       return convertedRate;
@@ -308,32 +337,47 @@ export const exchangeRateService = {
       return null;
     }
   },
-  create: async (rates: Omit<ExchangeRates, 'lastUpdated' | 'success'>): Promise<ExchangeRates> => {
-    const { data, error } = await supabase.from('exchange_rates').insert({
-      rates: rates.rates,
-      last_updated: new Date().toISOString(),
-      success: true,
-    }).select('rates, last_updated, success').single();
-    if (error) throw error;
-    return {
-      rates: data.rates,
-      lastUpdated: data.last_updated,
-      success: data.success,
-    };
-  },
-  update: async (id: string, rates: Partial<ExchangeRates>): Promise<ExchangeRates> => {
-    const { data, error } = await supabase.from('exchange_rates').update({
-      rates: rates.rates,
-      last_updated: rates.lastUpdated,
-      success: rates.success,
-    }).eq('id', id).select('rates, last_updated, success').single();
-    if (error) throw error;
-    return {
-      rates: data.rates,
-      lastUpdated: data.last_updated,
-      success: data.success,
-    };
-  }
+  // FIX: Adjust create/update if necessary to use 'updated_at' column name
+   create: async (rates: Omit<ExchangeRates, 'lastUpdated' | 'success'>): Promise<ExchangeRates> => {
+     const now = new Date().toISOString();
+     const { data, error } = await supabase.from('exchange_rates').insert({
+       rates: rates.rates,
+       updated_at: now, // Use 'updated_at'
+       success: true,
+     }).select('rates, updated_at, success').single();
+     if (error) {
+       console.error("supabaseService: Error creating exchange rates:", error);
+       throw error;
+     }
+     return {
+       rates: data.rates,
+       lastUpdated: data.updated_at, // Map back
+       success: data.success,
+     };
+   },
+   update: async (id: string, rates: Partial<ExchangeRates>): Promise<ExchangeRates> => {
+      const updateData: any = { rates: rates.rates };
+      if (rates.lastUpdated) {
+        updateData.updated_at = rates.lastUpdated; // Map to 'updated_at'
+      }
+      if (rates.success !== undefined) {
+        updateData.success = rates.success;
+      }
+     const { data, error } = await supabase.from('exchange_rates')
+        .update(updateData)
+        .eq('id', id)
+        .select('rates, updated_at, success')
+        .single();
+     if (error) {
+       console.error("supabaseService: Error updating exchange rates:", error);
+       throw error;
+     }
+     return {
+       rates: data.rates,
+       lastUpdated: data.updated_at, // Map back
+       success: data.success,
+     };
+   }
 };
 
 export const paymentTransactionService = {
@@ -406,25 +450,33 @@ export const subscriptionProductService = {
 
 export const getCustomerPortalUserByAuthId = async (authId: string): Promise<CustomerPortalUser | null> => {
   console.debug("supabaseService: Fetching customer portal user by auth_id:", authId);
+  // FIX: Query 'auth_provider_id' instead of 'auth_id'
   const { data, error } = await supabase
-    .from('customer_portal_users') // Assuming your table name is 'customer_portal_users'
+    .from('customer_portal_users')
     .select('*')
-    .eq('auth_id', authId)
+    .eq('auth_provider_id', authId) // Use the correct column name 'auth_provider_id'
     .limit(1)
     .maybeSingle(); // Use maybeSingle to handle 0 or 1 row gracefully
 
   if (error) {
     console.error("supabaseService: Error fetching customer portal user:", error);
-    throw error;
+    throw error; // Re-throw the error so AuthProvider knows something went wrong
   }
-  return data;
+  console.debug("supabaseService: Fetched portal user data:", data); // Log fetched data
+  // FIX: Ensure the returned object maps 'auth_provider_id' to 'auth_id' if your type expects it
+  return data ? { ...data, auth_id: data.auth_provider_id } : null;
 };
 
-export const createCustomerPortalUser = async (user: Omit<CustomerPortalUser, 'id' | 'created_at' | 'updated_at'>): Promise<CustomerPortalUser> => {
+export const createCustomerPortalUser = async (user: Omit<CustomerPortalUser, 'id' | 'created_at' | 'updated_at' | 'last_login_at'>): Promise<CustomerPortalUser> => {
   console.debug("supabaseService: Creating new customer portal user:", user);
+  // FIX: Insert using 'auth_provider_id'
   const { data, error } = await supabase
     .from('customer_portal_users')
-    .insert(user)
+    .insert({
+        auth_provider_id: user.auth_id, // Use the correct column name 'auth_provider_id'
+        customer_id: user.customer_id,
+        email: user.email
+    })
     .select()
     .single();
 
@@ -432,7 +484,8 @@ export const createCustomerPortalUser = async (user: Omit<CustomerPortalUser, 'i
     console.error("supabaseService: Error creating customer portal user:", error);
     throw error;
   }
-  return data;
+  // FIX: Ensure the returned object maps 'auth_provider_id' to 'auth_id'
+  return { ...data, auth_id: data.auth_provider_id };
 };
 
 export const getCustomerMessages = async (customerId: string): Promise<CustomerMessage[]> => {
@@ -468,7 +521,7 @@ export const createCustomerMessage = async (message: Omit<CustomerMessage, 'id' 
 export const getCustomerCredentials = async (customerId: string): Promise<CustomerCredential[]> => {
   console.debug("supabaseService: Fetching customer credentials for customer_id:", customerId);
   const { data, error } = await supabase
-    .from('customer_credentials') // Assuming your table name is 'customer_credentials'
+    .from('customer_credentials')
     .select('*')
     .eq('customer_id', customerId)
     .order('created_at', { ascending: true });

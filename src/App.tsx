@@ -100,10 +100,10 @@ function AdminAppContent() {
 
 // Main App component for routing and authentication logic
 function App() {
-  // FIX: Changed 'loading' to 'authLoading' to match AuthContextType
-  const { user, authLoading, isAdmin, customerPortalUser } = useAuth();
+  // FIX: Destructure new state variables from useAuth
+  const { authUser, authLoading, isAdmin, customerPortalUser, userProfile } = useAuth();
 
-  if (authLoading) { // FIX: Use authLoading here
+  if (authLoading) {
     return (
       <div className="min-h-screen gradient-bg flex items-center justify-center">
         <div className="text-center">
@@ -126,7 +126,7 @@ function App() {
         <Route
           path="/portal/*"
           element={
-            user && customerPortalUser && !isAdmin ? ( // FIX: Changed 'portalUser' to 'customerPortalUser'
+            authUser && customerPortalUser && !isAdmin ? ( // FIX: Changed 'portalUser' to 'customerPortalUser'
               <CustomerPortalLayout> {/* This will be created next */}
                 <Routes>
                   <Route path="dashboard" element={<CustomerPortalDashboard />} />
@@ -148,9 +148,9 @@ function App() {
         <Route
           path="/*"
           element={
-            user && isAdmin ? (
+            authUser && isAdmin ? (
               <AdminAppContent />
-            ) : user && customerPortalUser && !isAdmin ? ( // FIX: Changed 'portalUser' to 'customerPortalUser'
+            ) : authUser && customerPortalUser && !isAdmin ? ( // FIX: Changed 'portalUser' to 'customerPortalUser'
               // If a portal user tries to access admin routes, redirect to portal dashboard
               <Navigate to="/portal/dashboard" replace />
             ) : (

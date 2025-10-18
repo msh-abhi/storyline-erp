@@ -201,13 +201,21 @@ export interface ExchangeRates {
   success: boolean;    // Ensure this property exists
 }
 
+export interface UserProfile {
+  id: string;
+  email?: string | null;
+  is_admin?: boolean;
+  // Add any other profile fields from your 'users' table
+}
+
 export interface CustomerPortalUser {
   id: string;
-  auth_id: string; // Supabase auth.users.id
+  auth_id: string; // This is the auth.users.id, mapped from auth_provider_id in DB
   customer_id: string | null; // Link to public.customers.id
   email: string;
   created_at?: string;
   updated_at?: string;
+  last_login_at?: string; // Common field, add if exists in your DB
 }
 
 export interface CustomerMessage {
@@ -220,18 +228,6 @@ export interface CustomerMessage {
   admin_notes: string | null;
   created_at?: string;
   updated_at?: string;
-}
-
-// This new type represents a row in your public.users table
-export interface UserProfile {
-  id: string;
-  auth_id: string; // FIX: Added
-  customer_id: string | null; // FIX: Added
-  email: string;
-  created_at?: string;
-  last_login_at?: string;
-  name?: string;
-  is_admin: boolean;
 }
 
 export interface CustomerCredential {

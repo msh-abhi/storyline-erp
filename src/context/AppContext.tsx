@@ -6,21 +6,21 @@ import React, {
   useMemo,
   Dispatch,
   useCallback,
-  useRef // Added useRef
+  useRef
 } from 'react';
-import { useAuth } from '../components/AuthProvider'; // Ensure this path is correct
+import { useAuth } from '../components/AuthProvider';
 import {
   customerService, resellerService, supplierService, digitalCodeService,
   tvBoxService, saleService, purchaseService, subscriptionService,
-  invoiceService, paymentService, settingsService, exchangeRateService, // Added exchangeRateService
+  invoiceService, paymentService, settingsService, exchangeRateService,
   paymentTransactionService, emailTemplateService, subscriptionProductService,
 } from '../services/supabaseService';
 import {
-  AppState, AppAction, initialState, appReducer, // Assuming these are defined elsewhere in your file
+  AppState, AppAction, initialState, appReducer,
   Customer, Reseller, Supplier, DigitalCode, TVBox, Sale, Purchase,
   Subscription, Invoice, PaymentTransaction, EmailTemplate, SubscriptionProduct,
-  ExchangeRates, SupportedCurrency, Settings, Payment // Assuming Payment type exists
-} from '../types'; // Ensure all types are imported
+  ExchangeRates, SupportedCurrency, Settings, Payment
+} from '../types';
 
 // Define AppContextType to match the structure of your context value
 interface AppContextType {
@@ -79,50 +79,44 @@ interface AppContextType {
   };
 }
 
-// THIS LINE IS CRUCIAL AND WAS LIKELY MISPLACED OR MISSING
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
-  // Use the renamed state variables from the updated AuthProvider
-  const { authLoading, authInitialized, isAdmin, user } = useAuth(); // Use 'user' for basic auth user
-  const loadDataTriggered = useRef(false); // Add ref to prevent multiple calls
+  // FIX: Destructure new state variables from useAuth
+  const { authLoading, authInitialized, isAdmin, authUser, userProfile, customerPortalUser } = useAuth();
+  const loadDataTriggered = useRef(false);
 
-  console.log('AppContext: AppProvider rendering.', { authInitialized, authLoading, isAdmin }); // Log state on each render
+  console.log('AppContext: AppProvider rendering.', { authInitialized, authLoading, isAdmin });
 
   const fetchExchangeRates = useCallback(async () => {
     try {
-        // Use the service directly
-        const rates = await exchangeRateService.getLatest(); // Assuming getLatest returns ExchangeRates | null
+        const rates = await exchangeRateService.getLatest();
         if (rates) {
             dispatch({ type: 'SET_EXCHANGE_RATES', payload: rates });
+            console.log("AppContext: Exchange rates fetched/updated:", rates);
         } else {
-            console.warn("AppContext: No exchange rates fetched, using default/empty.");
-            // Optionally dispatch an action to clear/set default rates if none are found
+            console.warn("AppContext: No exchange rates fetched.");
+            dispatch({ type: 'SET_EXCHANGE_RATES', payload: null }); // Set to null if no rates found
         }
     } catch (error) {
-        console.error("AppContext: Error fetching exchange rates from service:", error);
+        console.error("AppContext: Error fetching exchange rates:", error);
+        dispatch({ type: 'SET_ERROR', payload: 'Failed to fetch exchange rates' });
+        dispatch({ type: 'SET_EXCHANGE_RATES', payload: null }); // Set to null on error
     }
-  }, []);
+  }, []); // Empty dependency array, as it dispatches to state
 
-  // Define loadAllData using useCallback, dependent ONLY on necessary external values (like isAdmin for the check)
   const loadAllData = useCallback(async () => {
-    console.debug("AppContext: loadAllData function executing..."); // Log when the function body runs
-
-    // Prevent concurrent loads
+    console.debug("AppContext: loadAllData function executing...");
     if (loadDataTriggered.current) {
       console.debug("AppContext: load already in progress, skipping");
       return;
     }
-
     dispatch({ type: 'SET_LOADING', payload: true });
-    loadDataTriggered.current = true; // Mark that loading has started
+    loadDataTriggered.current = true;
 
     try {
-      // Fetch data that ALL authenticated users might need (if any)
-      // For now, we'll fetch everything if admin, or minimal if not.
-
-      let adminDataPayload: Partial<AppState> = {};
+      let dataPayload: Partial<AppState> = {};
       if (isAdmin) {
         console.debug("AppContext: isAdmin is true, fetching admin-specific data...");
         const [
@@ -137,57 +131,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           invoiceService.getAll(), paymentService.getAll(), paymentTransactionService.getAll(),
           settingsService.get(),
         ]);
-        adminDataPayload = {
-          customers, resellers, suppliers, digitalCodes, tvBoxes, sales,
-          purchases, emailTemplates, subscriptions, subscriptionProducts,
-          invoices, payments, paymentTransactions,
-          settings: settings || null,
-        };
+         dataPayload = {
+           customers, resellers, suppliers, digitalCodes, tvBoxes, sales,
+           purchases, emailTemplates, subscriptions, subscriptionProducts,
+           invoices, payments, paymentTransactions,
+           settings: settings || null,
+         };
          console.debug("AppContext: 🎉 Admin data fetched.");
+
       } else {
          console.debug("AppContext: isAdmin is false, skipping admin data fetch.");
-         // Reset admin-specific data in state if needed for non-admin users
-         adminDataPayload = {
+         dataPayload = {
              customers: [], resellers: [], suppliers: [], digitalCodes: [], tvBoxes: [], sales: [],
              purchases: [], emailTemplates: [], subscriptions: [], subscriptionProducts: [],
              invoices: [], payments: [], paymentTransactions: [], settings: null
          };
       }
 
-      // Combine common and admin data
+      // Fetch exchange rates regardless of admin status
+      await fetchExchangeRates(); // Await this to ensure rates are in state before UI renders
+
+      // Dispatch initial data, exchange rates are already handled by fetchExchangeRates
       dispatch({
         type: 'SET_INITIAL_DATA',
         payload: {
-          ...adminDataPayload, // Spread admin data (or empty arrays if not admin)
-          exchangeRates: state.exchangeRates // Preserve rates if already fetched, or will be fetched by fetchExchangeRates
-        } as any // Cast to any to handle nested types not fitting the shallow Omit
+          ...dataPayload,
+          // No need to explicitly set exchangeRates here, as fetchExchangeRates already dispatches it
+        } as any
       });
-
-      // Fetch exchange rates regardless of admin status (if needed by all users)
-      await fetchExchangeRates(); // Await this to ensure rates are in state before UI renders
 
     } catch (error: any) {
       console.error("AppContext: ❌ Error loading data", error);
       dispatch({ type: 'SET_ERROR', payload: error.message });
     } finally {
-      // Ensure loading is set to false, even on error or if not admin
       dispatch({ type: 'SET_LOADING', payload: false });
-      loadDataTriggered.current = false; // Reset the trigger flag
+      loadDataTriggered.current = false;
       console.debug("AppContext: loadAllData finished, loading set to false.");
     }
-  // Include dependencies needed *inside* the function, if any (e.g., fetchExchangeRates)
-  // But critically, DON'T include the auth states here.
-  }, [isAdmin, fetchExchangeRates, state.exchangeRates]); // Depend on isAdmin to re-create if it changes
+  }, [isAdmin, fetchExchangeRates]); // Depend on isAdmin to re-create if it changes
 
   // useEffect to TRIGGER loadAllData based on auth state changes
   useEffect(() => {
     console.debug('AppContext: useEffect trigger check.', { authInitialized, authLoading, isAdmin, loadDataTriggered: loadDataTriggered.current });
 
-    // Condition to run loadAllData:
-    // 1. Auth MUST be initialized.
-    // 2. Auth MUST NOT be currently loading.
-    // 3. We haven't already triggered loading based on the current auth state.
-    // 4. If isAdmin is true, we want to ensure we load.
     if (authInitialized && !authLoading && !loadDataTriggered.current) {
         console.debug('AppContext: useEffect triggering loadAllData.');
         loadAllData();
@@ -196,12 +182,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Reset the trigger flag if auth state changes back to loading/uninitialized
         loadDataTriggered.current = false;
     }
-  // This useEffect should run whenever the auth state potentially allows loading
   }, [authInitialized, authLoading, isAdmin, loadAllData]);
 
 
   const allActions: AppContextType['actions'] = useMemo(() => ({
-    loadAllData: loadAllData, // Provide the useCallback version
+    loadAllData: loadAllData,
     getDisplayCurrency: (): SupportedCurrency => {
       return (state.settings?.currency as SupportedCurrency) || 'DKK';
     },
@@ -268,7 +253,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { success: true, data: { status: 'COMPLETED' } };
       },
     },
-  }), [state, loadAllData, fetchExchangeRates, dispatch]); // Added dispatch to dependencies
+  }), [state, loadAllData, fetchExchangeRates, dispatch]);
 
   const value = useMemo(() => ({ state, dispatch, actions: allActions }), [state, dispatch, allActions]);
 
@@ -282,74 +267,3 @@ export function useApp() {
   }
   return context;
 }
-
-// --- Assuming AppState, AppAction, initialState, appReducer are defined here or imported ---
-// If they are not, you'll need to provide them.
-// Example placeholder for AppState, AppAction, initialState, appReducer:
-/*
-export interface AppState {
-  loading: boolean;
-  error: string | null;
-  customers: Customer[];
-  resellers: Reseller[];
-  suppliers: Supplier[];
-  digitalCodes: DigitalCode[];
-  tvBoxes: TVBox[];
-  sales: Sale[];
-  purchases: Purchase[];
-  subscriptions: Subscription[];
-  invoices: Invoice[];
-  payments: Payment[];
-  paymentTransactions: PaymentTransaction[];
-  emailTemplates: EmailTemplate[];
-  subscriptionProducts: SubscriptionProduct[];
-  settings: Settings | null;
-  exchangeRates: ExchangeRates | null;
-}
-
-export type AppAction =
-  | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'SET_INITIAL_DATA'; payload: Partial<AppState> }
-  | { type: 'SET_EXCHANGE_RATES'; payload: ExchangeRates }
-  | { type: 'SET_SETTINGS'; payload: Settings }
-  // ... other actions for adding/updating/deleting entities
-
-export const initialState: AppState = {
-  loading: true,
-  error: null,
-  customers: [],
-  resellers: [],
-  suppliers: [],
-  digitalCodes: [],
-  tvBoxes: [],
-  sales: [],
-  purchases: [],
-  subscriptions: [],
-  invoices: [],
-  payments: [],
-  paymentTransactions: [],
-  emailTemplates: [],
-  subscriptionProducts: [],
-  settings: null,
-  exchangeRates: null,
-};
-
-export function appReducer(state: AppState, action: AppAction): AppState {
-  switch (action.type) {
-    case 'SET_LOADING':
-      return { ...state, loading: action.payload };
-    case 'SET_ERROR':
-      return { ...state, error: action.payload };
-    case 'SET_INITIAL_DATA':
-      return { ...state, ...action.payload };
-    case 'SET_EXCHANGE_RATES':
-      return { ...state, exchangeRates: action.payload };
-    case 'SET_SETTINGS':
-      return { ...state, settings: action.payload };
-    // ... handle other actions
-    default:
-      return state;
-  }
-}
-*/
