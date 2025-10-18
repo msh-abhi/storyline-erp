@@ -521,7 +521,7 @@ export default function CustomerManagement() {
                             <td className="px-4 py-2 text-sm text-gray-900">{mappedData.macAddress || '-'}</td>
                             <td className="px-4 py-2 text-sm text-gray-900">{mappedData.whatsappNumber || '-'}</td>
                             <td className="px-4 py-2 text-sm text-gray-600">
-                              {Object.entries(mappedData.customFields).map(([key, value]) => (
+                              {mappedData.customFields && Object.entries(mappedData.customFields).map(([key, value]) => (
                                 <div key={key} className="text-xs">
                                   <span className="font-medium">{key}:</span> {value as string}
                                 </div>
@@ -832,7 +832,7 @@ export default function CustomerManagement() {
                   </button>
                 </div>
 
-                {Object.entries(formData.customFields)
+                {formData.customFields && Object.entries(formData.customFields)
                   .filter(([key]) => !['userId', 'paymentMethod', 'note'].includes(key))
                   .map(([fieldName, value]) => (
                     <div key={fieldName} className="flex space-x-3 mb-3">
@@ -946,13 +946,13 @@ export default function CustomerManagement() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-600 space-y-1">
-                        {customer.customFields.userId && (
+                        {customer.customFields?.userId && (
                           <div className="flex items-center">
                             <User className="h-3 w-3 mr-1 text-gray-400" />
                             <span className="font-medium">ID:</span> {customer.customFields.userId}
                           </div>
                         )}
-                        {customer.customFields.paymentMethod && (
+                        {customer.customFields?.paymentMethod && (
                           <div className="flex items-center">
                             <CreditCard className="h-3 w-3 mr-1 text-gray-400" />
                             <span className="font-medium">Payment:</span>
@@ -967,7 +967,7 @@ export default function CustomerManagement() {
                             <span className="text-xs text-gray-500 line-clamp-2">{customer.notes}</span>
                           </div>
                         )}
-                        {Object.entries(customer.customFields)
+                        {customer.customFields && Object.entries(customer.customFields)
                           .filter(([key]) => !['userId', 'paymentMethod', 'note'].includes(key))
                           .map(([key, value]) => (
                             <div key={key} className="text-xs">

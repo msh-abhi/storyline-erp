@@ -8,7 +8,8 @@ import React, {
 } from "react";
 // Import the specific User type from supabase-js if needed, distinct from your UserProfile
 import { User as SupabaseAuthUser } from '@supabase/supabase-js'; // Renamed to avoid conflict
-import { supabase, getCustomerPortalUserByAuthId, createCustomerPortalUser, getUserProfile } from "../services/supabaseService"; // Import getUserProfile
+import { supabase } from '../lib/supabase'; // Import supabase from the correct location
+import { getCustomerPortalUserByAuthId, createCustomerPortalUser, getUserProfile } from "../services/supabaseService"; // Import service functions
 import { CustomerPortalUser, UserProfile } from '../types'; // Import UserProfile
 
 type AuthContextType = {
@@ -51,11 +52,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const email = currentAuthUser.email;
     console.debug("AuthProvider: loadUserData - Loading data for user:", uid);
 
-    // Step 1: Fetch User Profile (determines isAdmin)
-    let isAdminStatus = false;
     try {
+      // Step 1: Fetch User Profile (determines isAdmin)
+      let isAdminStatus = false;
       console.debug("AuthProvider: Fetching profile from 'users' table...");
-      const profile = await getUserProfile(uid); // Use the new service function
+      const profile = await getUserProfile(uid);
+      
       if (profile) {
         setUserProfile(profile);
         isAdminStatus = profile.is_admin ?? false;
@@ -66,43 +68,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUserProfile(null);
         setIsAdmin(false);
       }
-    } catch (profileError: any) {
-      console.error("AuthProvider: ❌ Error fetching user profile:", profileError);
-      setError(`Failed to load user profile: ${profileError.message}`); // Set error state
-      // Still set defaults even on profile error
-      setUserProfile(null);
-      setIsAdmin(false);
-    }
 
-    // Step 2: Fetch/Create Customer Portal User (only if not admin)
-    if (!isAdminStatus) {
-      try {
+      // Step 2: Fetch/Create Customer Portal User (only if not admin)
+      if (!isAdminStatus) {
         console.debug("AuthProvider: User is not admin. Checking/creating portal user...");
         let portalUser = await getCustomerPortalUserByAuthId(uid);
-        if (!portalUser && email) { // Only create if no existing portal user and we have an email
+        if (!portalUser && email) {
           console.debug("AuthProvider: 📝 Portal user not found, creating...");
           portalUser = await createCustomerPortalUser({
-            auth_id: uid, // This maps to auth_provider_id in DB
-            customer_id: null, // Assuming customer_id is linked later
+            auth_id: uid,
+            customer_id: null,
             email: email,
           });
           console.debug("AuthProvider: Portal user created:", portalUser);
         } else {
-            console.debug("AuthProvider: Found existing portal user:", portalUser);
+          console.debug("AuthProvider: Found existing portal user:", portalUser);
         }
         setCustomerPortalUser(portalUser);
-      } catch (portalError: any) {
-        console.error("AuthProvider: ❌ Error fetching/creating customer portal user:", portalError);
-        setError(`Failed to load customer portal data: ${portalError.message}`);
-        setCustomerPortalUser(null); // Clear portal user on error
+      } else {
+        console.debug("AuthProvider: User is admin, clearing portal user state.");
+        setCustomerPortalUser(null);
       }
-    } else {
-      console.debug("AuthProvider: User is admin, clearing portal user state.");
-      setCustomerPortalUser(null); // Ensure portal user is null for admins
+
+      console.debug("AuthProvider: loadUserData finished successfully.");
+      
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("AuthProvider: ❌ Error in loadUserData:", error);
+      setError(`Failed to load user data: ${errorMessage}`);
+      
+      // Set safe defaults on error
+      setUserProfile(null);
+      setIsAdmin(false);
+      setCustomerPortalUser(null);
+      
+      // Re-throw to let calling code handle if needed
+      throw error;
     }
-
-    console.debug("AuthProvider: loadUserData finished.");
-
   }, []); // Empty dependency array - relies on passed-in currentAuthUser
 
   // Main effect for initialization and auth state changes
@@ -111,43 +113,101 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let authListener: { subscription: { unsubscribe: () => void; }; } | null = null;
     console.log('AuthProvider: Main useEffect starting.');
 
+    // Don't reinitialize if already initialized
+    if (authInitialized) {
+      console.log('AuthProvider: Already initialized, skipping re-initialization.');
+      return;
+    }
+
     setAuthLoading(true); // Start loading
+    setError(null); // Clear any previous errors
 
-    // Initial session check
-    supabase.auth.getSession().then(async ({ data: { session }, error: sessionError }) => {
-      if (!isMounted) return;
-      console.log('AuthProvider: Initial getSession completed.');
-      if (sessionError) {
-        console.error('AuthProvider: ❌ Initial session fetch error:', sessionError);
-        setError(sessionError.message);
+    // Initial session check with better error handling
+    const initializeAuth = async () => {
+      try {
+        console.log('AuthProvider: Getting initial session...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (!isMounted) return;
+        
+        console.log('AuthProvider: Initial getSession completed.', { 
+          hasSession: !!session, 
+          userId: session?.user?.id,
+          error: sessionError?.message 
+        });
+        
+        if (sessionError) {
+          console.error('AuthProvider: ❌ Initial session fetch error:', sessionError);
+          setError(sessionError.message);
+          // Don't return early, continue with null session
+        }
+        
+        setAuthUser(session?.user ?? null); // Set the raw Supabase user
+        
+        // Load user data if we have a session
+        if (session?.user) {
+          await loadUserData(session.user);
+        } else {
+          // Clear all user data if no session
+          setUserProfile(null);
+          setIsAdmin(false);
+          setCustomerPortalUser(null);
+        }
+        
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error('AuthProvider: ❌ Unexpected error during initial getSession:', err);
+        if (isMounted) {
+          setError(errorMessage || 'Failed to initialize auth');
+          // Clear all states on error
+          setAuthUser(null);
+          setUserProfile(null);
+          setIsAdmin(false);
+          setCustomerPortalUser(null);
+        }
+      } finally {
+        if (isMounted) {
+          console.log('AuthProvider: Initial processing done, setting authInitialized=true, authLoading=false.');
+          setAuthInitialized(true);
+          setAuthLoading(false);
+        }
       }
-      setAuthUser(session?.user ?? null); // Set the raw Supabase user
-      await loadUserData(session?.user ?? null); // Load profile/portal based on initial session
+    };
 
-    }).catch(err => {
-      console.error('AuthProvider: ❌ Unexpected error during initial getSession:', err);
-      if (isMounted) setError(err.message || 'Failed to initialize auth');
-    }).finally(() => {
-      if (isMounted) {
-        console.log('AuthProvider: Initial processing done, setting authInitialized=true, authLoading=false.');
-        setAuthInitialized(true); // Use authInitialized
-        setAuthLoading(false);
-      }
-    });
+    initializeAuth();
 
     // Listener for subsequent changes
     const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
        if (!isMounted) return;
-       console.log(`AuthProvider: 🔔 Auth state changed: ${event}`, { userId: session?.user?.id });
+       console.log(`AuthProvider: 🔔 Auth state changed: ${event}`, { 
+         userId: session?.user?.id,
+         event 
+       });
 
        setAuthUser(session?.user ?? null); // Update the raw Supabase user immediately
+       setError(null); // Clear errors on auth state change
 
-       // Reload profile/portal data based on the new auth user state
-       await loadUserData(session?.user ?? null);
-
-        // If signing out, ensure loading is false after processing
-       if (event === 'SIGNED_OUT' && isMounted) {
-           setAuthLoading(false);
+       // Handle different auth events
+       if (event === 'SIGNED_IN' && session?.user) {
+         console.log('AuthProvider: User signed in, loading user data...');
+         setAuthLoading(true);
+         await loadUserData(session.user);
+         setAuthLoading(false);
+       } else if (event === 'SIGNED_OUT') {
+         console.log('AuthProvider: User signed out, clearing all data...');
+         setUserProfile(null);
+         setIsAdmin(false);
+         setCustomerPortalUser(null);
+         setAuthLoading(false);
+       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+         console.log('AuthProvider: Token refreshed, ensuring user data is loaded...');
+         // Only reload if we don't have user profile data
+         if (!userProfile) {
+           await loadUserData(session.user);
+         }
+       } else if (event === 'INITIAL_SESSION' && session?.user) {
+         console.log('AuthProvider: Initial session detected, loading user data...');
+         await loadUserData(session.user);
        }
     });
     authListener = data;
@@ -157,7 +217,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isMounted = false;
       authListener?.subscription?.unsubscribe();
     };
-  }, [loadUserData]); // Depend on loadUserData
+  }, [loadUserData, authInitialized]); // Depend on loadUserData and authInitialized
 
 
   // --- signIn and signOut ---

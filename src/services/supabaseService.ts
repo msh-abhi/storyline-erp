@@ -1,15 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
 import {
   Customer, Reseller, Supplier, DigitalCode, TVBox, Sale, Purchase,
   Subscription, Invoice, PaymentTransaction, EmailTemplate, SubscriptionProduct,
   ExchangeRates, SupportedCurrency, Settings, Payment,
   CustomerPortalUser, CustomerMessage, CustomerCredential, UserProfile // ADDED: UserProfile
 } from '../types';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '../lib/supabase'; // Use the centralized client
 
 // --- NEW: User Profile Service (for public.users table) ---
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
@@ -308,7 +303,7 @@ export const exchangeRateService = {
       // FIX: Query 'updated_at' instead of 'last_updated'
       const { data, error } = await supabase
         .from("exchange_rates")
-        .select("rates, updated_at, success") // Select 'updated_at'
+        .select("rates, updated_at") // Remove 'success' column that doesn't exist
         .order("updated_at", { ascending: false }) // Order by 'updated_at'
         .limit(1)
         .maybeSingle(); // Use maybeSingle to handle 0 or 1 row gracefully

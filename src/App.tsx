@@ -32,14 +32,13 @@ import CustomerPortalProfile from '@/components/CustomerPortalProfile';
 import CustomerPortalCredentials from '@/components/CustomerPortalCredentials';
 import CustomerPortalContact from '@/components/CustomerPortalContact';
 import CustomerPortalLayout from '@/components/CustomerPortalLayout'; // Placeholder for customer portal layout
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Ensure ActiveSection type is imported
 import { ActiveSection } from './types';
 
 // Main AppContent component for the Admin ERP
 function AdminAppContent() {
-  // FIX: Destructure customerPortalUser if needed, otherwise remove it if not used here
-  const { } = useAuth(); 
   const [activeSection, setActiveSection] = useState<ActiveSection>('dashboard');
 
   // This component assumes the user is authenticated and is an admin
@@ -91,7 +90,9 @@ function AdminAppContent() {
         <div className="ml-64 flex-1 flex flex-col min-h-screen overflow-y-auto">
           <TopBar />
           <main className="flex-1 p-6">
-            {renderActiveSection()}
+            <ErrorBoundary>
+              {renderActiveSection()}
+            </ErrorBoundary>
           </main>
         </div>
       </div>
@@ -101,7 +102,7 @@ function AdminAppContent() {
 // Main App component for routing and authentication logic
 function App() {
   // FIX: Destructure new state variables from useAuth
-  const { authUser, authLoading, isAdmin, customerPortalUser, userProfile } = useAuth();
+  const { authUser, authLoading, isAdmin, customerPortalUser, error } = useAuth();
 
   if (authLoading) {
     return (
@@ -109,6 +110,11 @@ function App() {
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-white text-lg">Loading application...</p>
+          {error && (
+            <div className="mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
+              <p className="text-red-200 text-sm">Error: {error}</p>
+            </div>
+          )}
         </div>
       </div>
     );

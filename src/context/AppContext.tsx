@@ -84,7 +84,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
   // FIX: Destructure new state variables from useAuth
-  const { authLoading, authInitialized, isAdmin, authUser, userProfile, customerPortalUser } = useAuth();
+  const { authLoading, authInitialized, isAdmin, authUser } = useAuth();
   const loadDataTriggered = useRef(false);
 
   console.log('AppContext: AppProvider rendering.', { authInitialized, authLoading, isAdmin });
@@ -96,93 +96,152 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             dispatch({ type: 'SET_EXCHANGE_RATES', payload: rates });
             console.log("AppContext: Exchange rates fetched/updated:", rates);
         } else {
-            console.warn("AppContext: No exchange rates fetched.");
+            console.warn("AppContext: No exchange rates found in database.");
             dispatch({ type: 'SET_EXCHANGE_RATES', payload: null }); // Set to null if no rates found
         }
     } catch (error) {
         console.error("AppContext: Error fetching exchange rates:", error);
-        dispatch({ type: 'SET_ERROR', payload: 'Failed to fetch exchange rates' });
+        // Don't set error state for exchange rates failure, just log it
         dispatch({ type: 'SET_EXCHANGE_RATES', payload: null }); // Set to null on error
     }
   }, []); // Empty dependency array, as it dispatches to state
 
   const loadAllData = useCallback(async () => {
-    console.debug("AppContext: loadAllData function executing...");
+    console.debug("AppContext: loadAllData function executing...", { isAdmin, authUser: !!authUser });
+    
     if (loadDataTriggered.current) {
       console.debug("AppContext: load already in progress, skipping");
       return;
     }
+    
+    // Don't load data if user is not authenticated
+    if (!authUser) {
+      console.debug("AppContext: No authenticated user, skipping data load");
+      return;
+    }
+    
     dispatch({ type: 'SET_LOADING', payload: true });
     loadDataTriggered.current = true;
 
     try {
       let dataPayload: Partial<AppState> = {};
+      
       if (isAdmin) {
         console.debug("AppContext: isAdmin is true, fetching admin-specific data...");
+        
+        // Fetch exchange rates first as they're needed for calculations
+        await fetchExchangeRates();
+        
+        console.debug("AppContext: Starting to fetch all data services...");
+        
         const [
           customers, resellers, suppliers, digitalCodes, tvBoxes, sales,
           purchases, emailTemplates, subscriptions, subscriptionProducts,
           invoices, payments, paymentTransactions, settings
         ] = await Promise.all([
-          customerService.getAll(), resellerService.getAll(), supplierService.getAll(),
-          digitalCodeService.getAll(), tvBoxService.getAll(), saleService.getAll(),
-          purchaseService.getAll(), emailTemplateService.getAll(),
-          subscriptionService.getAll(), subscriptionProductService.getAll(),
-          invoiceService.getAll(), paymentService.getAll(), paymentTransactionService.getAll(),
-          settingsService.get(),
+          customerService.getAll().catch(err => { console.error("Error fetching customers:", err); return []; }),
+          resellerService.getAll().catch(err => { console.error("Error fetching resellers:", err); return []; }),
+          supplierService.getAll().catch(err => { console.error("Error fetching suppliers:", err); return []; }),
+          digitalCodeService.getAll().catch(err => { console.error("Error fetching digital codes:", err); return []; }),
+          tvBoxService.getAll().catch(err => { console.error("Error fetching tv boxes:", err); return []; }),
+          saleService.getAll().catch(err => { console.error("Error fetching sales:", err); return []; }),
+          purchaseService.getAll().catch(err => { console.error("Error fetching purchases:", err); return []; }),
+          emailTemplateService.getAll().catch(err => { console.error("Error fetching email templates:", err); return []; }),
+          subscriptionService.getAll().catch(err => { console.error("Error fetching subscriptions:", err); return []; }),
+          subscriptionProductService.getAll().catch(err => { console.error("Error fetching subscription products:", err); return []; }),
+          invoiceService.getAll().catch(err => { console.error("Error fetching invoices:", err); return []; }),
+          paymentService.getAll().catch(err => { console.error("Error fetching payments:", err); return []; }),
+          paymentTransactionService.getAll().catch(err => { console.error("Error fetching payment transactions:", err); return []; }),
+          settingsService.get().catch(err => { console.error("Error fetching settings:", err); return null; }),
         ]);
-         dataPayload = {
-           customers, resellers, suppliers, digitalCodes, tvBoxes, sales,
-           purchases, emailTemplates, subscriptions, subscriptionProducts,
-           invoices, payments, paymentTransactions,
-           settings: settings || null,
-         };
-         console.debug("AppContext: 🎉 Admin data fetched.");
+        
+        console.debug("AppContext: Data fetch results:", {
+          customers: customers?.length || 0,
+          resellers: resellers?.length || 0,
+          suppliers: suppliers?.length || 0,
+          digitalCodes: digitalCodes?.length || 0,
+          tvBoxes: tvBoxes?.length || 0,
+          sales: sales?.length || 0,
+          purchases: purchases?.length || 0,
+          subscriptions: subscriptions?.length || 0,
+          subscriptionProducts: subscriptionProducts?.length || 0,
+          invoices: invoices?.length || 0,
+          payments: payments?.length || 0,
+          paymentTransactions: paymentTransactions?.length || 0,
+          hasSettings: !!settings
+        });
+        
+        dataPayload = {
+          customers, resellers, suppliers, digitalCodes, tvBoxes, sales,
+          purchases, emailTemplates, subscriptions, subscriptionProducts,
+          invoices, payments, paymentTransactions,
+          settings: settings || null,
+        };
+        console.debug("AppContext: 🎉 Admin data fetched successfully.");
 
       } else {
-         console.debug("AppContext: isAdmin is false, skipping admin data fetch.");
-         dataPayload = {
-             customers: [], resellers: [], suppliers: [], digitalCodes: [], tvBoxes: [], sales: [],
-             purchases: [], emailTemplates: [], subscriptions: [], subscriptionProducts: [],
-             invoices: [], payments: [], paymentTransactions: [], settings: null
-         };
+        console.debug("AppContext: isAdmin is false, fetching exchange rates only.");
+        
+        // Non-admin users still need exchange rates
+        await fetchExchangeRates();
+        
+        dataPayload = {
+          customers: [], resellers: [], suppliers: [], digitalCodes: [], tvBoxes: [], sales: [],
+          purchases: [], emailTemplates: [], subscriptions: [], subscriptionProducts: [],
+          invoices: [], payments: [], paymentTransactions: [], settings: null
+        };
       }
 
-      // Fetch exchange rates regardless of admin status
-      await fetchExchangeRates(); // Await this to ensure rates are in state before UI renders
-
-      // Dispatch initial data, exchange rates are already handled by fetchExchangeRates
+      // Dispatch initial data
       dispatch({
         type: 'SET_INITIAL_DATA',
-        payload: {
-          ...dataPayload,
-          // No need to explicitly set exchangeRates here, as fetchExchangeRates already dispatches it
-        } as any
+        payload: dataPayload as any
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error("AppContext: ❌ Error loading data", error);
-      dispatch({ type: 'SET_ERROR', payload: error.message });
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      
+      // Try to fetch exchange rates even if other data fails
+      try {
+        await fetchExchangeRates();
+      } catch (rateError) {
+        console.error("AppContext: ❌ Error fetching exchange rates:", rateError);
+      }
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
       loadDataTriggered.current = false;
       console.debug("AppContext: loadAllData finished, loading set to false.");
     }
-  }, [isAdmin, fetchExchangeRates]); // Depend on isAdmin to re-create if it changes
+  }, [isAdmin, authUser, fetchExchangeRates]); // Depend on authUser and isAdmin
 
   // useEffect to TRIGGER loadAllData based on auth state changes
   useEffect(() => {
-    console.debug('AppContext: useEffect trigger check.', { authInitialized, authLoading, isAdmin, loadDataTriggered: loadDataTriggered.current });
+    console.debug('AppContext: useEffect trigger check.', { 
+      authInitialized, 
+      authLoading, 
+      isAdmin, 
+      loadDataTriggered: loadDataTriggered.current,
+      hasAuthUser: !!authUser 
+    });
 
-    if (authInitialized && !authLoading && !loadDataTriggered.current) {
-        console.debug('AppContext: useEffect triggering loadAllData.');
+    if (authInitialized && !authLoading && !loadDataTriggered.current && authUser) {
+        console.debug('AppContext: ✅ All conditions met, triggering loadAllData.');
         loadAllData();
-    } else if (!authInitialized || authLoading) {
-        console.debug('AppContext: useEffect condition not met, waiting for auth.');
+    } else {
+        console.debug('AppContext: ❌ Conditions not met:', {
+          authInitialized,
+          authLoading,
+          loadDataTriggered: loadDataTriggered.current,
+          hasAuthUser: !!authUser
+        });
         // Reset the trigger flag if auth state changes back to loading/uninitialized
-        loadDataTriggered.current = false;
+        if (!authInitialized || authLoading) {
+          loadDataTriggered.current = false;
+        }
     }
-  }, [authInitialized, authLoading, isAdmin, loadAllData]);
+  }, [authInitialized, authLoading, isAdmin, authUser]); // Add authUser to dependencies
 
 
   const allActions: AppContextType['actions'] = useMemo(() => ({

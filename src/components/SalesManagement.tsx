@@ -450,7 +450,7 @@ export default function SalesManagement() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="font-medium text-gray-900">{sale.productName}</div>
-                        <div className="text-sm text-gray-500 capitalize">{sale.productType.replace('_', ' ')}</div>
+                        <div className="text-sm text-gray-500 capitalize">{sale.productType?.replace('_', ' ') || 'N/A'}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

@@ -34,11 +34,23 @@ interface DashboardProps {
 export default function Dashboard({ onSectionChange }: DashboardProps) {
   const { state } = useApp();
 
-  const totalRevenue = calculateTotalRevenue(state.sales);
-  const outstandingReceivables = calculateOutstandingReceivables(state.resellers);
-  const totalExpenses = calculateTotalExpenses(state.purchases);
-  const inventoryProfit = calculateInventoryProfit(state.sales);
-  const inventoryValue = calculateInventoryValue(state.digitalCodes, state.tvBoxes);
+  // Add loading state check
+  if (state.loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white text-lg">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalRevenue = calculateTotalRevenue(state.sales || []);
+  const outstandingReceivables = calculateOutstandingReceivables(state.resellers || []);
+  const totalExpenses = calculateTotalExpenses(state.purchases || []);
+  const inventoryProfit = calculateInventoryProfit(state.sales || []);
+  const inventoryValue = calculateInventoryValue(state.digitalCodes || [], state.tvBoxes || []);
   const netProfit = totalRevenue - totalExpenses;
 
   // Calculate subscription revenue
@@ -47,20 +59,20 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
   ) || 0;
 
   // Calculate reseller credit profit
-  const resellerCreditProfit = state.resellers.reduce((total: number, reseller: Reseller) =>
+  const resellerCreditProfit = (state.resellers || []).reduce((total: number, reseller: Reseller) =>
     total + (reseller.outstandingBalance || 0), 0
   );
 
   // Calculate outstanding payments from sales
-  const outstandingFromSales = state.sales
+  const outstandingFromSales = (state.sales || [])
     .filter((sale: Sale) => sale.paymentStatus === 'due')
     .reduce((total: number, sale: Sale) => total + sale.totalPrice, 0);
 
   // New: Calculate invoice-related metrics
-  const totalInvoicedAmount = state.invoices.reduce((total: number, inv: Invoice) => total + inv.amount, 0);
-  const totalPaidInvoices = state.invoices.filter((inv: Invoice) => inv.status === 'paid').reduce((total: number, inv: Invoice) => total + inv.amount, 0);
-  const totalPendingInvoices = state.invoices.filter((inv: Invoice) => inv.status === 'pending').reduce((total: number, inv: Invoice) => total + inv.amount, 0);
-  const totalOutstandingPayables = calculateOutstandingPayables(state.suppliers);
+  const totalInvoicedAmount = (state.invoices || []).reduce((total: number, inv: Invoice) => total + inv.amount, 0);
+  const totalPaidInvoices = (state.invoices || []).filter((inv: Invoice) => inv.status === 'paid').reduce((total: number, inv: Invoice) => total + inv.amount, 0);
+  const totalPendingInvoices = (state.invoices || []).filter((inv: Invoice) => inv.status === 'pending').reduce((total: number, inv: Invoice) => total + inv.amount, 0);
+  const totalOutstandingPayables = calculateOutstandingPayables(state.suppliers || []);
 
 
   const displayCurrency = state.settings?.currency || 'DKK';

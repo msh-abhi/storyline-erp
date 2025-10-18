@@ -28,8 +28,8 @@ export default function SubscriptionManagement() {
   });
 
   const filteredSubscriptions = state.subscriptions?.filter(subscription =>
-    subscription.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    subscription.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+    subscription.productName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    subscription.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -19,8 +19,8 @@ export default function PurchaseManagement() {
   });
 
   const filteredPurchases = state.purchases.filter(purchase =>
-    purchase.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    purchase.supplierName.toLowerCase().includes(searchTerm.toLowerCase())
+    purchase.productName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    purchase.supplierName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
