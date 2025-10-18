@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (profile) {
         setUserProfile(profile);
-        isAdminStatus = profile.is_admin ?? false;
+        isAdminStatus = profile.isAdmin ?? false;
         console.log(`AuthProvider: Profile fetched. Setting isAdmin state to: ${isAdminStatus}`);
         setIsAdmin(isAdminStatus);
       } else {
@@ -76,10 +76,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!portalUser && email) {
           console.debug("AuthProvider: 📝 Portal user not found, creating...");
           portalUser = await createCustomerPortalUser({
-            auth_id: uid,
-            customer_id: null,
+            authProviderId: uid,
+            customerId: null,
             email: email,
-          });
+          } as any);
           console.debug("AuthProvider: Portal user created:", portalUser);
         } else {
           console.debug("AuthProvider: Found existing portal user:", portalUser);

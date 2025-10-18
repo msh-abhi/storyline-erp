@@ -73,7 +73,7 @@ export const debugAuth = async () => {
       const { data: rates, error: ratesError } = await supabase
         .from('exchange_rates')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('updated_at', { ascending: false })
         .limit(1);
       
       if (ratesError) {

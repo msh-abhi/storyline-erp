@@ -346,10 +346,10 @@ export default function SubscriptionManagement() {
                   <span className="text-sm text-gray-500">{product.durationMonths} month{product.durationMonths > 1 ? 's' : ''}</span>
                 </div>
                 <div className="text-xs text-gray-500">
-                  {product.features.slice(0, 2).map((feature, index) => (
+                  {product.features?.slice(0, 2).map((feature, index) => (
                     <div key={index}>• {feature}</div>
                   ))}
-                  {product.features.length > 2 && <div>• +{product.features.length - 2} more</div>}
+                  {product.features?.length > 2 && <div>• +{product.features.length - 2} more</div>}
                 </div>
               </div>
             ))}
@@ -378,7 +378,7 @@ export default function SubscriptionManagement() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Select a customer</option>
-                    {state.customers.map((customer) => (
+                    {state.customers?.map((customer) => (
                       <option key={customer.id} value={customer.id}>
                         {customer.name} ({customer.email})
                       </option>
@@ -625,7 +625,7 @@ export default function SubscriptionManagement() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredSubscriptions.map((subscription) => {
                   const daysLeft = getDaysUntilExpiry(subscription.endDate);
-                  const invoice = state.invoices.find(inv => inv.id === subscription.invoiceId);
+                  const invoice = state.invoices?.find(inv => inv.id === subscription.invoiceId);
                   return (
                     <tr key={subscription.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -651,7 +651,7 @@ export default function SubscriptionManagement() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                        <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${ 
                           subscription.status === 'active' ? 'bg-green-100 text-green-800' :
                           subscription.status === 'expired' ? 'bg-red-100 text-red-800' :
                           subscription.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
@@ -662,7 +662,7 @@ export default function SubscriptionManagement() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-1">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${ 
                             subscription.paymentMethod === 'mobilepay' ? 'bg-blue-100 text-blue-800' :
                             subscription.paymentMethod === 'revolut' ? 'bg-purple-100 text-purple-800' :
                             'bg-gray-100 text-gray-800'
@@ -684,7 +684,7 @@ export default function SubscriptionManagement() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex space-x-1">
                           <span 
-                            className={`inline-flex px-2 py-1 text-xs rounded ${
+                            className={`inline-flex px-2 py-1 text-xs rounded ${ 
                               subscription.reminder10Sent ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
                             }`}
                             title={subscription.reminder10Sent ? '10-day reminder sent' : '10-day reminder not sent'}
@@ -692,7 +692,7 @@ export default function SubscriptionManagement() {
                             10d
                           </span>
                           <span
-                            className={`inline-flex px-2 py-1 text-xs rounded ${
+                            className={`inline-flex px-2 py-1 text-xs rounded ${ 
                               subscription.reminder3Sent ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
                             }`}
                             title={subscription.reminder3Sent ? '3-day reminder sent' : '3-day reminder not sent'}
@@ -703,7 +703,7 @@ export default function SubscriptionManagement() {
                             const reminderStatus = getSubscriptionReminderStatus(subscription);
                             if (reminderStatus.needsReminder) {
                               return (
-                                <span className={`inline-flex px-2 py-1 text-xs rounded font-medium ${
+                                <span className={`inline-flex px-2 py-1 text-xs rounded font-medium ${ 
                                   reminderStatus.isUrgent 
                                     ? 'bg-red-100 text-red-800' 
                                     : 'bg-yellow-100 text-yellow-800'

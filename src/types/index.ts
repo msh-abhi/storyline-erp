@@ -204,7 +204,7 @@ export interface ExchangeRates {
 export interface UserProfile {
   id: string;
   email?: string | null;
-  is_admin?: boolean;
+  isAdmin?: boolean;
   // Add any other profile fields from your 'users' table
 }
 

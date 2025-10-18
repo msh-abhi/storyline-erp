@@ -9,7 +9,7 @@ import DataExport from './DataExport';
 
 export default function SettingsComponent() {
   const { state, actions } = useApp();
-  const { signOut, user } = useAuth();
+  const { signOut, authUser } = useAuth();
   const [formData, setFormData] = useState({
     companyName: 'Jysk Streaming',
     logoUrl: '',
@@ -96,7 +96,7 @@ export default function SettingsComponent() {
                 Signed in as
               </label>
               <p className="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded-lg">
-                {user?.email}
+                {authUser?.email ?? 'Loading...'}
               </p>
             </div>
             <div>

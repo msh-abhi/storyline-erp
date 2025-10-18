@@ -2,9 +2,10 @@ import {
   Customer, Reseller, Supplier, DigitalCode, TVBox, Sale, Purchase,
   Subscription, Invoice, PaymentTransaction, EmailTemplate, SubscriptionProduct,
   ExchangeRates, SupportedCurrency, Settings, Payment,
-  CustomerPortalUser, CustomerMessage, CustomerCredential, UserProfile // ADDED: UserProfile
+  CustomerPortalUser, CustomerMessage, CustomerCredential, UserProfile
 } from '../types';
-import { supabase } from '../lib/supabase'; // Use the centralized client
+import { supabase } from '../lib/supabase';
+import { keysToCamel, keysToSnake } from '../utils/caseConverter';
 
 // --- NEW: User Profile Service (for public.users table) ---
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
@@ -14,13 +15,13 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
     .select("id, email, is_admin")
     .eq("id", uid)
     .limit(1)
-    .maybeSingle(); // Use maybeSingle to handle 0 or 1 row gracefully
+    .maybeSingle();
 
   if (error) {
     console.error("supabaseService: Error fetching user profile:", error);
     throw error;
   }
-  return data; // Data should already match UserProfile structure
+  return keysToCamel(data);
 };
 
 
@@ -30,17 +31,17 @@ export const customerService = {
   getAll: async (): Promise<Customer[]> => {
     const { data, error } = await supabase.from('customers').select('*');
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   create: async (customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> => {
-    const { data, error } = await supabase.from('customers').insert(customer).select().single();
+    const { data, error } = await supabase.from('customers').insert(keysToSnake(customer)).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   update: async (id: string, customer: Partial<Customer>): Promise<Customer> => {
-    const { data, error } = await supabase.from('customers').update(customer).eq('id', id).select().single();
+    const { data, error } = await supabase.from('customers').update(keysToSnake(customer)).eq('id', id).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('customers').delete().eq('id', id);
@@ -52,20 +53,17 @@ export const resellerService = {
   getAll: async (): Promise<Reseller[]> => {
     const { data, error } = await supabase.from('resellers').select('*');
     if (error) throw error;
-    return data.map(reseller => ({
-      ...reseller,
-      outstandingBalance: reseller.outstandingBalance || 0,
-    }));
+    return keysToCamel(data);
   },
   create: async (reseller: Omit<Reseller, 'id' | 'createdAt' | 'updatedAt'>): Promise<Reseller> => {
-    const { data, error } = await supabase.from('resellers').insert(reseller).select().single();
+    const { data, error } = await supabase.from('resellers').insert(keysToSnake(reseller)).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   update: async (id: string, reseller: Partial<Reseller>): Promise<Reseller> => {
-    const { data, error } = await supabase.from('resellers').update(reseller).eq('id', id).select().single();
+    const { data, error } = await supabase.from('resellers').update(keysToSnake(reseller)).eq('id', id).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('resellers').delete().eq('id', id);
@@ -77,20 +75,17 @@ export const supplierService = {
   getAll: async (): Promise<Supplier[]> => {
     const { data, error } = await supabase.from('suppliers').select('*');
     if (error) throw error;
-    return data.map(supplier => ({
-      ...supplier,
-      amountOwed: supplier.amountOwed || 0,
-    }));
+    return keysToCamel(data);
   },
   create: async (supplier: Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>): Promise<Supplier> => {
-    const { data, error } = await supabase.from('suppliers').insert(supplier).select().single();
+    const { data, error } = await supabase.from('suppliers').insert(keysToSnake(supplier)).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   update: async (id: string, supplier: Partial<Supplier>): Promise<Supplier> => {
-    const { data, error } = await supabase.from('suppliers').update(supplier).eq('id', id).select().single();
+    const { data, error } = await supabase.from('suppliers').update(keysToSnake(supplier)).eq('id', id).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('suppliers').delete().eq('id', id);
@@ -102,17 +97,17 @@ export const digitalCodeService = {
   getAll: async (): Promise<DigitalCode[]> => {
     const { data, error } = await supabase.from('digital_codes').select('*');
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   create: async (code: Omit<DigitalCode, 'id' | 'createdAt' | 'updatedAt' | 'soldQuantity'>): Promise<DigitalCode> => {
-    const { data, error } = await supabase.from('digital_codes').insert(code).select().single();
+    const { data, error } = await supabase.from('digital_codes').insert(keysToSnake(code)).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   update: async (id: string, code: Partial<DigitalCode>): Promise<DigitalCode> => {
-    const { data, error } = await supabase.from('digital_codes').update(code).eq('id', id).select().single();
+    const { data, error } = await supabase.from('digital_codes').update(keysToSnake(code)).eq('id', id).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('digital_codes').delete().eq('id', id);
@@ -124,17 +119,17 @@ export const tvBoxService = {
   getAll: async (): Promise<TVBox[]> => {
     const { data, error } = await supabase.from('tv_boxes').select('*');
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   create: async (tvBox: Omit<TVBox, 'id' | 'createdAt' | 'updatedAt' | 'soldQuantity'>): Promise<TVBox> => {
-    const { data, error } = await supabase.from('tv_boxes').insert(tvBox).select().single();
+    const { data, error } = await supabase.from('tv_boxes').insert(keysToSnake(tvBox)).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   update: async (id: string, tvBox: Partial<TVBox>): Promise<TVBox> => {
-    const { data, error } = await supabase.from('tv_boxes').update(tvBox).eq('id', id).select().single();
+    const { data, error } = await supabase.from('tv_boxes').update(keysToSnake(tvBox)).eq('id', id).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('tv_boxes').delete().eq('id', id);
@@ -146,17 +141,17 @@ export const saleService = {
   getAll: async (): Promise<Sale[]> => {
     const { data, error } = await supabase.from('sales').select('*');
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   create: async (sale: Omit<Sale, 'id' | 'createdAt' | 'updatedAt' | 'saleDate'>): Promise<Sale> => {
-    const { data, error } = await supabase.from('sales').insert(sale).select().single();
+    const { data, error } = await supabase.from('sales').insert(keysToSnake(sale)).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   update: async (id: string, sale: Partial<Sale>): Promise<Sale> => {
-    const { data, error } = await supabase.from('sales').update(sale).eq('id', id).select().single();
+    const { data, error } = await supabase.from('sales').update(keysToSnake(sale)).eq('id', id).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('sales').delete().eq('id', id);
@@ -168,34 +163,22 @@ export const purchaseService = {
   getAll: async (): Promise<Purchase[]> => {
     const { data, error } = await supabase.from('purchases').select('*');
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   add: async (purchase: Omit<Purchase, 'createdAt' | 'updatedAt'>): Promise<Purchase> => {
-    const { data, error } = await supabase.from('purchases').insert({
-      id: purchase.id,
-      supplierId: purchase.supplierId,
-      productId: purchase.productId,
-      productName: purchase.productName,
-      productType: purchase.productType,
-      supplierName: purchase.supplierName,
-      quantity: purchase.quantity,
-      unitCost: purchase.unitCost,
-      totalCost: purchase.totalCost,
-      purchaseDate: purchase.purchaseDate,
-      status: purchase.status,
-    }).select().single();
+    const { data, error } = await supabase.from('purchases').insert(keysToSnake(purchase)).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   create: async (purchase: Omit<Purchase, 'id' | 'createdAt' | 'updatedAt' | 'purchaseDate'>): Promise<Purchase> => {
-    const { data, error } = await supabase.from('purchases').insert(purchase).select().single();
+    const { data, error } = await supabase.from('purchases').insert(keysToSnake(purchase)).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   update: async (id: string, purchase: Partial<Purchase>): Promise<Purchase> => {
-    const { data, error } = await supabase.from('purchases').update(purchase).eq('id', id).select().single();
+    const { data, error } = await supabase.from('purchases').update(keysToSnake(purchase)).eq('id', id).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('purchases').delete().eq('id', id);
@@ -207,17 +190,17 @@ export const subscriptionService = {
   getAll: async (): Promise<Subscription[]> => {
     const { data, error } = await supabase.from('subscriptions').select('*');
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   create: async (subscription: Omit<Subscription, 'id' | 'createdAt' | 'updatedAt'>): Promise<Subscription> => {
-    const { data, error } = await supabase.from('subscriptions').insert(subscription).select().single();
+    const { data, error } = await supabase.from('subscriptions').insert(keysToSnake(subscription)).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   update: async (id: string, subscription: Partial<Subscription>): Promise<Subscription> => {
-    const { data, error } = await supabase.from('subscriptions').update(subscription).eq('id', id).select().single();
+    const { data, error } = await supabase.from('subscriptions').update(keysToSnake(subscription)).eq('id', id).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('subscriptions').delete().eq('id', id);
@@ -229,17 +212,17 @@ export const invoiceService = {
   getAll: async (): Promise<Invoice[]> => {
     const { data, error } = await supabase.from('invoices').select('*');
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   create: async (invoice: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>): Promise<Invoice> => {
-    const { data, error } = await supabase.from('invoices').insert(invoice).select().single();
+    const { data, error } = await supabase.from('invoices').insert(keysToSnake(invoice)).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   update: async (id: string, invoice: Partial<Invoice>): Promise<Invoice> => {
-    const { data, error } = await supabase.from('invoices').update(invoice).eq('id', id).select().single();
+    const { data, error } = await supabase.from('invoices').update(keysToSnake(invoice)).eq('id', id).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('invoices').delete().eq('id', id);
@@ -251,17 +234,17 @@ export const paymentService = {
   getAll: async (): Promise<Payment[]> => {
     const { data, error } = await supabase.from('payments').select('*');
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   create: async (payment: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>): Promise<Payment> => {
-    const { data, error } = await supabase.from('payments').insert(payment).select().single();
+    const { data, error } = await supabase.from('payments').insert(keysToSnake(payment)).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   update: async (id: string, payment: Partial<Payment>): Promise<Payment> => {
-    const { data, error } = await supabase.from('payments').update(payment).eq('id', id).select().single();
+    const { data, error } = await supabase.from('payments').update(keysToSnake(payment)).eq('id', id).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('payments').delete().eq('id', id);
@@ -276,23 +259,23 @@ export const settingsService = {
       console.error("supabaseService: Error fetching settings:", error);
       throw error;
     }
-    return data || null;
+    return keysToCamel(data) || null;
   },
   update: async (id: string, settings: Partial<Settings>): Promise<Settings> => {
-    const { data, error } = await supabase.from('settings').update(settings).eq('id', id).select().single();
+    const { data, error } = await supabase.from('settings').update(keysToSnake(settings)).eq('id', id).select().single();
     if (error) {
       console.error("supabaseService: Error updating settings:", error);
       throw error;
     }
-    return data;
+    return keysToCamel(data);
   },
   create: async (settings: Omit<Settings, 'id' | 'createdAt' | 'updatedAt'>): Promise<Settings> => {
-    const { data, error } = await supabase.from('settings').insert(settings).select().single();
+    const { data, error } = await supabase.from('settings').insert(keysToSnake(settings)).select().single();
     if (error) {
       console.error("supabaseService: Error creating settings:", error);
       throw error;
     }
-    return data;
+    return keysToCamel(data);
   },
 };
 
@@ -300,78 +283,45 @@ export const exchangeRateService = {
   getLatest: async (): Promise<ExchangeRates | null> => {
     console.debug('supabaseService: DEBUG: Attempting to fetch exchange rates...');
     try {
-      // FIX: Query 'updated_at' instead of 'last_updated'
       const { data, error } = await supabase
         .from("exchange_rates")
-        .select("rates, updated_at") // Remove 'success' column that doesn't exist
-        .order("updated_at", { ascending: false }) // Order by 'updated_at'
+        .select("rates, updated_at")
+        .order("updated_at", { ascending: false })
         .limit(1)
-        .maybeSingle(); // Use maybeSingle to handle 0 or 1 row gracefully
+        .maybeSingle();
 
       if (error) {
         console.error("supabaseService: DEBUG: Error fetching exchange rates:", error);
         return null;
       }
 
-      if (!data) { // If maybeSingle returns null, no rates found
+      if (!data) {
         console.debug("supabaseService: DEBUG: No exchange rate rows found, returning null");
         return null;
       }
 
-      // FIX: Map 'updated_at' to 'lastUpdated' in the returned object
-      const convertedRate: ExchangeRates = {
-        rates: data.rates,
-        lastUpdated: data.updated_at, // Map from 'updated_at'
-        success: data.success ?? true, // Assume success if column doesn't exist or is null
-      };
-      console.debug("supabaseService: DEBUG: Successfully fetched exchange rates:", convertedRate);
-      return convertedRate;
+      return keysToCamel(data);
 
     } catch (err) {
       console.error("supabaseService: DEBUG: Unexpected error fetching exchange rates", err);
       return null;
     }
   },
-  // FIX: Adjust create/update if necessary to use 'updated_at' column name
    create: async (rates: Omit<ExchangeRates, 'lastUpdated' | 'success'>): Promise<ExchangeRates> => {
-     const now = new Date().toISOString();
-     const { data, error } = await supabase.from('exchange_rates').insert({
-       rates: rates.rates,
-       updated_at: now, // Use 'updated_at'
-       success: true,
-     }).select('rates, updated_at, success').single();
+     const { data, error } = await supabase.from('exchange_rates').insert(keysToSnake(rates)).select().single();
      if (error) {
        console.error("supabaseService: Error creating exchange rates:", error);
        throw error;
      }
-     return {
-       rates: data.rates,
-       lastUpdated: data.updated_at, // Map back
-       success: data.success,
-     };
+     return keysToCamel(data);
    },
    update: async (id: string, rates: Partial<ExchangeRates>): Promise<ExchangeRates> => {
-      const updateData: any = { rates: rates.rates };
-      if (rates.lastUpdated) {
-        updateData.updated_at = rates.lastUpdated; // Map to 'updated_at'
-      }
-      if (rates.success !== undefined) {
-        updateData.success = rates.success;
-      }
-     const { data, error } = await supabase.from('exchange_rates')
-        .update(updateData)
-        .eq('id', id)
-        .select('rates, updated_at, success')
-        .single();
+     const { data, error } = await supabase.from('exchange_rates').update(keysToSnake(rates)).eq('id', id).select().single();
      if (error) {
        console.error("supabaseService: Error updating exchange rates:", error);
        throw error;
      }
-     return {
-       rates: data.rates,
-       lastUpdated: data.updated_at, // Map back
-       success: data.success,
-     };
+     return keysToCamel(data);
    }
 };
 
@@ -379,17 +329,17 @@ export const paymentTransactionService = {
   getAll: async (): Promise<PaymentTransaction[]> => {
     const { data, error } = await supabase.from('payment_transactions').select('*');
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   create: async (pt: Omit<PaymentTransaction, 'id' | 'createdAt' | 'updatedAt'>): Promise<PaymentTransaction> => {
-    const { data, error } = await supabase.from('payment_transactions').insert(pt).select().single();
+    const { data, error } = await supabase.from('payment_transactions').insert(keysToSnake(pt)).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   update: async (id: string, pt: Partial<PaymentTransaction>): Promise<PaymentTransaction> => {
-    const { data, error } = await supabase.from('payment_transactions').update(pt).eq('id', id).select().single();
+    const { data, error } = await supabase.from('payment_transactions').update(keysToSnake(pt)).eq('id', id).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('payment_transactions').delete().eq('id', id);
@@ -401,17 +351,17 @@ export const emailTemplateService = {
   getAll: async (): Promise<EmailTemplate[]> => {
     const { data, error } = await supabase.from('email_templates').select('*');
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   create: async (template: Omit<EmailTemplate, 'id' | 'createdAt' | 'updatedAt'>): Promise<EmailTemplate> => {
-    const { data, error } = await supabase.from('email_templates').insert(template).select().single();
+    const { data, error } = await supabase.from('email_templates').insert(keysToSnake(template)).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   update: async (id: string, template: Partial<EmailTemplate>): Promise<EmailTemplate> => {
-    const { data, error } = await supabase.from('email_templates').update(template).eq('id', id).select().single();
+    const { data, error } = await supabase.from('email_templates').update(keysToSnake(template)).eq('id', id).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('email_templates').delete().eq('id', id);
@@ -423,17 +373,17 @@ export const subscriptionProductService = {
   getAll: async (): Promise<SubscriptionProduct[]> => {
     const { data, error } = await supabase.from('subscription_products').select('*');
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   create: async (product: Omit<SubscriptionProduct, 'id' | 'createdAt' | 'updatedAt'>): Promise<SubscriptionProduct> => {
-    const { data, error } = await supabase.from('subscription_products').insert(product).select().single();
+    const { data, error } = await supabase.from('subscription_products').insert(keysToSnake(product)).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   update: async (id: string, product: Partial<SubscriptionProduct>): Promise<SubscriptionProduct> => {
-    const { data, error } = await supabase.from('subscription_products').update(product).eq('id', id).select().single();
+    const { data, error } = await supabase.from('subscription_products').update(keysToSnake(product)).eq('id', id).select().single();
     if (error) throw error;
-    return data;
+    return keysToCamel(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('subscription_products').delete().eq('id', id);
@@ -445,33 +395,25 @@ export const subscriptionProductService = {
 
 export const getCustomerPortalUserByAuthId = async (authId: string): Promise<CustomerPortalUser | null> => {
   console.debug("supabaseService: Fetching customer portal user by auth_id:", authId);
-  // FIX: Query 'auth_provider_id' instead of 'auth_id'
   const { data, error } = await supabase
     .from('customer_portal_users')
     .select('*')
-    .eq('auth_provider_id', authId) // Use the correct column name 'auth_provider_id'
+    .eq('auth_provider_id', authId)
     .limit(1)
-    .maybeSingle(); // Use maybeSingle to handle 0 or 1 row gracefully
+    .maybeSingle();
 
   if (error) {
     console.error("supabaseService: Error fetching customer portal user:", error);
-    throw error; // Re-throw the error so AuthProvider knows something went wrong
+    throw error;
   }
-  console.debug("supabaseService: Fetched portal user data:", data); // Log fetched data
-  // FIX: Ensure the returned object maps 'auth_provider_id' to 'auth_id' if your type expects it
-  return data ? { ...data, auth_id: data.auth_provider_id } : null;
+  return keysToCamel(data);
 };
 
 export const createCustomerPortalUser = async (user: Omit<CustomerPortalUser, 'id' | 'created_at' | 'updated_at' | 'last_login_at'>): Promise<CustomerPortalUser> => {
   console.debug("supabaseService: Creating new customer portal user:", user);
-  // FIX: Insert using 'auth_provider_id'
   const { data, error } = await supabase
     .from('customer_portal_users')
-    .insert({
-        auth_provider_id: user.auth_id, // Use the correct column name 'auth_provider_id'
-        customer_id: user.customer_id,
-        email: user.email
-    })
+    .insert(keysToSnake(user))
     .select()
     .single();
 
@@ -479,14 +421,13 @@ export const createCustomerPortalUser = async (user: Omit<CustomerPortalUser, 'i
     console.error("supabaseService: Error creating customer portal user:", error);
     throw error;
   }
-  // FIX: Ensure the returned object maps 'auth_provider_id' to 'auth_id'
-  return { ...data, auth_id: data.auth_provider_id };
+  return keysToCamel(data);
 };
 
 export const getCustomerMessages = async (customerId: string): Promise<CustomerMessage[]> => {
   console.debug("supabaseService: Fetching customer messages for customer_id:", customerId);
   const { data, error } = await supabase
-    .from('customer_messages') // Assuming your table name is 'customer_messages'
+    .from('customer_messages')
     .select('*')
     .eq('customer_id', customerId)
     .order('created_at', { ascending: true });
@@ -495,14 +436,14 @@ export const getCustomerMessages = async (customerId: string): Promise<CustomerM
     console.error("supabaseService: Error fetching customer messages:", error);
     throw error;
   }
-  return data;
+  return keysToCamel(data);
 };
 
 export const createCustomerMessage = async (message: Omit<CustomerMessage, 'id' | 'created_at' | 'updated_at' | 'admin_notes'>): Promise<CustomerMessage> => {
   console.debug("supabaseService: Creating new customer message:", message);
   const { data, error } = await supabase
     .from('customer_messages')
-    .insert(message)
+    .insert(keysToSnake(message))
     .select()
     .single();
 
@@ -510,7 +451,7 @@ export const createCustomerMessage = async (message: Omit<CustomerMessage, 'id' 
     console.error("supabaseService: Error creating customer message:", error);
     throw error;
   }
-  return data;
+  return keysToCamel(data);
 };
 
 export const getCustomerCredentials = async (customerId: string): Promise<CustomerCredential[]> => {
@@ -525,5 +466,5 @@ export const getCustomerCredentials = async (customerId: string): Promise<Custom
     console.error("supabaseService: Error fetching customer credentials:", error);
     throw error;
   }
-  return data;
+  return keysToCamel(data);
 };

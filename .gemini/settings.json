@@ -1,0 +1,10 @@
+{
+  "mcp_servers": [
+    {
+      "name": "My Custom Tools",
+      "url": "http://localhost:8080/mcp",
+      "description": "A local server providing custom tools for my project.",
+      "enabled": true
+    }
+  ]
+}

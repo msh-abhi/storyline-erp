@@ -101,10 +101,9 @@ function AdminAppContent() {
 
 // Main App component for routing and authentication logic
 function App() {
-  // FIX: Destructure new state variables from useAuth
-  const { authUser, authLoading, isAdmin, customerPortalUser, error } = useAuth();
+  const { authUser, authInitialized, isAdmin, customerPortalUser, error } = useAuth();
 
-  if (authLoading) {
+  if (!authInitialized) {
     return (
       <div className="min-h-screen gradient-bg flex items-center justify-center">
         <div className="text-center">
@@ -132,8 +131,8 @@ function App() {
         <Route
           path="/portal/*"
           element={
-            authUser && customerPortalUser && !isAdmin ? ( // FIX: Changed 'portalUser' to 'customerPortalUser'
-              <CustomerPortalLayout> {/* This will be created next */}
+            authUser && customerPortalUser && !isAdmin ? (
+              <CustomerPortalLayout>
                 <Routes>
                   <Route path="dashboard" element={<CustomerPortalDashboard />} />
                   <Route path="subscriptions" element={<CustomerPortalSubscriptions />} />
@@ -141,7 +140,7 @@ function App() {
                   <Route path="profile" element={<CustomerPortalProfile />} />
                   <Route path="credentials" element={<CustomerPortalCredentials />} />
                   <Route path="contact" element={<CustomerPortalContact />} />
-                  <Route path="*" element={<Navigate to="dashboard" replace />} /> {/* Default portal route */}
+                  <Route path="*" element={<Navigate to="dashboard" replace />} />
                 </Routes>
               </CustomerPortalLayout>
             ) : (
@@ -156,11 +155,9 @@ function App() {
           element={
             authUser && isAdmin ? (
               <AdminAppContent />
-            ) : authUser && customerPortalUser && !isAdmin ? ( // FIX: Changed 'portalUser' to 'customerPortalUser'
-              // If a portal user tries to access admin routes, redirect to portal dashboard
+            ) : authUser && customerPortalUser && !isAdmin ? (
               <Navigate to="/portal/dashboard" replace />
             ) : (
-              // Default to admin login form if not authenticated
               <LoginForm />
             )
           }
