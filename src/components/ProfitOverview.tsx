@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { BarChart3, ChevronDown, Calendar, TrendingUp, TrendingDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import {
   calculateMonthlyProfit,
   calculateYearlyProfit,
   getMonthlyBreakdown,
-  getCurrentMonth,
   getCurrentYear,
-  formatCurrency
+  getCurrentMonth,
+  formatCurrency,
 } from '../utils/calculations';
+import { Sale, Purchase } from '../types';
+import { format } from 'date-fns'; // Only keep 'format' if it's the only one used from date-fns directly
+import { enUS, da } from 'date-fns/locale'; // Keep locales as they are used with format
 
 export default function ProfitOverview() {
   const { state } = useApp();
@@ -17,26 +20,44 @@ export default function ProfitOverview() {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const displayCurrency = state.settings?.currency || 'DKK';
-  
-  // Calculate profits
+  const currentLocale = state.settings?.language === 'da' ? da : enUS;
+
   const monthlyProfit = calculateMonthlyProfit(state.sales, state.purchases, selectedYear, selectedMonth);
   const yearlyProfit = calculateYearlyProfit(state.sales, state.purchases, selectedYear);
   const monthlyBreakdown = getMonthlyBreakdown(state.sales, state.purchases, selectedYear);
 
-  // Generate year options (current year and 2 years back)
   const currentYear = getCurrentYear();
   const yearOptions = Array.from({ length: 3 }, (_, i) => currentYear - i);
 
-  // Month names
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
+  const handleMonthChange = (direction: 'prev' | 'next') => {
+    setSelectedMonth(prev => {
+      let newMonth = prev + (direction === 'prev' ? -1 : 1);
+      let newYear = selectedYear;
+      if (newMonth < 0) {
+        newMonth = 11;
+        newYear--;
+      } else if (newMonth > 11) {
+        newMonth = 0;
+        newYear++;
+      }
+      setSelectedYear(newYear);
+      return newMonth;
+    });
+  };
+
+  const handleYearChange = (direction: 'prev' | 'next') => {
+    setSelectedYear(prev => prev + (direction === 'prev' ? -1 : 1));
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
       {/* Compact Header */}
-      <div 
+      <div
         className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
       >
@@ -46,15 +67,21 @@ export default function ProfitOverview() {
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Profit Overview</h3>
               <p className="text-xs text-gray-500">
-                {monthNames[selectedMonth]} {selectedYear}: {formatCurrency(monthlyProfit, 'DKK', state.exchangeRates, displayCurrency as any)}
+                {format(new Date(selectedYear, selectedMonth, 1), 'MMM yyyy', { locale: currentLocale })}: {formatCurrency(monthlyProfit, 'DKK', state.exchangeRates, displayCurrency)}
                 {' • '}
-                {selectedYear} Total: {formatCurrency(yearlyProfit, 'DKK', state.exchangeRates, displayCurrency as any)}
+                {selectedYear} Total: {formatCurrency(yearlyProfit, 'DKK', state.exchangeRates, displayCurrency)}
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
             {/* Quick Month/Year Selectors */}
             <div className="flex items-center space-x-2">
+              <button
+                onClick={(e) => { e.stopPropagation(); handleMonthChange('prev'); }}
+                className="p-1 rounded-full hover:bg-gray-100"
+              >
+                <ChevronDown className="h-4 w-4 rotate-90 text-gray-600" />
+              </button>
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
@@ -67,6 +94,19 @@ export default function ProfitOverview() {
                   </option>
                 ))}
               </select>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleMonthChange('next'); }}
+                className="p-1 rounded-full hover:bg-gray-100"
+              >
+                <ChevronDown className="h-4 w-4 -rotate-90 text-gray-600" />
+              </button>
+
+              <button
+                onClick={(e) => { e.stopPropagation(); handleYearChange('prev'); }}
+                className="p-1 rounded-full hover:bg-gray-100"
+              >
+                <ChevronDown className="h-4 w-4 rotate-90 text-gray-600" />
+              </button>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
@@ -79,9 +119,15 @@ export default function ProfitOverview() {
                   </option>
                 ))}
               </select>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleYearChange('next'); }}
+                className="p-1 rounded-full hover:bg-gray-100"
+              >
+                <ChevronDown className="h-4 w-4 -rotate-90 text-gray-600" />
+              </button>
             </div>
-            <ChevronDown 
-              className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
+            <ChevronDown
+              className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
             />
           </div>
         </div>
@@ -99,7 +145,7 @@ export default function ProfitOverview() {
                     {monthNames[selectedMonth]} {selectedYear} Profit
                   </p>
                   <p className="text-2xl font-bold text-gray-900 mt-2">
-                    {formatCurrency(monthlyProfit, 'DKK', state.exchangeRates, displayCurrency as any)}
+                    {formatCurrency(monthlyProfit, 'DKK', state.exchangeRates, displayCurrency)}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">Current month net profit</p>
                 </div>
@@ -120,7 +166,7 @@ export default function ProfitOverview() {
                     {selectedYear} Total Profit
                   </p>
                   <p className="text-2xl font-bold text-gray-900 mt-2">
-                    {formatCurrency(yearlyProfit, 'DKK', state.exchangeRates, displayCurrency as any)}
+                    {formatCurrency(yearlyProfit, 'DKK', state.exchangeRates, displayCurrency)}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">Year-to-date net profit</p>
                 </div>
@@ -142,12 +188,12 @@ export default function ProfitOverview() {
               <span>{selectedYear} Monthly Breakdown</span>
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-              {monthlyBreakdown.map((month) => (
-                <div 
-                  key={month.month} 
+              {monthlyBreakdown.map((month: { month: number; monthName: string; revenue: number; expenses: number; profit: number }) => (
+                <div
+                  key={month.month}
                   className={`p-3 rounded-lg border transition-colors ${
-                    month.month === selectedMonth 
-                      ? 'bg-blue-50 border-blue-200' 
+                    month.month === selectedMonth
+                      ? 'bg-blue-50 border-blue-200'
                       : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                   }`}
                 >
@@ -157,11 +203,11 @@ export default function ProfitOverview() {
                   <div className={`text-sm font-semibold ${
                     month.profit >= 0 ? 'text-green-600' : 'text-red-600'
                   }`}>
-                    {formatCurrency(month.profit, 'DKK', state.exchangeRates, displayCurrency as any)}
+                    {formatCurrency(month.profit, 'DKK', state.exchangeRates, displayCurrency)}
                   </div>
                   <div className="text-xs text-gray-500 space-y-0.5">
-                    <div>R: {formatCurrency(month.revenue, 'DKK', state.exchangeRates, displayCurrency as any)}</div>
-                    <div>E: {formatCurrency(month.expenses, 'DKK', state.exchangeRates, displayCurrency as any)}</div>
+                    <div>R: {formatCurrency(month.revenue, 'DKK', state.exchangeRates, displayCurrency)}</div>
+                    <div>E: {formatCurrency(month.expenses, 'DKK', state.exchangeRates, displayCurrency)}</div>
                   </div>
                 </div>
               ))}

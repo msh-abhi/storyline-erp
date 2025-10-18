@@ -239,7 +239,7 @@ interface AppContextType {
   actions: {
     loadAllData: () => Promise<void>;
     getDisplayCurrency: () => SupportedCurrency;
-    updateSettings: (id: string, settings: Partial<Settings>) => Promise<Settings>; // FIX: Changed return type to Promise<Settings>
+    updateSettings: (id: string, settings: Partial<Settings>) => Promise<Settings>;
     createCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Customer>;
     updateCustomer: (id: string, customer: Partial<Customer>) => Promise<Customer>;
     deleteCustomer: (id: string) => Promise<void>;
@@ -303,13 +303,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         if (data && data.rates) {
             const rates = {
-                id: 'static-rates', // Mock ID
+                id: 'static-rates', // Mock ID - NOTE: ExchangeRates type in index.ts does NOT have 'id'
                 baseCurrency: data.base,
                 rates: data.rates,
-                updatedAt: data.lastUpdated,
+                lastUpdated: data.lastUpdated, // FIX: Changed from 'updatedAt' to 'lastUpdated'
                 success: data.success
             };
-            dispatch({ type: 'SET_EXCHANGE_RATES', payload: rates as ExchangeRates });
+            // FIX: Cast to unknown first, then to ExchangeRates to satisfy TS if 'id' is not in ExchangeRates type
+            dispatch({ type: 'SET_EXCHANGE_RATES', payload: rates as unknown as ExchangeRates });
         }
     } catch (error) {
         console.error("AppContext: Error fetching exchange rates from Deno function:", error);
@@ -383,7 +384,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const updatedSettings = await settingsService.update(id, settings);
         dispatch({ type: 'SET_SETTINGS', payload: updatedSettings });
-        return updatedSettings; // FIX: Return the updated object
+        return updatedSettings;
       } catch (error) {
         dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to update settings' });
         throw error;
@@ -396,13 +397,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     createReseller: async (reseller) => { try { const newR = await resellerService.create(reseller as any); dispatch({ type: 'ADD_RESELLER', payload: newR }); return newR; } catch (e: any) { console.error('createReseller:', e); throw e; } },
     updateReseller: async (id, reseller) => { try { const updatedR = await resellerService.update(id, reseller as any); dispatch({ type: 'UPDATE_RESELLER', payload: updatedR }); return updatedR; } catch (e: any) { console.error('updateReseller:', e); throw e; } },
     deleteReseller: async (id) => { try { await resellerService.delete(id); dispatch({ type: 'DELETE_RESELLER', payload: id }); } catch (e: any) { console.error('deleteReseller:', e); throw e; } },
-    addResellerCredit: async (_resellerId, _amount, _paymentMethod) => { console.log('Mocked addResellerCredit'); await loadAllData(); }, // FIX: Unused params
+    addResellerCredit: async (_resellerId, _amount, _paymentMethod) => { console.log('Mocked addResellerCredit'); await loadAllData(); },
     createSupplier: async (supplier) => { try { const newS = await supplierService.create(supplier as any); dispatch({ type: 'ADD_SUPPLIER', payload: newS }); return newS; } catch (e: any) { console.error('createSupplier:', e); throw e; } },
     updateSupplier: async (id, supplier) => { try { const updatedS = await supplierService.update(id, supplier as any); dispatch({ type: 'UPDATE_SUPPLIER', payload: updatedS }); return updatedS; } catch (e: any) { console.error('updateSupplier:', e); throw e; } },
     deleteSupplier: async (id) => { try { await supplierService.delete(id); dispatch({ type: 'DELETE_SUPPLIER', payload: id }); } catch (e: any) { console.error('deleteSupplier:', e); throw e; } },
-    addSupplierCredit: async (_supplierId, _amount, _description) => { console.log('Mocked addSupplierCredit'); await loadAllData(); }, // FIX: Unused params
-    adjustSupplierCredit: async (_supplierId, _amount, _description) => { console.log('Mocked adjustSupplierCredit'); await loadAllData(); }, // FIX: Unused params
-    sellCreditToReseller: async (_supplierId, _resellerId, _creditAmount, _salePrice) => { console.log('Mocked sellCreditToReseller'); await loadAllData(); }, // FIX: Unused params
+    addSupplierCredit: async (_supplierId, _amount, _description) => { console.log('Mocked addSupplierCredit'); await loadAllData(); },
+    adjustSupplierCredit: async (_supplierId, _amount, _description) => { console.log('Mocked adjustSupplierCredit'); await loadAllData(); },
+    sellCreditToReseller: async (_supplierId, _resellerId, _creditAmount, _salePrice) => { console.log('Mocked sellCreditToReseller'); await loadAllData(); },
     createDigitalCode: async (code) => { try { const newD = await digitalCodeService.create(code as any); dispatch({ type: 'ADD_DIGITAL_CODE', payload: newD }); return newD; } catch (e: any) { console.error('createDigitalCode:', e); throw e; } },
     updateDigitalCode: async (id, code) => { try { const updatedD = await digitalCodeService.update(id, code as any); dispatch({ type: 'UPDATE_DIGITAL_CODE', payload: updatedD }); return updatedD; } catch (e: any) { console.error('updateDigitalCode:', e); throw e; } },
     deleteDigitalCode: async (id) => { try { await digitalCodeService.delete(id); dispatch({ type: 'DELETE_DIGITAL_CODE', payload: id }); } catch (e: any) { console.error('deleteDigitalCode:', e); throw e; } },
@@ -418,7 +419,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     createEmailTemplate: async (template) => { try { const newET = await emailTemplateService.create(template as any); dispatch({ type: 'ADD_EMAIL_TEMPLATE', payload: newET }); return newET; } catch (e: any) { console.error('createEmailTemplate:', e); throw e; } },
     updateEmailTemplate: async (id, template) => { try { const updatedET = await emailTemplateService.update(id, template as any); dispatch({ type: 'UPDATE_EMAIL_TEMPLATE', payload: updatedET }); return updatedET; } catch (e: any) { console.error('updateEmailTemplate:', e); throw e; } },
     deleteEmailTemplate: async (id) => { try { await emailTemplateService.delete(id); dispatch({ type: 'DELETE_EMAIL_TEMPLATE', payload: id }); } catch (e: any) { console.error('deleteEmailTemplate:', e); throw e; } },
-    sendEmail: async (_to, _subject, _content, _templateData) => { console.log('Mocked sendEmail'); }, // FIX: Unused params
+    sendEmail: async (_to, _subject, _content, _templateData) => { console.log('Mocked sendEmail'); },
     createSubscription: async (subscription) => { try { const newS = await subscriptionService.create(subscription as any); dispatch({ type: 'ADD_SUBSCRIPTION', payload: newS }); return newS; } catch (e: any) { console.error('createSubscription:', e); throw e; } },
     updateSubscription: async (id, subscription) => { try { const updatedS = await subscriptionService.update(id, subscription as any); dispatch({ type: 'UPDATE_SUBSCRIPTION', payload: updatedS }); return updatedS; } catch (e: any) { console.error('updateSubscription:', e); throw e; } },
     deleteSubscription: async (id) => { try { await subscriptionService.delete(id); dispatch({ type: 'DELETE_SUBSCRIPTION', payload: id }); } catch (e: any) { console.error('deleteSubscription:', e); throw e; } },
@@ -426,9 +427,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateSubscriptionProduct: async (id, product) => { try { const updatedSP = await subscriptionProductService.update(id, product as any); dispatch({ type: 'UPDATE_SUBSCRIPTION_PRODUCT', payload: updatedSP }); return updatedSP; } catch (e: any) { console.error('updateSubscriptionProduct:', e); throw e; } },
     deleteSubscriptionProduct: async (id) => { try { await subscriptionProductService.delete(id); dispatch({ type: 'DELETE_SUBSCRIPTION_PRODUCT', payload: id }); } catch (e: any) { console.error('deleteSubscriptionProduct:', e); throw e; } },
     createSettings: async (settings) => { try { const newS = await settingsService.create(settings as any); dispatch({ type: 'SET_SETTINGS', payload: newS }); return newS; } catch (e: any) { console.error('createSettings:', e); throw e; } },
-    addPaymentTransaction: async (_pt) => { console.log('Mocked addPaymentTransaction'); await loadAllData(); return _pt as PaymentTransaction; }, // FIX: Unused params
-    updatePaymentTransaction: async (_id, _pt) => { console.log('Mocked updatePaymentTransaction'); await loadAllData(); return _pt as PaymentTransaction; }, // FIX: Unused params
-    revolut: { getPaymentStatus: async (paymentRequestId: string) => { console.log('Mocked revolut.getPaymentStatus'); return { success: true, data: { state: 'COMPLETED' } }; } } as any,
+    addPaymentTransaction: async (_pt) => { console.log('Mocked addPaymentTransaction'); await loadAllData(); return _pt as PaymentTransaction; },
+    updatePaymentTransaction: async (_id, _pt) => { console.log('Mocked updatePaymentTransaction'); await loadAllData(); return _pt as PaymentTransaction; },
+    revolut: {
+      getPaymentStatus: async (_paymentRequestId: string) => {
+        console.log('Mock Revolut: Getting payment status for', _paymentRequestId);
+        // FIX: Return type must match AppContextType['actions']['revolut']['getPaymentStatus']
+        return { success: true, data: { status: 'COMPLETED' } };
+      },
+    },
   }), [state.settings, loadAllData]);
 
   const value = useMemo(() => ({ state, dispatch, actions: allActions }), [state, allActions]);
@@ -436,10 +443,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
-export const useAppContext = () => {
+export function useApp() {
   const context = useContext(AppContext);
-  if (context === undefined) {
-    throw new Error('useAppContext must be used within an AppProvider');
+  if (!context) {
+    throw new Error('useApp must be used within an AppProvider');
   }
   return context;
-};
+}

@@ -1,60 +1,73 @@
 import { Reseller, Supplier, DigitalCode, TVBox, Sale, Purchase, ExchangeRates, SupportedCurrency } from '../types';
+import { getMonth, getYear } from 'date-fns'; // Keep these for date manipulation within calculations
+
+// Helper function to get current year
+export const getCurrentYear = (): number => new Date().getFullYear();
+
+// Helper function to get current month (0-indexed)
+export const getCurrentMonth = (): number => new Date().getMonth();
 
 export function calculateTotalRevenue(sales: Sale[]): number {
-  return sales.filter(sale => sale.status === 'completed').reduce((total, sale) => total + sale.totalAmount, 0);
+  // Uses sale.totalPrice as per provided index.ts
+  return sales.filter(sale => sale.status === 'completed').reduce((total, sale) => total + sale.totalPrice, 0);
 }
 
 export function calculateOutstandingReceivables(resellers: Reseller[]): number {
-  return resellers.reduce((total, reseller) => total + reseller.outstandingPayment, 0);
+  // Uses reseller.outstandingBalance as per provided index.ts
+  return resellers.reduce((total, reseller) => total + reseller.outstandingBalance, 0);
 }
 
 export function calculateTotalExpenses(purchases: Purchase[]): number {
-  return purchases.filter(purchase => purchase.status === 'completed').reduce((total, purchase) => total + purchase.totalAmount, 0);
+  // Uses purchase.totalCost as per provided index.ts
+  return purchases.filter(purchase => purchase.status === 'completed').reduce((total, purchase) => total + purchase.totalCost, 0);
 }
 
 export function calculateOutstandingPayables(suppliers: Supplier[]): number {
+  // Uses supplier.amountOwed as per provided index.ts
   return suppliers.reduce((total, supplier) => total + supplier.amountOwed, 0);
 }
 
 export function calculateInventoryProfit(sales: Sale[]): number {
+  // Assuming 'profit' property exists on Sale as per your types
   return sales.filter(sale => sale.status === 'completed').reduce((total, sale) => total + sale.profit, 0);
 }
 
 export function calculateInventoryValue(digitalCodes: DigitalCode[], tvBoxes: TVBox[]): number {
   const digitalCodeValue = digitalCodes.reduce((total, code) => {
-    const remainingQuantity = code.quantity - code.soldQuantity;
+    const remainingQuantity = code.quantity - (code.soldQuantity || 0);
     return total + (remainingQuantity * code.purchasePrice);
   }, 0);
-  
+
   const tvBoxValue = tvBoxes.reduce((total, box) => {
-    const remainingQuantity = box.quantity - box.soldQuantity;
+    const remainingQuantity = box.quantity - (box.soldQuantity || 0);
     return total + (remainingQuantity * box.purchasePrice);
   }, 0);
-  
+
   return digitalCodeValue + tvBoxValue;
 }
 
-// New functions for monthly and yearly calculations
 export function calculateMonthlyRevenue(sales: Sale[], year: number, month: number): number {
   return sales
     .filter(sale => {
       const saleDate = new Date(sale.saleDate);
-      return sale.status === 'completed' && 
-             saleDate.getFullYear() === year && 
+      // Uses sale.totalPrice as per provided index.ts
+      return sale.status === 'completed' &&
+             saleDate.getFullYear() === year &&
              saleDate.getMonth() === month;
     })
-    .reduce((total, sale) => total + sale.totalAmount, 0);
+    .reduce((total, sale) => total + sale.totalPrice, 0);
 }
 
 export function calculateMonthlyExpenses(purchases: Purchase[], year: number, month: number): number {
   return purchases
     .filter(purchase => {
       const purchaseDate = new Date(purchase.purchaseDate);
-      return purchase.status === 'completed' && 
-             purchaseDate.getFullYear() === year && 
+      // Uses purchase.totalCost as per provided index.ts
+      return purchase.status === 'completed' &&
+             purchaseDate.getFullYear() === year &&
              purchaseDate.getMonth() === month;
     })
-    .reduce((total, purchase) => total + purchase.totalAmount, 0);
+    .reduce((total, purchase) => total + purchase.totalCost, 0);
 }
 
 export function calculateMonthlyProfit(sales: Sale[], purchases: Purchase[], year: number, month: number): number {
@@ -67,18 +80,20 @@ export function calculateYearlyRevenue(sales: Sale[], year: number): number {
   return sales
     .filter(sale => {
       const saleDate = new Date(sale.saleDate);
+      // Uses sale.totalPrice as per provided index.ts
       return sale.status === 'completed' && saleDate.getFullYear() === year;
     })
-    .reduce((total, sale) => total + sale.totalAmount, 0);
+    .reduce((total, sale) => total + sale.totalPrice, 0);
 }
 
 export function calculateYearlyExpenses(purchases: Purchase[], year: number): number {
   return purchases
     .filter(purchase => {
       const purchaseDate = new Date(purchase.purchaseDate);
+      // Uses purchase.totalCost as per provided index.ts
       return purchase.status === 'completed' && purchaseDate.getFullYear() === year;
     })
-    .reduce((total, purchase) => total + purchase.totalAmount, 0);
+    .reduce((total, purchase) => total + purchase.totalCost, 0);
 }
 
 export function calculateYearlyProfit(sales: Sale[], purchases: Purchase[], year: number): number {
@@ -87,7 +102,6 @@ export function calculateYearlyProfit(sales: Sale[], purchases: Purchase[], year
   return revenue - expenses;
 }
 
-// Get monthly breakdown for a year
 export function getMonthlyBreakdown(sales: Sale[], purchases: Purchase[], year: number): Array<{
   month: number;
   monthName: string;
@@ -115,37 +129,24 @@ export function getMonthlyBreakdown(sales: Sale[], purchases: Purchase[], year: 
   });
 }
 
-// Get current month and year
-export function getCurrentMonth(): number {
-  return new Date().getMonth();
-}
-
-export function getCurrentYear(): number {
-  return new Date().getFullYear();
-}
-
 export function convertCurrency(
   amount: number,
   fromCurrency: SupportedCurrency,
   toCurrency: SupportedCurrency,
-  exchangeRates: ExchangeRates
+  exchangeRates: ExchangeRates | null // Allow null
 ): number {
-  if (fromCurrency === toCurrency) {
+  if (!exchangeRates || fromCurrency === toCurrency) {
     return amount;
   }
 
   // All rates are relative to DKK (base currency)
   if (fromCurrency === 'DKK') {
-    // Converting from DKK to another currency
     const rate = exchangeRates.rates[toCurrency];
     return rate ? amount * rate : amount;
   } else if (toCurrency === 'DKK') {
-    // Converting from another currency to DKK
     const rate = exchangeRates.rates[fromCurrency];
     return rate ? amount / rate : amount;
   } else {
-    // Converting between two non-DKK currencies
-    // First convert to DKK, then to target currency
     const fromRate = exchangeRates.rates[fromCurrency];
     const toRate = exchangeRates.rates[toCurrency];
     if (fromRate && toRate) {
@@ -159,19 +160,17 @@ export function convertCurrency(
 export function formatCurrency(
   amount: number,
   currency: SupportedCurrency = 'DKK',
-  exchangeRates?: ExchangeRates,
+  exchangeRates: ExchangeRates | null, // Allow null
   displayCurrency?: SupportedCurrency
 ): string {
   let displayAmount = amount;
   let finalCurrency = currency;
 
-  // If we have exchange rates and a different display currency, convert
   if (exchangeRates && displayCurrency && displayCurrency !== currency) {
     displayAmount = convertCurrency(amount, currency, displayCurrency, exchangeRates);
     finalCurrency = displayCurrency;
   }
 
-  // Format based on currency
   const formatOptions: Intl.NumberFormatOptions = {
     style: 'currency',
     currency: finalCurrency,
@@ -179,7 +178,6 @@ export function formatCurrency(
     maximumFractionDigits: 2
   };
 
-  // Use appropriate locale for each currency
   let locale = 'en-US';
   switch (finalCurrency) {
     case 'DKK':
@@ -198,7 +196,6 @@ export function formatCurrency(
   try {
     return new Intl.NumberFormat(locale, formatOptions).format(displayAmount);
   } catch (error) {
-    // Fallback formatting if locale is not supported
     return `${finalCurrency} ${displayAmount.toFixed(2)}`;
   }
 }
@@ -207,7 +204,7 @@ export function formatCurrencyInput(
   amount: number,
   fromCurrency: SupportedCurrency,
   toCurrency: SupportedCurrency,
-  exchangeRates: ExchangeRates
+  exchangeRates: ExchangeRates | null // Allow null
 ): number {
   return convertCurrency(amount, fromCurrency, toCurrency, exchangeRates);
 }

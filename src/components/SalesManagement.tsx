@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Search, ShoppingCart, DollarSign, TrendingUp } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useApp } from '../context/AppContext';
 import { Sale, DigitalCode, TVBox, SubscriptionProduct, Customer, Reseller } from '../types';
 
 // ... (Assuming you have a formatCurrency utility function)
@@ -9,7 +9,7 @@ const formatCurrency = (amount: number) => {
 };
 
 export default function SalesManagement() {
-  const { state, actions } = useAppContext();
+  const { state, actions } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [searchTerm, setSearchTerm] = useState('');

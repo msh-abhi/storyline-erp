@@ -1,8 +1,7 @@
-import React from 'react';
-import { 
-  DollarSign, 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
   Package,
   Users,
   Store,
@@ -11,12 +10,12 @@ import {
   Tv,
   ShoppingCart,
   CreditCard,
-  FileText, // New icon
-  CheckCircle, // New icon
-  Clock // New icon
+  FileText,
+  CheckCircle,
+  Clock
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { ActiveSection } from '../types';
+import { ActiveSection, Sale, Reseller, Subscription, Invoice, ExchangeRates } from '../types';
 import {
   calculateTotalRevenue,
   calculateOutstandingReceivables,
@@ -34,7 +33,7 @@ interface DashboardProps {
 
 export default function Dashboard({ onSectionChange }: DashboardProps) {
   const { state } = useApp();
-  
+
   const totalRevenue = calculateTotalRevenue(state.sales);
   const outstandingReceivables = calculateOutstandingReceivables(state.resellers);
   const totalExpenses = calculateTotalExpenses(state.purchases);
@@ -43,24 +42,24 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
   const netProfit = totalRevenue - totalExpenses;
 
   // Calculate subscription revenue
-  const subscriptionRevenue = state.subscriptions?.reduce((total, sub) => 
+  const subscriptionRevenue = state.subscriptions?.reduce((total: number, sub: Subscription) =>
     sub.status === 'active' ? total + sub.price : total, 0
   ) || 0;
 
   // Calculate reseller credit profit
-  const resellerCreditProfit = state.resellers.reduce((total, reseller) => 
-    total + (reseller.creditBalance || 0), 0
+  const resellerCreditProfit = state.resellers.reduce((total: number, reseller: Reseller) =>
+    total + (reseller.outstandingBalance || 0), 0
   );
 
   // Calculate outstanding payments from sales
   const outstandingFromSales = state.sales
-    .filter(sale => (sale as any).paymentStatus === 'due')
-    .reduce((total, sale) => total + sale.totalAmount, 0);
+    .filter((sale: Sale) => sale.paymentStatus === 'due')
+    .reduce((total: number, sale: Sale) => total + sale.totalPrice, 0);
 
   // New: Calculate invoice-related metrics
-  const totalInvoicedAmount = state.invoices.reduce((total, inv) => total + inv.amount, 0);
-  const totalPaidInvoices = state.invoices.filter(inv => inv.status === 'paid').reduce((total, inv) => total + inv.amount, 0);
-  const totalPendingInvoices = state.invoices.filter(inv => inv.status === 'pending').reduce((total, inv) => total + inv.amount, 0);
+  const totalInvoicedAmount = state.invoices.reduce((total: number, inv: Invoice) => total + inv.amount, 0);
+  const totalPaidInvoices = state.invoices.filter((inv: Invoice) => inv.status === 'paid').reduce((total: number, inv: Invoice) => total + inv.amount, 0);
+  const totalPendingInvoices = state.invoices.filter((inv: Invoice) => inv.status === 'pending').reduce((total: number, inv: Invoice) => total + inv.amount, 0);
   const totalOutstandingPayables = calculateOutstandingPayables(state.suppliers);
 
 
@@ -104,7 +103,7 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
   const stats = [
     {
       title: 'Total Revenue',
-      value: formatCurrency(totalRevenue + subscriptionRevenue + totalPaidInvoices, 'DKK', state.exchangeRates, displayCurrency as any),
+      value: formatCurrency(totalRevenue + subscriptionRevenue + totalPaidInvoices, 'DKK', state.exchangeRates, displayCurrency),
       icon: DollarSign,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50',
@@ -113,7 +112,7 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
     },
     {
       title: 'Net Profit',
-      value: formatCurrency(netProfit + inventoryProfit + resellerCreditProfit, 'DKK', state.exchangeRates, displayCurrency as any),
+      value: formatCurrency(netProfit + inventoryProfit + resellerCreditProfit, 'DKK', state.exchangeRates, displayCurrency),
       icon: netProfit >= 0 ? TrendingUp : TrendingDown,
       color: netProfit >= 0 ? 'text-emerald-600' : 'text-red-600',
       bgColor: netProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50',
@@ -122,7 +121,7 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
     },
     {
       title: 'Outstanding Receivables',
-      value: formatCurrency(outstandingReceivables + outstandingFromSales + totalPendingInvoices, 'DKK', state.exchangeRates, displayCurrency as any),
+      value: formatCurrency(outstandingReceivables + outstandingFromSales + totalPendingInvoices, 'DKK', state.exchangeRates, displayCurrency),
       icon: AlertCircle,
       color: 'text-amber-600',
       bgColor: 'bg-amber-50',
@@ -131,7 +130,7 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
     },
     {
       title: 'Outstanding Payables',
-      value: formatCurrency(totalOutstandingPayables, 'DKK', state.exchangeRates, displayCurrency as any),
+      value: formatCurrency(totalOutstandingPayables, 'DKK', state.exchangeRates, displayCurrency),
       icon: AlertCircle,
       color: 'text-red-600',
       bgColor: 'bg-red-50',
@@ -140,7 +139,7 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
     },
     {
       title: 'Inventory Value',
-      value: formatCurrency(inventoryValue, 'DKK', state.exchangeRates, displayCurrency as any),
+      value: formatCurrency(inventoryValue, 'DKK', state.exchangeRates, displayCurrency),
       icon: Package,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
@@ -149,7 +148,7 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
     },
     {
       title: 'Monthly Subscription Revenue',
-      value: formatCurrency(subscriptionRevenue, 'DKK', state.exchangeRates, displayCurrency as any),
+      value: formatCurrency(subscriptionRevenue, 'DKK', state.exchangeRates, displayCurrency),
       icon: TrendingUp,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50',
@@ -158,7 +157,7 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
     },
     { // New Stat Card: Total Invoiced
       title: 'Total Invoiced',
-      value: formatCurrency(totalInvoicedAmount, 'DKK', state.exchangeRates, displayCurrency as any),
+      value: formatCurrency(totalInvoicedAmount, 'DKK', state.exchangeRates, displayCurrency),
       icon: FileText,
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50',
@@ -167,7 +166,7 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
     },
     { // New Stat Card: Paid Invoices
       title: 'Paid Invoices',
-      value: formatCurrency(totalPaidInvoices, 'DKK', state.exchangeRates, displayCurrency as any),
+      value: formatCurrency(totalPaidInvoices, 'DKK', state.exchangeRates, displayCurrency),
       icon: CheckCircle,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
@@ -176,7 +175,7 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
     },
     { // New Stat Card: Pending Invoices
       title: 'Pending Invoices',
-      value: formatCurrency(totalPendingInvoices, 'DKK', state.exchangeRates, displayCurrency as any),
+      value: formatCurrency(totalPendingInvoices, 'DKK', state.exchangeRates, displayCurrency),
       icon: Clock,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50',
@@ -193,7 +192,7 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
     { title: 'TV Boxes', count: state.tvBoxes.length, icon: Tv, color: 'text-emerald-600' },
     { title: 'Sales', count: state.sales.length, icon: ShoppingCart, color: 'text-amber-600' },
     { title: 'Purchases', count: state.purchases.length, icon: CreditCard, color: 'text-red-600' },
-    { title: 'Invoices', count: state.invoices.length, icon: FileText, color: 'text-indigo-600' } // New entity count
+    { title: 'Invoices', count: state.invoices.length, icon: FileText, color: 'text-indigo-600' }
   ];
 
   return (
@@ -204,8 +203,8 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
           <p className="text-slate-600 mt-2">Overview of your business performance</p>
           {state.exchangeRates && (
             <div className="text-sm text-slate-500">
-              Exchange rates: {new Date(state.exchangeRates.lastUpdated).toLocaleString()}
-              {!state.exchangeRates.success && (
+              Exchange rates: {new Date((state.exchangeRates as ExchangeRates).lastUpdated).toLocaleString()}
+              {!(state.exchangeRates as ExchangeRates).success && (
                 <span className="text-amber-600 ml-2">(Fallback rates)</span>
               )}
             </div>

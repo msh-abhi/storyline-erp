@@ -33,20 +33,23 @@ export interface Reseller {
   id: string;
   name: string;
   email: string;
-  creditBalance: number;
-  paymentHistory: PaymentTransaction[]; // Assuming this is an array of transactions
-  createdAt?: string;
-  updatedAt?: string;
+  phone?: string;
+  address?: string;
+  outstandingBalance: number; // Ensure this property exists (was 'outstandingPayment' in error)
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Supplier {
   id: string;
   name: string;
+  contactPerson?: string;
   email: string;
-  creditBalance: number;
-  paymentHistory: PaymentTransaction[]; // Assuming this is an array of transactions
-  createdAt?: string;
-  updatedAt?: string;
+  phone?: string;
+  address?: string;
+  amountOwed: number; // Ensure this property exists
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DigitalCode {
@@ -81,32 +84,37 @@ export interface TVBox {
 export interface Sale {
   id: string;
   productId: string;
-  productName: string; // FIX: Added
-  productType: 'digital_code' | 'tv_box' | 'subscription'; // FIX: Added
-  buyerId: string; // FIX: Added
-  buyerName: string; // FIX: Added
-  buyerType: 'customer' | 'reseller'; // FIX: Added
-  customerId: string | null; // FIX: Changed to allow null
+  productName: string;
+  productType: 'digital_code' | 'tv_box' | 'subscription';
+  buyerId: string;
+  buyerName: string;
+  buyerType: 'customer' | 'reseller';
+  customerId: string | null; // If buyerType is customer
   quantity: number;
-  unitPrice: number; // FIX: Added
-  totalPrice: number;
-  profit: number; // FIX: Added
-  paymentStatus: 'received' | 'due' | 'partial'; // FIX: Added
-  status: 'completed' | 'pending' | 'cancelled'; // FIX: Added
-  saleDate: string;
+  unitPrice: number;
+  totalPrice: number; // Ensure this property exists
+  profit: number;
+  paymentStatus: 'received' | 'due' | 'partial';
+  status: 'completed' | 'pending' | 'cancelled'; // Ensure this property exists
+  saleDate: string; // ISO string
   createdAt: string;
   updatedAt: string;
 }
 
 export interface Purchase {
   id: string;
+  productId: string; // ID of the purchased product (DigitalCode or TVBox)
+  productName: string; // Name/Model of the purchased product
+  productType: 'digital_code' | 'tv_box';
   supplierId: string;
-  productId: string; // Or digitalCodeId/tvBoxId
+  supplierName: string;
   quantity: number;
-  totalCost: number;
-  purchaseDate: string; // Ensure this is present
-  createdAt?: string;
-  updatedAt?: string;
+  unitCost: number;
+  totalCost: number; // Ensure this property exists
+  purchaseDate: string; // ISO string
+  status: 'completed' | 'pending' | 'cancelled'; // Ensure this property exists
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface EmailTemplate {
@@ -188,10 +196,9 @@ export interface Settings {
 }
 
 export interface ExchangeRates {
-  id: string;
-  baseCurrency: SupportedCurrency;
   rates: Record<SupportedCurrency, number>;
-  updatedAt?: string;
+  lastUpdated: string; // Ensure this property exists
+  success: boolean;    // Ensure this property exists
 }
 
 export interface CustomerPortalUser {

@@ -1,10 +1,10 @@
 import { Bell, Search, User } from 'lucide-react';
 import LanguageSelector from './LanguageSelector';
-import { useAppContext } from '../context/AppContext';
+import { useApp } from '../context/AppContext';
 import { SupportedLanguage } from '../types';
 
 export default function TopBar() {
-  const { state, actions } = useAppContext();
+  const { state, actions } = useApp();
 
   const currentLanguage: SupportedLanguage = (state.settings?.language || 'en') as SupportedLanguage;
 

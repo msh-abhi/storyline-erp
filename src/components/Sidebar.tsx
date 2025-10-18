@@ -16,7 +16,7 @@ import {
   FileText
 } from 'lucide-react';
 import { ActiveSection } from '../types';
-import { useAppContext } from '../context/AppContext'; // FIX: Changed useApp to useAppContext
+import { useApp } from '../context/AppContext'; // FIX: Changed useApp to useApp
 
 interface SidebarProps {
   activeSection: ActiveSection;
@@ -83,7 +83,7 @@ const menuItems: MenuItem[] = [
 ];
 
 export default function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
-  const { state } = useAppContext();
+  const { state } = useApp();
   const [expandedMenus, setExpandedMenus] = React.useState<Set<string>>(new Set());
 
   const toggleMenu = (menuId: string) => {
