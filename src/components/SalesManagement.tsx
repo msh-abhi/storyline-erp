@@ -2,11 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Search, ShoppingCart, DollarSign, TrendingUp } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Sale, DigitalCode, TVBox, SubscriptionProduct, Customer, Reseller } from '../types';
-
-// ... (Assuming you have a formatCurrency utility function)
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-};
+import { formatCurrency, calculateTotalRevenue, calculateInventoryProfit, calculateOutstandingAmount } from '../utils/calculations';
 
 export default function SalesManagement() {
   const { state, actions } = useApp();
@@ -166,12 +162,10 @@ export default function SalesManagement() {
     }
   };
 
-  const totalRevenue = filteredSales.reduce((total: number, sale: Sale) => total + sale.totalPrice, 0);
-  const totalProfit = filteredSales.reduce((total: number, sale: Sale) => total + sale.profit, 0);
+  const totalRevenue = calculateTotalRevenue(filteredSales);
+  const totalProfit = calculateInventoryProfit(filteredSales);
   const totalSales = filteredSales.length;
-  const outstandingAmount = filteredSales
-    .filter((sale: Sale) => sale.paymentStatus === 'due')
-    .reduce((total: number, sale: Sale) => total + sale.totalPrice, 0);
+  const outstandingAmount = calculateOutstandingAmount(filteredSales);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -204,7 +198,7 @@ export default function SalesManagement() {
           <div className="flex items-center space-x-3">
             <DollarSign className="h-8 w-8 text-green-600" />
             <div>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalRevenue)}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalRevenue, state.settings?.currency, state.exchangeRates, state.settings?.displayCurrency)}</p>
               <p className="text-sm text-gray-600">Total Revenue</p>
             </div>
           </div>
@@ -213,7 +207,7 @@ export default function SalesManagement() {
           <div className="flex items-center space-x-3">
             <TrendingUp className="h-8 w-8 text-purple-600" />
             <div>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalProfit)}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalProfit, state.settings?.currency, state.exchangeRates, state.settings?.displayCurrency)}</p>
               <p className="text-sm text-gray-600">Total Profit</p>
             </div>
           </div>
@@ -222,7 +216,7 @@ export default function SalesManagement() {
           <div className="flex items-center space-x-3">
             <DollarSign className="h-8 w-8 text-red-600" />
             <div>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(outstandingAmount)}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(outstandingAmount, state.settings?.currency, state.exchangeRates, state.settings?.displayCurrency)}</p>
               <p className="text-sm text-gray-600">Outstanding</p>
             </div>
           </div>
@@ -301,7 +295,7 @@ export default function SalesManagement() {
                     {availableProducts.map((product) => (
                       <option key={product.id} value={product.id}>
                         {product.id && formData.productType === 'subscription'
-                          ? `${(product as SubscriptionProduct).name} - ${formatCurrency((product as SubscriptionProduct).price)}`
+                          ? `${(product as SubscriptionProduct).name} - ${formatCurrency((product as SubscriptionProduct).price, state.settings?.currency, state.exchangeRates, state.settings?.displayCurrency)}`
                           : product.id && formData.productType === 'digital_code'
                             ? `${(product as DigitalCode).name} (Stock: ${(product as DigitalCode).quantity - (product as DigitalCode).soldQuantity})` // FIX: Conditional access
                             : product.id && formData.productType === 'tv_box'
@@ -463,14 +457,14 @@ export default function SalesManagement() {
                       {sale.quantity}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                      {formatCurrency(sale.unitPrice)}
+                      {formatCurrency(sale.unitPrice, state.settings?.currency, state.exchangeRates, state.settings?.displayCurrency)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900 font-medium">
-                      {formatCurrency(sale.totalPrice)}
+                      {formatCurrency(sale.totalPrice, state.settings?.currency, state.exchangeRates, state.settings?.displayCurrency)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`font-medium ${sale.profit > 0 ? 'text-green-600' : sale.profit < 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                        {formatCurrency(sale.profit)}
+                        {formatCurrency(sale.profit, state.settings?.currency, state.exchangeRates, state.settings?.displayCurrency)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

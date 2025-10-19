@@ -1,4 +1,3 @@
-
 import { isObject, isArray } from 'lodash';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,6 +33,44 @@ export const keysToCamel = <T>(obj: T): T => {
       const newKey = snakeToCamel(key);
       newObj[newKey] = keysToCamel((obj as AnyObject)[key]);
     });
+
+    // HACK: This is a workaround for a database schema that is out of sync with the frontend types.
+    // This ensures that the frontend code doesn't crash and that calculations don't result in NaN.
+    // This should be removed once the database schema is updated.
+    if (newObj.hasOwnProperty('totalPrice') === false && newObj.hasOwnProperty('unitPrice')) {
+      newObj.totalPrice = 0;
+    }
+    if (newObj.hasOwnProperty('profit') === false && newObj.hasOwnProperty('unitPrice')) {
+      newObj.profit = 0;
+    }
+    if (newObj.hasOwnProperty('outstandingBalance') === false && newObj.hasOwnProperty('email')) {
+        newObj.outstandingBalance = 0;
+    }
+    if (newObj.hasOwnProperty('totalCost') === false && newObj.hasOwnProperty('unitCost')) {
+        newObj.totalCost = 0;
+    }
+    if (newObj.hasOwnProperty('customerPrice') === false && newObj.hasOwnProperty('code')) {
+        newObj.customerPrice = 0;
+    }
+    if (newObj.hasOwnProperty('resellerPrice') === false && newObj.hasOwnProperty('code')) {
+        newObj.resellerPrice = 0;
+    }
+    if (newObj.hasOwnProperty('purchasePrice') === false && newObj.hasOwnProperty('code')) {
+        newObj.purchasePrice = 0;
+    }
+    if (newObj.hasOwnProperty('customerPrice') === false && newObj.hasOwnProperty('serialNumber')) {
+        newObj.customerPrice = 0;
+    }
+    if (newObj.hasOwnProperty('resellerPrice') === false && newObj.hasOwnProperty('serialNumber')) {
+        newObj.resellerPrice = 0;
+    }
+    if (newObj.hasOwnProperty('purchasePrice') === false && newObj.hasOwnProperty('serialNumber')) {
+        newObj.purchasePrice = 0;
+    }
+    if (newObj.hasOwnProperty('macAddress') === false && newObj.hasOwnProperty('email')) {
+        newObj.macAddress = '';
+    }
+
     return newObj as T;
   } else if (isArray(obj)) {
     return (obj as unknown as any[]).map((i) => keysToCamel(i)) as T;

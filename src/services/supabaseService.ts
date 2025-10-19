@@ -6,6 +6,83 @@ import {
 } from '../types';
 import { supabase } from '../lib/supabase';
 import { keysToCamel, keysToSnake } from '../utils/caseConverter';
+import { ensureNumber } from '../utils/numberUtils';
+
+// --- Conversion helpers ---
+const convertCustomerFromDb = (row: any): Customer => ({
+  ...keysToCamel(row),
+});
+
+const convertResellerFromDb = (row: any): Reseller => ({
+  ...keysToCamel(row),
+  outstandingBalance: ensureNumber(row.outstanding_payment),
+});
+
+const convertSupplierFromDb = (row: any): Supplier => ({
+  ...keysToCamel(row),
+  amountOwed: ensureNumber(row.amount_owed),
+});
+
+const convertDigitalCodeFromDb = (row: any): DigitalCode => ({
+  ...keysToCamel(row),
+  quantity: ensureNumber(row.quantity),
+  soldQuantity: ensureNumber(row.sold_quantity),
+  customerPrice: ensureNumber(row.customer_price),
+  resellerPrice: ensureNumber(row.reseller_price),
+  purchasePrice: ensureNumber(row.purchase_price),
+});
+
+const convertTVBoxFromDb = (row: any): TVBox => ({
+  ...keysToCamel(row),
+  quantity: ensureNumber(row.quantity),
+  soldQuantity: ensureNumber(row.sold_quantity),
+  customerPrice: ensureNumber(row.customer_price),
+  resellerPrice: ensureNumber(row.reseller_price),
+  purchasePrice: ensureNumber(row.purchase_price),
+});
+
+const convertSaleFromDb = (row: any): Sale => ({
+  ...keysToCamel(row),
+  quantity: ensureNumber(row.quantity),
+  unitPrice: ensureNumber(row.unit_price),
+  totalPrice: ensureNumber(row.total_amount),
+  profit: ensureNumber(row.profit),
+});
+
+const convertPurchaseFromDb = (row: any): Purchase => ({
+  ...keysToCamel(row),
+  quantity: ensureNumber(row.quantity),
+  unitPrice: ensureNumber(row.unit_price),
+  totalAmount: ensureNumber(row.total_amount),
+});
+
+const convertSubscriptionFromDb = (row: any): Subscription => ({
+    ...keysToCamel(row),
+    price: ensureNumber(row.price),
+    durationMonths: ensureNumber(row.duration_months),
+});
+
+const convertSubscriptionProductFromDb = (row: any): SubscriptionProduct => ({
+    ...keysToCamel(row),
+    price: ensureNumber(row.price),
+    durationMonths: ensureNumber(row.duration_months),
+});
+
+const convertInvoiceFromDb = (row: any): Invoice => ({
+    ...keysToCamel(row),
+    amount: ensureNumber(row.amount),
+});
+
+const convertPaymentFromDb = (row: any): Payment => ({
+    ...keysToCamel(row),
+    amount: ensureNumber(row.amount),
+});
+
+const convertPaymentTransactionFromDb = (row: any): PaymentTransaction => ({
+    ...keysToCamel(row),
+    amount: ensureNumber(row.amount),
+});
+
 
 // --- NEW: User Profile Service (for public.users table) ---
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
@@ -31,17 +108,17 @@ export const customerService = {
   getAll: async (): Promise<Customer[]> => {
     const { data, error } = await supabase.from('customers').select('*');
     if (error) throw error;
-    return keysToCamel(data);
+    return data.map(convertCustomerFromDb);
   },
   create: async (customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> => {
     const { data, error } = await supabase.from('customers').insert(keysToSnake(customer)).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertCustomerFromDb(data);
   },
   update: async (id: string, customer: Partial<Customer>): Promise<Customer> => {
     const { data, error } = await supabase.from('customers').update(keysToSnake(customer)).eq('id', id).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertCustomerFromDb(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('customers').delete().eq('id', id);
@@ -53,17 +130,17 @@ export const resellerService = {
   getAll: async (): Promise<Reseller[]> => {
     const { data, error } = await supabase.from('resellers').select('*');
     if (error) throw error;
-    return keysToCamel(data);
+    return data.map(convertResellerFromDb);
   },
   create: async (reseller: Omit<Reseller, 'id' | 'createdAt' | 'updatedAt'>): Promise<Reseller> => {
     const { data, error } = await supabase.from('resellers').insert(keysToSnake(reseller)).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertResellerFromDb(data);
   },
   update: async (id: string, reseller: Partial<Reseller>): Promise<Reseller> => {
     const { data, error } = await supabase.from('resellers').update(keysToSnake(reseller)).eq('id', id).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertResellerFromDb(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('resellers').delete().eq('id', id);
@@ -75,17 +152,17 @@ export const supplierService = {
   getAll: async (): Promise<Supplier[]> => {
     const { data, error } = await supabase.from('suppliers').select('*');
     if (error) throw error;
-    return keysToCamel(data);
+    return data.map(convertSupplierFromDb);
   },
   create: async (supplier: Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>): Promise<Supplier> => {
     const { data, error } = await supabase.from('suppliers').insert(keysToSnake(supplier)).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertSupplierFromDb(data);
   },
   update: async (id: string, supplier: Partial<Supplier>): Promise<Supplier> => {
     const { data, error } = await supabase.from('suppliers').update(keysToSnake(supplier)).eq('id', id).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertSupplierFromDb(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('suppliers').delete().eq('id', id);
@@ -97,17 +174,17 @@ export const digitalCodeService = {
   getAll: async (): Promise<DigitalCode[]> => {
     const { data, error } = await supabase.from('digital_codes').select('*');
     if (error) throw error;
-    return keysToCamel(data);
+    return data.map(convertDigitalCodeFromDb);
   },
   create: async (code: Omit<DigitalCode, 'id' | 'createdAt' | 'updatedAt' | 'soldQuantity'>): Promise<DigitalCode> => {
     const { data, error } = await supabase.from('digital_codes').insert(keysToSnake(code)).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertDigitalCodeFromDb(data);
   },
   update: async (id: string, code: Partial<DigitalCode>): Promise<DigitalCode> => {
     const { data, error } = await supabase.from('digital_codes').update(keysToSnake(code)).eq('id', id).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertDigitalCodeFromDb(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('digital_codes').delete().eq('id', id);
@@ -119,17 +196,17 @@ export const tvBoxService = {
   getAll: async (): Promise<TVBox[]> => {
     const { data, error } = await supabase.from('tv_boxes').select('*');
     if (error) throw error;
-    return keysToCamel(data);
+    return data.map(convertTVBoxFromDb);
   },
   create: async (tvBox: Omit<TVBox, 'id' | 'createdAt' | 'updatedAt' | 'soldQuantity'>): Promise<TVBox> => {
     const { data, error } = await supabase.from('tv_boxes').insert(keysToSnake(tvBox)).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertTVBoxFromDb(data);
   },
   update: async (id: string, tvBox: Partial<TVBox>): Promise<TVBox> => {
     const { data, error } = await supabase.from('tv_boxes').update(keysToSnake(tvBox)).eq('id', id).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertTVBoxFromDb(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('tv_boxes').delete().eq('id', id);
@@ -141,17 +218,17 @@ export const saleService = {
   getAll: async (): Promise<Sale[]> => {
     const { data, error } = await supabase.from('sales').select('*');
     if (error) throw error;
-    return keysToCamel(data);
+    return data.map(convertSaleFromDb);
   },
   create: async (sale: Omit<Sale, 'id' | 'createdAt' | 'updatedAt' | 'saleDate'>): Promise<Sale> => {
     const { data, error } = await supabase.from('sales').insert(keysToSnake(sale)).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertSaleFromDb(data);
   },
   update: async (id: string, sale: Partial<Sale>): Promise<Sale> => {
     const { data, error } = await supabase.from('sales').update(keysToSnake(sale)).eq('id', id).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertSaleFromDb(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('sales').delete().eq('id', id);
@@ -163,22 +240,22 @@ export const purchaseService = {
   getAll: async (): Promise<Purchase[]> => {
     const { data, error } = await supabase.from('purchases').select('*');
     if (error) throw error;
-    return keysToCamel(data);
+    return data.map(convertPurchaseFromDb);
   },
   add: async (purchase: Omit<Purchase, 'createdAt' | 'updatedAt'>): Promise<Purchase> => {
     const { data, error } = await supabase.from('purchases').insert(keysToSnake(purchase)).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertPurchaseFromDb(data);
   },
   create: async (purchase: Omit<Purchase, 'id' | 'createdAt' | 'updatedAt' | 'purchaseDate'>): Promise<Purchase> => {
     const { data, error } = await supabase.from('purchases').insert(keysToSnake(purchase)).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertPurchaseFromDb(data);
   },
   update: async (id: string, purchase: Partial<Purchase>): Promise<Purchase> => {
     const { data, error } = await supabase.from('purchases').update(keysToSnake(purchase)).eq('id', id).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertPurchaseFromDb(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('purchases').delete().eq('id', id);
@@ -190,17 +267,17 @@ export const subscriptionService = {
   getAll: async (): Promise<Subscription[]> => {
     const { data, error } = await supabase.from('subscriptions').select('*');
     if (error) throw error;
-    return keysToCamel(data);
+    return data.map(convertSubscriptionFromDb);
   },
   create: async (subscription: Omit<Subscription, 'id' | 'createdAt' | 'updatedAt'>): Promise<Subscription> => {
     const { data, error } = await supabase.from('subscriptions').insert(keysToSnake(subscription)).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertSubscriptionFromDb(data);
   },
   update: async (id: string, subscription: Partial<Subscription>): Promise<Subscription> => {
     const { data, error } = await supabase.from('subscriptions').update(keysToSnake(subscription)).eq('id', id).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertSubscriptionFromDb(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('subscriptions').delete().eq('id', id);
@@ -212,17 +289,17 @@ export const invoiceService = {
   getAll: async (): Promise<Invoice[]> => {
     const { data, error } = await supabase.from('invoices').select('*');
     if (error) throw error;
-    return keysToCamel(data);
+    return data.map(convertInvoiceFromDb);
   },
   create: async (invoice: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>): Promise<Invoice> => {
     const { data, error } = await supabase.from('invoices').insert(keysToSnake(invoice)).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertInvoiceFromDb(data);
   },
   update: async (id: string, invoice: Partial<Invoice>): Promise<Invoice> => {
     const { data, error } = await supabase.from('invoices').update(keysToSnake(invoice)).eq('id', id).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertInvoiceFromDb(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('invoices').delete().eq('id', id);
@@ -234,17 +311,17 @@ export const paymentService = {
   getAll: async (): Promise<Payment[]> => {
     const { data, error } = await supabase.from('payments').select('*');
     if (error) throw error;
-    return keysToCamel(data);
+    return data.map(convertPaymentFromDb);
   },
   create: async (payment: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>): Promise<Payment> => {
     const { data, error } = await supabase.from('payments').insert(keysToSnake(payment)).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertPaymentFromDb(data);
   },
   update: async (id: string, payment: Partial<Payment>): Promise<Payment> => {
     const { data, error } = await supabase.from('payments').update(keysToSnake(payment)).eq('id', id).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertPaymentFromDb(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('payments').delete().eq('id', id);
@@ -329,17 +406,17 @@ export const paymentTransactionService = {
   getAll: async (): Promise<PaymentTransaction[]> => {
     const { data, error } = await supabase.from('payment_transactions').select('*');
     if (error) throw error;
-    return keysToCamel(data);
+    return data.map(convertPaymentTransactionFromDb);
   },
   create: async (pt: Omit<PaymentTransaction, 'id' | 'createdAt' | 'updatedAt'>): Promise<PaymentTransaction> => {
     const { data, error } = await supabase.from('payment_transactions').insert(keysToSnake(pt)).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertPaymentTransactionFromDb(data);
   },
   update: async (id: string, pt: Partial<PaymentTransaction>): Promise<PaymentTransaction> => {
     const { data, error } = await supabase.from('payment_transactions').update(keysToSnake(pt)).eq('id', id).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertPaymentTransactionFromDb(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('payment_transactions').delete().eq('id', id);
@@ -373,17 +450,17 @@ export const subscriptionProductService = {
   getAll: async (): Promise<SubscriptionProduct[]> => {
     const { data, error } = await supabase.from('subscription_products').select('*');
     if (error) throw error;
-    return keysToCamel(data);
+    return data.map(convertSubscriptionProductFromDb);
   },
   create: async (product: Omit<SubscriptionProduct, 'id' | 'createdAt' | 'updatedAt'>): Promise<SubscriptionProduct> => {
     const { data, error } = await supabase.from('subscription_products').insert(keysToSnake(product)).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertSubscriptionProductFromDb(data);
   },
   update: async (id: string, product: Partial<SubscriptionProduct>): Promise<SubscriptionProduct> => {
     const { data, error } = await supabase.from('subscription_products').update(keysToSnake(product)).eq('id', id).select().single();
     if (error) throw error;
-    return keysToCamel(data);
+    return convertSubscriptionProductFromDb(data);
   },
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase.from('subscription_products').delete().eq('id', id);

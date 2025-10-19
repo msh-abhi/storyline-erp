@@ -109,8 +109,8 @@ export interface Purchase {
   supplierId: string;
   supplierName: string;
   quantity: number;
-  unitCost: number;
-  totalCost: number; // Ensure this property exists
+  unitPrice: number;
+  totalAmount: number; // Ensure this property exists
   purchaseDate: string; // ISO string
   status: 'completed' | 'pending' | 'cancelled'; // Ensure this property exists
   createdAt: string;

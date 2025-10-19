@@ -1,17 +1,12 @@
-import { Reseller, Supplier, DigitalCode, TVBox, Sale, Purchase, ExchangeRates, SupportedCurrency } from '../types';
+import { Reseller, Supplier, DigitalCode, TVBox, Sale, Purchase, ExchangeRates, SupportedCurrency, Subscription, Invoice } from '../types';
 import { getMonth, getYear } from 'date-fns';
+import { ensureNumber } from './numberUtils';
 
 // Helper function to get current year
 export const getCurrentYear = (): number => new Date().getFullYear();
 
 // Helper function to get current month (0-indexed)
 export const getCurrentMonth = (): number => new Date().getMonth();
-
-// Helper to ensure a value is a number, otherwise return 0
-const ensureNumber = (value: any): number => {
-  const num = Number(value);
-  return isNaN(num) ? 0 : num;
-};
 
 export function calculateTotalRevenue(sales: Sale[]): number {
   if (!sales) return 0;
@@ -25,7 +20,7 @@ export function calculateOutstandingReceivables(resellers: Reseller[]): number {
 
 export function calculateTotalExpenses(purchases: Purchase[]): number {
   if (!purchases) return 0;
-  return purchases.filter(purchase => purchase.status === 'completed').reduce((total, purchase) => total + ensureNumber(purchase.totalCost), 0);
+  return purchases.filter(purchase => purchase.status === 'completed').reduce((total, purchase) => total + ensureNumber(purchase.totalAmount), 0);
 }
 
 export function calculateOutstandingPayables(suppliers: Supplier[]): number {
@@ -73,7 +68,7 @@ export function calculateMonthlyExpenses(purchases: Purchase[], year: number, mo
              purchaseDate.getFullYear() === year &&
              purchaseDate.getMonth() === month;
     })
-    .reduce((total, purchase) => total + ensureNumber(purchase.totalCost), 0);
+    .reduce((total, purchase) => total + ensureNumber(purchase.totalAmount), 0);
 }
 
 export function calculateMonthlyProfit(sales: Sale[], purchases: Purchase[], year: number, month: number): number {
@@ -99,13 +94,56 @@ export function calculateYearlyExpenses(purchases: Purchase[], year: number): nu
       const purchaseDate = new Date(purchase.purchaseDate);
       return purchase.status === 'completed' && purchaseDate.getFullYear() === year;
     })
-    .reduce((total, purchase) => total + ensureNumber(purchase.totalCost), 0);
+    .reduce((total, purchase) => total + ensureNumber(purchase.totalAmount), 0);
 }
 
 export function calculateYearlyProfit(sales: Sale[], purchases: Purchase[], year: number): number {
   const revenue = calculateYearlyRevenue(sales, year);
   const expenses = calculateYearlyExpenses(purchases, year);
   return revenue - expenses;
+}
+
+export function calculateOutstandingAmount(sales: Sale[]): number {
+  if (!sales) return 0;
+  return sales
+    .filter(sale => sale.paymentStatus === 'due')
+    .reduce((total, sale) => total + ensureNumber(sale.totalPrice), 0);
+}
+
+export function calculateSubscriptionRevenue(subscriptions: Subscription[]): number {
+  if (!subscriptions) return 0;
+  return subscriptions.reduce((total, sub) => sub.status === 'active' ? total + ensureNumber(sub.price) : total, 0);
+}
+
+export function calculateResellerCreditProfit(resellers: Reseller[]): number {
+  if (!resellers) return 0;
+  return resellers.reduce((total, reseller) => total + ensureNumber(reseller.outstandingBalance), 0);
+}
+
+export function calculateOutstandingFromSales(sales: Sale[]): number {
+  if (!sales) return 0;
+  return sales
+    .filter(sale => sale.paymentStatus === 'due')
+    .reduce((total, sale) => total + ensureNumber(sale.totalPrice), 0);
+}
+
+export function calculateTotalInvoicedAmount(invoices: Invoice[]): number {
+  if (!invoices) return 0;
+  return invoices.reduce((total, inv) => total + ensureNumber(inv.amount), 0);
+}
+
+export function calculateTotalPaidInvoices(invoices: Invoice[]): number {
+  if (!invoices) return 0;
+  return invoices.filter(inv => inv.status === 'paid').reduce((total, inv) => total + ensureNumber(inv.amount), 0);
+}
+
+export function calculateTotalPendingInvoices(invoices: Invoice[]): number {
+  if (!invoices) return 0;
+  return invoices.filter(inv => inv.status === 'pending').reduce((total, inv) => total + ensureNumber(inv.amount), 0);
+}
+
+export function calculateNetProfit(totalRevenue: number, totalExpenses: number): number {
+  return totalRevenue - totalExpenses;
 }
 
 export function getMonthlyBreakdown(sales: Sale[], purchases: Purchase[], year: number): Array<{

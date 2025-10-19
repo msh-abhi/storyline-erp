@@ -145,9 +145,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ]);
         
       dataPayload = {
-        customers, resellers, suppliers, digitalCodes, tvBoxes, sales,
-        purchases, emailTemplates, subscriptions, subscriptionProducts,
-        invoices, payments, paymentTransactions,
+        customers: customers,
+        resellers: resellers,
+        suppliers: suppliers,
+        digitalCodes: digitalCodes,
+        tvBoxes: tvBoxes,
+        sales: sales,
+        purchases: purchases,
+        emailTemplates: emailTemplates,
+        subscriptions: subscriptions,
+        subscriptionProducts: subscriptionProducts,
+        invoices: invoices,
+        payments: payments,
+        paymentTransactions: paymentTransactions,
         settings: settings || null,
       };
     } else {

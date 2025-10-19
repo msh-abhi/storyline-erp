@@ -23,7 +23,14 @@ import {
   calculateOutstandingPayables,
   calculateInventoryProfit,
   calculateInventoryValue,
-  formatCurrency
+  formatCurrency,
+  calculateSubscriptionRevenue,
+  calculateResellerCreditProfit,
+  calculateOutstandingFromSales,
+  calculateTotalInvoicedAmount,
+  calculateTotalPaidInvoices,
+  calculateTotalPendingInvoices,
+  calculateNetProfit
 } from '../utils/calculations';
 import ProfitOverview from './ProfitOverview';
 
@@ -51,27 +58,13 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
   const totalExpenses = calculateTotalExpenses(state.purchases || []);
   const inventoryProfit = calculateInventoryProfit(state.sales || []);
   const inventoryValue = calculateInventoryValue(state.digitalCodes || [], state.tvBoxes || []);
-  const netProfit = totalRevenue - totalExpenses;
-
-  // Calculate subscription revenue
-  const subscriptionRevenue = state.subscriptions?.reduce((total: number, sub: Subscription) =>
-    sub.status === 'active' ? total + sub.price : total, 0
-  ) || 0;
-
-  // Calculate reseller credit profit
-  const resellerCreditProfit = (state.resellers || []).reduce((total: number, reseller: Reseller) =>
-    total + (reseller.outstandingBalance || 0), 0
-  );
-
-  // Calculate outstanding payments from sales
-  const outstandingFromSales = (state.sales || [])
-    .filter((sale: Sale) => sale.paymentStatus === 'due')
-    .reduce((total: number, sale: Sale) => total + sale.totalPrice, 0);
-
-  // New: Calculate invoice-related metrics
-  const totalInvoicedAmount = (state.invoices || []).reduce((total: number, inv: Invoice) => total + inv.amount, 0);
-  const totalPaidInvoices = (state.invoices || []).filter((inv: Invoice) => inv.status === 'paid').reduce((total: number, inv: Invoice) => total + inv.amount, 0);
-  const totalPendingInvoices = (state.invoices || []).filter((inv: Invoice) => inv.status === 'pending').reduce((total: number, inv: Invoice) => total + inv.amount, 0);
+  const netProfit = calculateNetProfit(totalRevenue, totalExpenses);
+  const subscriptionRevenue = calculateSubscriptionRevenue(state.subscriptions || []);
+  const resellerCreditProfit = calculateResellerCreditProfit(state.resellers || []);
+  const outstandingFromSales = calculateOutstandingFromSales(state.sales || []);
+  const totalInvoicedAmount = calculateTotalInvoicedAmount(state.invoices || []);
+  const totalPaidInvoices = calculateTotalPaidInvoices(state.invoices || []);
+  const totalPendingInvoices = calculateTotalPendingInvoices(state.invoices || []);
   const totalOutstandingPayables = calculateOutstandingPayables(state.suppliers || []);
 
 
