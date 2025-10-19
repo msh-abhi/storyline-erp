@@ -16,16 +16,21 @@ export interface Customer {
   updatedAt?: string;
 }
 
-// Define PaymentTransaction as it's used in Reseller and Supplier
 export interface PaymentTransaction {
   id: string;
-  entityId: string; // ID of the reseller/supplier
-  entityType: 'reseller' | 'supplier';
+  invoiceId?: string; // Link to invoice
+  customerId?: string; // Link to customer
+  entityId?: string; // Optional: For reseller/supplier
+  entityType?: 'reseller' | 'supplier'; // Optional
   amount: number;
-  type: 'credit_add' | 'credit_use' | 'sale'; // Example types
+  currency: SupportedCurrency;
+  type?: 'credit_add' | 'credit_use' | 'sale' | 'payment';
   description?: string;
-  paymentMethod?: string;
+  paymentMethod: 'manual' | 'mobilepay' | 'revolut';
+  transactionId?: string; // From payment provider
   transactionDate: string;
+  status: 'pending' | 'paid' | 'failed' | 'refunded';
+  providerResponse?: Record<string, any>; // To store raw response from provider
   createdAt?: string;
 }
 
@@ -35,7 +40,7 @@ export interface Reseller {
   email: string;
   phone?: string;
   address?: string;
-  outstandingBalance: number; // Ensure this property exists (was 'outstandingPayment' in error)
+  outstandingBalance: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,7 +52,7 @@ export interface Supplier {
   email: string;
   phone?: string;
   address?: string;
-  amountOwed: number; // Ensure this property exists
+  amountOwed: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -56,13 +61,13 @@ export interface DigitalCode {
   id: string;
   code: string;
   value: string;
-  quantity: number; // FIX: Added quantity
+  quantity: number;
   soldQuantity: number;
   status: string;
-  customerPrice: number; // FIX: Added customerPrice
-  resellerPrice: number; // FIX: Added resellerPrice
-  purchasePrice: number; // FIX: Added purchasePrice
-  name: string; // FIX: Added name for display
+  customerPrice: number;
+  resellerPrice: number;
+  purchasePrice: number;
+  name: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -71,12 +76,12 @@ export interface TVBox {
   id: string;
   serialNumber: string;
   model: string;
-  quantity: number; // FIX: Added quantity
+  quantity: number;
   soldQuantity: number;
   status: string;
-  customerPrice: number; // FIX: Added customerPrice
-  resellerPrice: number; // FIX: Added resellerPrice
-  purchasePrice: number; // FIX: Added purchasePrice
+  customerPrice: number;
+  resellerPrice: number;
+  purchasePrice: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -89,30 +94,30 @@ export interface Sale {
   buyerId: string;
   buyerName: string;
   buyerType: 'customer' | 'reseller';
-  customerId: string | null; // If buyerType is customer
+  customerId: string | null;
   quantity: number;
   unitPrice: number;
-  totalPrice: number; // Ensure this property exists
+  totalPrice: number;
   profit: number;
   paymentStatus: 'received' | 'due' | 'partial';
-  status: 'completed' | 'pending' | 'cancelled'; // Ensure this property exists
-  saleDate: string; // ISO string
+  status: 'completed' | 'pending' | 'cancelled';
+  saleDate: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface Purchase {
   id: string;
-  productId: string; // ID of the purchased product (DigitalCode or TVBox)
-  productName: string; // Name/Model of the purchased product
+  productId: string;
+  productName: string;
   productType: 'digital_code' | 'tv_box';
   supplierId: string;
   supplierName: string;
   quantity: number;
   unitPrice: number;
-  totalAmount: number; // Ensure this property exists
-  purchaseDate: string; // ISO string
-  status: 'completed' | 'pending' | 'cancelled'; // Ensure this property exists
+  totalAmount: number;
+  purchaseDate: string;
+  status: 'completed' | 'pending' | 'cancelled';
   createdAt: string;
   updatedAt: string;
 }
@@ -129,16 +134,16 @@ export interface EmailTemplate {
 export interface Subscription {
   id: string;
   customer_id: string;
-  customerName: string; // FIX: Added customerName
-  productId: string; // FIX: Added
-  productName: string; // FIX: Added
+  customerName: string;
+  productId: string;
+  productName: string;
   status: 'active' | 'inactive' | 'cancelled' | 'expired';
   startDate: string;
   endDate: string;
   price: number;
-  durationMonths: number; // FIX: Added
-  reminder7Sent: boolean; // FIX: Added
-  reminder3Sent: boolean; // FIX: Added
+  durationMonths: number;
+  reminder7Sent: boolean;
+  reminder3Sent: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -148,22 +153,28 @@ export interface SubscriptionProduct {
   name: string;
   description: string;
   price: number;
-  durationMonths: number; // FIX: Changed from 'duration' to 'durationMonths'
-  isActive: boolean; // FIX: Added isActive
+  durationMonths: number;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-export type SupportedCurrency = 'USD' | 'EUR' | 'GBP' | 'DKK'; // Example currencies
-export type SupportedLanguage = 'en' | 'da'; // FIX: Define supported languages
+export type SupportedCurrency = 'USD' | 'EUR' | 'GBP' | 'DKK';
+export type SupportedLanguage = 'en' | 'da';
 
 export interface Invoice {
   id: string;
   customerId: string;
   amount: number;
-  status: 'paid' | 'pending' | 'cancelled';
-  subscriptionId?: string; // Added, made optional
-  currency: SupportedCurrency; // Added
+  status: 'paid' | 'pending' | 'cancelled' | 'refunded';
+  subscriptionId?: string;
+  currency: SupportedCurrency;
+  paymentMethod: 'manual' | 'mobilepay' | 'revolut';
+  dueDate: string;
+  issuedDate: string;
+  metadata?: Record<string, any>;
+  externalPaymentId?: string;
+  paymentLink?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -182,13 +193,12 @@ export interface Payment {
 export interface EmailSettings {
   senderName: string;
   senderEmail: string;
-  // ... other email settings
 }
 
 export interface Settings {
   id: string;
   currency: SupportedCurrency;
-  language: SupportedLanguage; // FIX: Use SupportedLanguage type
+  language: SupportedLanguage;
   companyName: string;
   emailSettings: any;
   createdAt: string;
@@ -197,25 +207,24 @@ export interface Settings {
 
 export interface ExchangeRates {
   rates: Record<SupportedCurrency, number>;
-  lastUpdated: string; // Ensure this property exists
-  success: boolean;    // Ensure this property exists
+  lastUpdated: string;
+  success: boolean;
 }
 
 export interface UserProfile {
   id: string;
   email?: string | null;
   isAdmin?: boolean;
-  // Add any other profile fields from your 'users' table
 }
 
 export interface CustomerPortalUser {
   id: string;
-  auth_id: string; // This is the auth.users.id, mapped from auth_provider_id in DB
-  customer_id: string | null; // Link to public.customers.id
+  auth_id: string;
+  customer_id: string | null;
   email: string;
   created_at?: string;
   updated_at?: string;
-  last_login_at?: string; // Common field, add if exists in your DB
+  last_login_at?: string;
 }
 
 export interface CustomerMessage {
@@ -286,13 +295,12 @@ export type AppAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_INITIAL_DATA'; payload: Partial<AppState> }
-  | { type: 'SET_EXCHANGE_RATES'; payload: ExchangeRates | null } // Allow null for initial/no rates
-  | { type: 'SET_SETTINGS'; payload: Settings | null } // Allow null for initial/no settings
-  // Add specific actions for each entity if you have them, e.g.:
+  | { type: 'SET_EXCHANGE_RATES'; payload: ExchangeRates | null }
+  | { type: 'SET_SETTINGS'; payload: Settings | null }
+  | { type: 'RESET_STATE' } // Add this action
   | { type: 'ADD_CUSTOMER'; payload: Customer }
   | { type: 'UPDATE_CUSTOMER'; payload: Customer }
-  | { type: 'DELETE_CUSTOMER'; payload: string } // payload is id
-  // ... repeat for other entities (Reseller, Supplier, etc.)
+  | { type: 'DELETE_CUSTOMER'; payload: string }
   | { type: 'ADD_RESELLER'; payload: Reseller }
   | { type: 'UPDATE_RESELLER'; payload: Reseller }
   | { type: 'DELETE_RESELLER'; payload: string }
@@ -322,7 +330,7 @@ export type AppAction =
   | { type: 'DELETE_PAYMENT'; payload: string }
   | { type: 'ADD_PAYMENT_TRANSACTION'; payload: PaymentTransaction }
   | { type: 'UPDATE_PAYMENT_TRANSACTION'; payload: PaymentTransaction }
-  | { type: 'DELETE_PAYMENT_TRANSACTION'; payload: string } // Assuming you have this action
+  | { type: 'DELETE_PAYMENT_TRANSACTION'; payload: string }
   | { type: 'ADD_EMAIL_TEMPLATE'; payload: EmailTemplate }
   | { type: 'UPDATE_EMAIL_TEMPLATE'; payload: EmailTemplate }
   | { type: 'DELETE_EMAIL_TEMPLATE'; payload: string }
@@ -363,7 +371,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, exchangeRates: action.payload };
     case 'SET_SETTINGS':
       return { ...state, settings: action.payload };
-    // --- Handle specific entity actions ---
+    case 'RESET_STATE':
+        return { ...initialState, loading: false }; // Reset to initial state but keep loading as false
     case 'ADD_CUSTOMER':
       return { ...state, customers: [...state.customers, action.payload] };
     case 'UPDATE_CUSTOMER':
@@ -428,7 +437,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, paymentTransactions: [...state.paymentTransactions, action.payload] };
     case 'UPDATE_PAYMENT_TRANSACTION':
       return { ...state, paymentTransactions: state.paymentTransactions.map(pt => pt.id === action.payload.id ? action.payload : pt) };
-    case 'DELETE_PAYMENT_TRANSACTION': // Assuming you have this action
+    case 'DELETE_PAYMENT_TRANSACTION':
       return { ...state, paymentTransactions: state.paymentTransactions.filter(pt => pt.id !== action.payload) };
     case 'ADD_EMAIL_TEMPLATE':
       return { ...state, emailTemplates: [...state.emailTemplates, action.payload] };

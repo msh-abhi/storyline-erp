@@ -6,6 +6,8 @@ import { Settings, SupportedCurrency } from '../types';
 import { getSupportedCurrencies } from '../utils/calculations';
 import { validateReminderTemplates } from '../utils/subscriptionUtils';
 import DataExport from './DataExport';
+import MobilePaySettings from './MobilePaySettings';
+import RevolutSettings from './RevolutSettings';
 
 export default function SettingsComponent() {
   const { state, actions } = useApp();
@@ -113,6 +115,12 @@ export default function SettingsComponent() {
 
         {/* Data Export & Backup */}
         <DataExport />
+
+        {/* MobilePay Settings */}
+        <MobilePaySettings />
+
+        {/* Revolut Settings */}
+        <RevolutSettings />
 
         {/* Application Settings */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">

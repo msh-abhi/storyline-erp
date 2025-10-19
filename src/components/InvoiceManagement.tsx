@@ -1,8 +1,9 @@
-import { useState } from 'react'; // Removed 'React' and 'useEffect' as they are not used in the provided code
-import { Trash2, Search, DollarSign, FileText, CheckCircle, Clock, XCircle, RefreshCw, ExternalLink, Eye } from 'lucide-react'; // Removed 'Plus', 'Edit2' as they are not used. Ensured 'Eye' is present.
+import { useState } from 'react';
+import { Trash2, Search, DollarSign, FileText, CheckCircle, Clock, XCircle, RefreshCw, ExternalLink, Eye, Plus } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Invoice, SupportedCurrency, PaymentTransaction } from '../types'; // Added PaymentTransaction to import
+import { Invoice, PaymentTransaction } from '../types';
 import { formatCurrency } from '../utils/calculations';
+import CreateInvoiceForm from './CreateInvoiceForm';
 
 export default function InvoiceManagement() {
   const { state, actions } = useApp();
@@ -10,6 +11,7 @@ export default function InvoiceManagement() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'paid' | 'cancelled' | 'refunded'>('all');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<'all' | 'mobilepay' | 'revolut' | 'manual'>('all');
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isRefreshingRevolut, setIsRefreshingRevolut] = useState(false);
 
@@ -59,18 +61,21 @@ export default function InvoiceManagement() {
     if (confirm(`Are you sure you want to mark invoice ${invoice.id} as PAID?`)) {
       try {
         const updatedInvoice = await actions.updateInvoice(invoice.id, { status: 'paid' });
-        await actions.createPaymentTransaction({
-          invoiceId: updatedInvoice.id,
-          customerId: updatedInvoice.customerId,
-          paymentMethod: updatedInvoice.paymentMethod,
-          amount: updatedInvoice.amount,
-          currency: updatedInvoice.currency,
-          status: 'paid',
-          transactionId: `MANUAL-${Date.now()}`,
-          providerResponse: { message: 'Manually marked as paid' },
-        });
-        alert('Invoice marked as paid and payment transaction recorded.');
-        actions.loadAllData(); // Refresh data
+        if (updatedInvoice) {
+            await actions.addPaymentTransaction({
+              invoiceId: updatedInvoice.id,
+              customerId: updatedInvoice.customerId,
+              paymentMethod: updatedInvoice.paymentMethod,
+              amount: updatedInvoice.amount,
+              currency: updatedInvoice.currency,
+              status: 'paid',
+              transactionId: `MANUAL-${Date.now()}`,
+              providerResponse: { message: 'Manually marked as paid' },
+              transactionDate: new Date().toISOString(),
+            });
+            alert('Invoice marked as paid and payment transaction recorded.');
+            actions.loadAllData();
+        }
       } catch (error) {
         console.error('Error marking invoice as paid:', error);
         alert('Failed to mark invoice as paid.');
@@ -86,10 +91,10 @@ export default function InvoiceManagement() {
     setIsRefreshingRevolut(true);
     try {
       const result = await actions.revolut.getPaymentStatus(invoice.externalPaymentId);
-      if (result.success && result.data) {
-        const revolutStatus = result.data.state; // e.g., 'COMPLETED', 'PENDING', 'CANCELLED'
+      if (result && result.success && result.data) {
+        const revolutStatus = result.data.state;
         let newInvoiceStatus: Invoice['status'] = invoice.status;
-        let newTransactionStatus: PaymentTransaction['status'] = 'pending'; // PaymentTransaction is now correctly imported
+        let newTransactionStatus: PaymentTransaction['status'] = 'pending';
 
         if (revolutStatus === 'COMPLETED') {
           newInvoiceStatus = 'paid';
@@ -101,12 +106,11 @@ export default function InvoiceManagement() {
 
         if (newInvoiceStatus !== invoice.status) {
           await actions.updateInvoice(invoice.id, { status: newInvoiceStatus });
-          // Also update or create a payment transaction
-          const existingTransaction = state.paymentTransactions.find(t => t.invoiceId === invoice.id && t.transactionId === invoice.externalPaymentId);
+          const existingTransaction = state.paymentTransactions.find(t => t.transactionId === invoice.externalPaymentId);
           if (existingTransaction) {
             await actions.updatePaymentTransaction(existingTransaction.id, { status: newTransactionStatus, providerResponse: result.data });
           } else {
-            await actions.createPaymentTransaction({
+            await actions.addPaymentTransaction({
               invoiceId: invoice.id,
               customerId: invoice.customerId,
               paymentMethod: 'revolut',
@@ -115,15 +119,16 @@ export default function InvoiceManagement() {
               status: newTransactionStatus,
               transactionId: invoice.externalPaymentId,
               providerResponse: result.data,
+              transactionDate: new Date().toISOString(),
             });
           }
           alert(`Revolut payment status updated to: ${revolutStatus}`);
-          actions.loadAllData(); // Refresh data
+          actions.loadAllData();
         } else {
           alert(`Revolut payment status is still: ${revolutStatus}`);
         }
       } else {
-        alert(result.error || 'Failed to check Revolut payment status.');
+        alert(result?.error || 'Failed to check Revolut payment status.');
       }
     } catch (error) {
       console.error('Error checking Revolut status:', error);
@@ -143,14 +148,13 @@ export default function InvoiceManagement() {
           <h2 className="text-3xl font-bold text-gray-900">Invoice Management</h2>
           <p className="text-gray-600 mt-2">Manage all generated invoices and track payments</p>
         </div>
-        {/* Add button to create new invoice manually if needed */}
-        {/* <button
-          onClick={() => setShowForm(true)}
+        <button
+          onClick={() => setShowCreateForm(true)}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
         >
           <Plus className="h-4 w-4" />
           <span>Create Invoice</span>
-        </button> */}
+        </button>
       </div>
 
       {/* Summary Cards */}
@@ -168,7 +172,7 @@ export default function InvoiceManagement() {
           <div className="flex items-center space-x-3">
             <DollarSign className="h-8 w-8 text-green-600" />
             <div>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalPaidAmount)}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalPaidAmount, state.settings?.currency || 'DKK', state.exchangeRates || null, state.settings?.currency)}</p>
               <p className="text-sm text-gray-600">Total Paid</p>
             </div>
           </div>
@@ -177,7 +181,7 @@ export default function InvoiceManagement() {
           <div className="flex items-center space-x-3">
             <Clock className="h-8 w-8 text-yellow-600" />
             <div>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalPendingAmount)}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalPendingAmount, state.settings?.currency || 'DKK', state.exchangeRates || null, state.settings?.currency)}</p>
               <p className="text-sm text-gray-600">Total Pending</p>
             </div>
           </div>
@@ -236,27 +240,13 @@ export default function InvoiceManagement() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Invoice ID
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Method
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Due Date
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice ID</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -270,69 +260,28 @@ export default function InvoiceManagement() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{invoice.id.substring(0, 8)}...</div>
-                      {invoice.externalPaymentId && (
-                        <div className="text-xs text-gray-500">Ext ID: {invoice.externalPaymentId.substring(0, 8)}...</div>
-                      )}
+                      {invoice.externalPaymentId && <div className="text-xs text-gray-500">Ext ID: {invoice.externalPaymentId.substring(0, 8)}...</div>}
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{invoice.metadata?.customerName || 'N/A'}</div>
                       <div className="text-sm text-gray-500">{invoice.metadata?.customerEmail || 'N/A'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{formatCurrency(invoice.amount, invoice.currency, state.exchangeRates ?? undefined, state.settings?.currency as SupportedCurrency)}</div> {/* Fixed: Argument of type 'ExchangeRates | null' is not assignable to parameter of type 'ExchangeRates | undefined'. */}
+                      <div className="font-medium text-gray-900">{formatCurrency(invoice.amount, invoice.currency, state.exchangeRates || null, state.settings?.currency)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        invoice.paymentMethod === 'mobilepay' ? 'bg-blue-100 text-blue-800' :
-                        invoice.paymentMethod === 'revolut' ? 'bg-purple-100 text-purple-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${invoice.paymentMethod === 'mobilepay' ? 'bg-blue-100 text-blue-800' : invoice.paymentMethod === 'revolut' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
                         {invoice.paymentMethod}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {new Date(invoice.dueDate).toLocaleDateString()}
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(invoice.dueDate).toLocaleDateString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => handleViewDetails(invoice)}
-                          className="text-blue-600 hover:text-blue-700 p-1"
-                          title="View Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        {invoice.paymentLink && (
-                          <a href={invoice.paymentLink} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:text-green-700 p-1" title="Open Payment Link">
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        )}
-                        {invoice.paymentMethod === 'manual' && invoice.status === 'pending' && (
-                          <button
-                            onClick={() => handleMarkAsPaid(invoice)}
-                            className="text-emerald-600 hover:text-emerald-700 p-1"
-                            title="Mark as Paid"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </button>
-                        )}
-                        {invoice.paymentMethod === 'revolut' && invoice.status === 'pending' && (
-                          <button
-                            onClick={() => handleCheckRevolutStatus(invoice)}
-                            disabled={isRefreshingRevolut}
-                            className="text-purple-600 hover:text-purple-700 p-1 disabled:opacity-50"
-                            title="Check Revolut Status"
-                          >
-                            <RefreshCw className={`h-4 w-4 ${isRefreshingRevolut ? 'animate-spin' : ''}`} />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => actions.deleteInvoice(invoice.id)}
-                          className="text-red-600 hover:text-red-700 p-1"
-                          title="Delete Invoice"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <button onClick={() => handleViewDetails(invoice)} className="text-blue-600 hover:text-blue-700 p-1" title="View Details"><Eye className="h-4 w-4" /></button>
+                        {invoice.paymentLink && <a href={invoice.paymentLink} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:text-green-700 p-1" title="Open Payment Link"><ExternalLink className="h-4 w-4" /></a>}
+                        {invoice.paymentMethod === 'manual' && invoice.status === 'pending' && <button onClick={() => handleMarkAsPaid(invoice)} className="text-emerald-600 hover:text-emerald-700 p-1" title="Mark as Paid"><CheckCircle className="h-4 w-4" /></button>}
+                        {invoice.paymentMethod === 'revolut' && invoice.status === 'pending' && <button onClick={() => handleCheckRevolutStatus(invoice)} disabled={isRefreshingRevolut} className="text-purple-600 hover:text-purple-700 p-1 disabled:opacity-50" title="Check Revolut Status"><RefreshCw className={`h-4 w-4 ${isRefreshingRevolut ? 'animate-spin' : ''}`} /></button>}
+                        <button onClick={() => actions.deleteInvoice(invoice.id)} className="text-red-600 hover:text-red-700 p-1" title="Delete Invoice"><Trash2 className="h-4 w-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -343,7 +292,8 @@ export default function InvoiceManagement() {
         )}
       </div>
 
-      {/* Invoice Detail Modal */}
+      {showCreateForm && <CreateInvoiceForm onClose={() => setShowCreateForm(false)} />}
+
       {showDetailModal && selectedInvoice && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-xl">
@@ -355,14 +305,8 @@ export default function InvoiceManagement() {
                   {getStatusBadge(selectedInvoice.status)}
                 </div>
               </div>
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <XCircle className="h-6 w-6" />
-              </button>
+              <button onClick={() => setShowDetailModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle className="h-6 w-6" /></button>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div className="space-y-4">
                 <div>
@@ -376,10 +320,9 @@ export default function InvoiceManagement() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                  <p className="text-gray-900 font-bold text-lg">{formatCurrency(selectedInvoice.amount, selectedInvoice.currency, state.exchangeRates ?? undefined, state.settings?.currency as SupportedCurrency)}</p> {/* Fixed: Argument of type 'ExchangeRates | null' is not assignable to parameter of type 'ExchangeRates | undefined'. */}
+                  <p className="text-gray-900 font-bold text-lg">{formatCurrency(selectedInvoice.amount, selectedInvoice.currency, state.exchangeRates || null, state.settings?.currency)}</p>
                 </div>
               </div>
-
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
@@ -393,39 +336,18 @@ export default function InvoiceManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
                   <p className="text-gray-900">{new Date(selectedInvoice.dueDate).toLocaleDateString()}</p>
                 </div>
-                {selectedInvoice.externalPaymentId && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">External Payment ID</label>
-                    <p className="text-sm text-gray-600 font-mono">{selectedInvoice.externalPaymentId}</p>
-                  </div>
-                )}
-                {selectedInvoice.paymentLink && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Payment Link</label>
-                    <a href={selectedInvoice.paymentLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center space-x-1">
-                      <span>Open Link</span> <ExternalLink className="h-4 w-4" />
-                    </a>
-                  </div>
-                )}
+                {selectedInvoice.externalPaymentId && <div><label className="block text-sm font-medium text-gray-700 mb-1">External Payment ID</label><p className="text-sm text-gray-600 font-mono">{selectedInvoice.externalPaymentId}</p></div>}
+                {selectedInvoice.paymentLink && <div><label className="block text-sm font-medium text-gray-700 mb-1">Payment Link</label><a href={selectedInvoice.paymentLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center space-x-1"><span>Open Link</span> <ExternalLink className="h-4 w-4" /></a></div>}
               </div>
             </div>
-
-            {Object.keys(selectedInvoice.metadata).length > 0 && (
+            {selectedInvoice.metadata && Object.keys(selectedInvoice.metadata).length > 0 && (
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Metadata</label>
-                <pre className="text-xs bg-gray-50 p-3 rounded-lg overflow-x-auto">
-                  {JSON.stringify(selectedInvoice.metadata, null, 2)}
-                </pre>
+                <pre className="text-xs bg-gray-50 p-3 rounded-lg overflow-x-auto">{JSON.stringify(selectedInvoice.metadata, null, 2)}</pre>
               </div>
             )}
-
             <div className="flex justify-end pt-6 border-t border-gray-200 mt-6">
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                Close
-              </button>
+              <button onClick={() => setShowDetailModal(false)} className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">Close</button>
             </div>
           </div>
         </div>

@@ -29,53 +29,53 @@ interface AppContextType {
   actions: {
     loadAllData: () => Promise<void>;
     getDisplayCurrency: () => SupportedCurrency;
-    updateSettings: (id: string, settings: Partial<Settings>) => Promise<Settings>;
-    createCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Customer>;
-    updateCustomer: (id: string, customer: Partial<Customer>) => Promise<Customer>;
-    deleteCustomer: (id: string) => Promise<void>;
-    createReseller: (reseller: Omit<Reseller, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Reseller>;
-    updateReseller: (id: string, reseller: Partial<Reseller>) => Promise<Reseller>;
-    deleteReseller: (id: string) => Promise<void>;
-    addResellerCredit: (resellerId: string, amount: number, paymentMethod: string) => Promise<void>;
-    createSupplier: (supplier: Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Supplier>;
-    updateSupplier: (id: string, supplier: Partial<Supplier>) => Promise<Supplier>;
-    deleteSupplier: (id: string) => Promise<void>;
-    addSupplierCredit: (supplierId: string, amount: number, description: string) => Promise<void>;
-    adjustSupplierCredit: (supplierId: string, amount: number, description: string) => Promise<void>;
-    sellCreditToReseller: (supplierId: string, resellerId: string, creditAmount: number, salePrice: number) => Promise<void>;
-    createDigitalCode: (code: Omit<DigitalCode, 'id' | 'createdAt' | 'updatedAt' | 'soldQuantity'>) => Promise<DigitalCode>;
-    updateDigitalCode: (id: string, code: Partial<DigitalCode>) => Promise<DigitalCode>;
-    deleteDigitalCode: (id: string) => Promise<void>;
-    createTVBox: (tvBox: Omit<TVBox, 'id' | 'createdAt' | 'updatedAt' | 'soldQuantity'>) => Promise<TVBox>;
-    updateTVBox: (id: string, tvBox: Partial<TVBox>) => Promise<TVBox>;
-    deleteTVBox: (id: string) => Promise<void>;
-    createSale: (sale: Omit<Sale, 'id' | 'createdAt' | 'updatedAt' | 'saleDate'>) => Promise<Sale>;
-    updateSale: (id: string, sale: Partial<Sale>) => Promise<Sale>;
-    deleteSale: (id: string) => Promise<void>;
-    createPurchase: (purchase: Omit<Purchase, 'id' | 'createdAt' | 'updatedAt' | 'purchaseDate'>) => Promise<Purchase>;
-    updatePurchase: (id: string, purchase: Partial<Purchase>) => Promise<Purchase>;
-    deletePurchase: (id: string) => Promise<void>;
-    createEmailTemplate: (template: Omit<EmailTemplate, 'id' | 'createdAt' | 'updatedAt'>) => Promise<EmailTemplate>;
-    updateEmailTemplate: (id: string, template: Partial<EmailTemplate>) => Promise<EmailTemplate>;
-    deleteEmailTemplate: (id: string) => Promise<void>;
-    sendEmail: (to: string, subject: string, content: string, templateData?: Record<string, string>) => Promise<void>;
-    createSubscription: (subscription: Omit<Subscription, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Subscription>;
-    updateSubscription: (id: string, subscription: Partial<Subscription>) => Promise<Subscription>;
-    deleteSubscription: (id: string) => Promise<void>;
-    createSubscriptionProduct: (product: Omit<SubscriptionProduct, 'id' | 'createdAt' | 'updatedAt'>) => Promise<SubscriptionProduct>;
-    updateSubscriptionProduct: (id: string, product: Partial<SubscriptionProduct>) => Promise<SubscriptionProduct>;
-    deleteSubscriptionProduct: (id: string) => Promise<void>;
-    createSettings: (settings: Omit<Settings, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Settings>;
-    addPaymentTransaction: (pt: Omit<PaymentTransaction, 'id' | 'createdAt' | 'updatedAt'>) => Promise<PaymentTransaction>;
-    updatePaymentTransaction: (id: string, pt: Partial<PaymentTransaction>) => Promise<PaymentTransaction>;
-    createInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Invoice>;
-    updateInvoice: (id: string, invoice: Partial<Invoice>) => Promise<Invoice>;
-    deleteInvoice: (id: string) => Promise<void>;
-    createPayment: (payment: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Payment>;
-    updatePayment: (id: string, payment: Partial<Payment>) => Promise<Payment>;
-    deletePayment: (id: string) => Promise<void>;
-    refreshExchangeRates: () => Promise<void>;
-    revolut: { getPaymentStatus: (paymentRequestId: string) => Promise<{ success: boolean; data?: any; error?: string }> };
+    updateSettings: (id: string, settings: Partial<Settings>) => Promise<Settings | undefined>;
+    createCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Customer | undefined>;
+    updateCustomer: (id: string, customer: Partial<Customer>) => Promise<Customer | undefined>;
+    deleteCustomer: (id: string) => Promise<void | undefined>;
+    createReseller: (reseller: Omit<Reseller, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Reseller | undefined>;
+    updateReseller: (id: string, reseller: Partial<Reseller>) => Promise<Reseller | undefined>;
+    deleteReseller: (id: string) => Promise<void | undefined>;
+    addResellerCredit: (resellerId: string, amount: number, paymentMethod: string) => Promise<void | undefined>;
+    createSupplier: (supplier: Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Supplier | undefined>;
+    updateSupplier: (id: string, supplier: Partial<Supplier>) => Promise<Supplier | undefined>;
+    deleteSupplier: (id: string) => Promise<void | undefined>;
+    addSupplierCredit: (supplierId: string, amount: number, description: string) => Promise<void | undefined>;
+    adjustSupplierCredit: (supplierId: string, amount: number, description: string) => Promise<void | undefined>;
+    sellCreditToReseller: (supplierId: string, resellerId: string, creditAmount: number, salePrice: number) => Promise<void | undefined>;
+    createDigitalCode: (code: Omit<DigitalCode, 'id' | 'createdAt' | 'updatedAt' | 'soldQuantity'>) => Promise<DigitalCode | undefined>;
+    updateDigitalCode: (id: string, code: Partial<DigitalCode>) => Promise<DigitalCode | undefined>;
+    deleteDigitalCode: (id: string) => Promise<void | undefined>;
+    createTVBox: (tvBox: Omit<TVBox, 'id' | 'createdAt' | 'updatedAt' | 'soldQuantity'>) => Promise<TVBox | undefined>;
+    updateTVBox: (id: string, tvBox: Partial<TVBox>) => Promise<TVBox | undefined>;
+    deleteTVBox: (id: string) => Promise<void | undefined>;
+    createSale: (sale: Omit<Sale, 'id' | 'createdAt' | 'updatedAt' | 'saleDate'>) => Promise<Sale | undefined>;
+    updateSale: (id: string, sale: Partial<Sale>) => Promise<Sale | undefined>;
+    deleteSale: (id: string) => Promise<void | undefined>;
+    createPurchase: (purchase: Omit<Purchase, 'id' | 'createdAt' | 'updatedAt' | 'purchaseDate'>) => Promise<Purchase | undefined>;
+    updatePurchase: (id: string, purchase: Partial<Purchase>) => Promise<Purchase | undefined>;
+    deletePurchase: (id: string) => Promise<void | undefined>;
+    createEmailTemplate: (template: Omit<EmailTemplate, 'id' | 'createdAt' | 'updatedAt'>) => Promise<EmailTemplate | undefined>;
+    updateEmailTemplate: (id: string, template: Partial<EmailTemplate>) => Promise<EmailTemplate | undefined>;
+    deleteEmailTemplate: (id: string) => Promise<void | undefined>;
+    sendEmail: (to: string, subject: string, content: string, templateData?: Record<string, string>) => Promise<void | undefined>;
+    createSubscription: (subscription: Omit<Subscription, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Subscription | undefined>;
+    updateSubscription: (id: string, subscription: Partial<Subscription>) => Promise<Subscription | undefined>;
+    deleteSubscription: (id: string) => Promise<void | undefined>;
+    createSubscriptionProduct: (product: Omit<SubscriptionProduct, 'id' | 'createdAt' | 'updatedAt'>) => Promise<SubscriptionProduct | undefined>;
+    updateSubscriptionProduct: (id: string, product: Partial<SubscriptionProduct>) => Promise<SubscriptionProduct | undefined>;
+    deleteSubscriptionProduct: (id: string) => Promise<void | undefined>;
+    createSettings: (settings: Omit<Settings, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Settings | undefined>;
+    addPaymentTransaction: (pt: Omit<PaymentTransaction, 'id' | 'createdAt' | 'updatedAt'>) => Promise<PaymentTransaction | undefined>;
+    updatePaymentTransaction: (id: string, pt: Partial<PaymentTransaction>) => Promise<PaymentTransaction | undefined>;
+    createInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Invoice | undefined>;
+    updateInvoice: (id: string, invoice: Partial<Invoice>) => Promise<Invoice | undefined>;
+    deleteInvoice: (id: string) => Promise<void | undefined>;
+    createPayment: (payment: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Payment | undefined>;
+    updatePayment: (id: string, payment: Partial<Payment>) => Promise<Payment | undefined>;
+    deletePayment: (id: string) => Promise<void | undefined>;
+    refreshExchangeRates: () => Promise<void | undefined>;
+    revolut: { getPaymentStatus: (paymentRequestId: string) => Promise<{ success: boolean; data?: any; error?: string } | undefined>; };
   };
 }
 
@@ -145,19 +145,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ]);
         
       dataPayload = {
-        customers: customers,
-        resellers: resellers,
-        suppliers: suppliers,
-        digitalCodes: digitalCodes,
-        tvBoxes: tvBoxes,
-        sales: sales,
-        purchases: purchases,
-        emailTemplates: emailTemplates,
-        subscriptions: subscriptions,
-        subscriptionProducts: subscriptionProducts,
-        invoices: invoices,
-        payments: payments,
-        paymentTransactions: paymentTransactions,
+        customers: customers || [],
+        resellers: resellers || [],
+        suppliers: suppliers || [],
+        digitalCodes: digitalCodes || [],
+        tvBoxes: tvBoxes || [],
+        sales: sales || [],
+        purchases: purchases || [],
+        emailTemplates: emailTemplates || [],
+        subscriptions: subscriptions || [],
+        subscriptionProducts: subscriptionProducts || [],
+        invoices: invoices || [],
+        payments: payments || [],
+        paymentTransactions: paymentTransactions || [],
         settings: settings || null,
       };
     } else {
@@ -179,14 +179,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }), [isAdmin, authUser, fetchExchangeRates]);
 
   useEffect(() => {
-    if (authInitialized && !authLoading && !loadDataTriggered.current && authUser) {
-        loadAllData();
-    } else {
-        if (!authInitialized || authLoading) {
-          loadDataTriggered.current = false;
+    if (authInitialized && !authLoading) {
+      if (authUser) { // User is logged in
+        if (!loadDataTriggered.current) {
+          loadAllData();
         }
+      } else { // User is logged out
+        dispatch({ type: 'RESET_STATE' }); // Reset the app state
+        loadDataTriggered.current = false; // Reset the trigger
+      }
     }
-  }, [authInitialized, authLoading, isAdmin, authUser, loadAllData]);
+  }, [authInitialized, authLoading, authUser, loadAllData]);
 
 
   const allActions: AppContextType['actions'] = useMemo(() => ({
@@ -235,8 +238,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateSubscriptionProduct: withErrorHandling(async (id, product) => { const updatedSP = await subscriptionProductService.update(id, product as any); dispatch({ type: 'UPDATE_SUBSCRIPTION_PRODUCT', payload: updatedSP }); return updatedSP; }),
     deleteSubscriptionProduct: withErrorHandling(async (id) => { await subscriptionProductService.delete(id); dispatch({ type: 'DELETE_SUBSCRIPTION_PRODUCT', payload: id }); }),
     createSettings: withErrorHandling(async (settings) => { const newS = await settingsService.create(settings as any); dispatch({ type: 'SET_SETTINGS', payload: newS }); return newS; }),
-    addPaymentTransaction: withErrorHandling(async (_pt) => { console.log('Mocked addPaymentTransaction'); await loadAllData(); return _pt as PaymentTransaction; }),
-    updatePaymentTransaction: withErrorHandling(async (_id, _pt) => { console.log('Mocked updatePaymentTransaction'); await loadAllData(); return _pt as PaymentTransaction; }),
+    addPaymentTransaction: withErrorHandling(async (pt) => { const newPT = await paymentTransactionService.create(pt as any); dispatch({ type: 'ADD_PAYMENT_TRANSACTION', payload: newPT }); return newPT; }),
+    updatePaymentTransaction: withErrorHandling(async (id, pt) => { const updatedPT = await paymentTransactionService.update(id, pt as any); dispatch({ type: 'UPDATE_PAYMENT_TRANSACTION', payload: updatedPT }); return updatedPT; }),
     createInvoice: withErrorHandling(async (invoice) => { const newI = await invoiceService.create(invoice as any); dispatch({ type: 'ADD_INVOICE', payload: newI }); return newI; }),
     updateInvoice: withErrorHandling(async (id, invoice) => { const updatedI = await invoiceService.update(id, invoice as any); dispatch({ type: 'UPDATE_INVOICE', payload: updatedI }); return updatedI; }),
     deleteInvoice: withErrorHandling(async (id) => { await invoiceService.delete(id); dispatch({ type: 'DELETE_INVOICE', payload: id }); }),

@@ -33,6 +33,8 @@ import CustomerPortalCredentials from '@/components/CustomerPortalCredentials';
 import CustomerPortalContact from '@/components/CustomerPortalContact';
 import CustomerPortalLayout from '@/components/CustomerPortalLayout'; // Placeholder for customer portal layout
 import ErrorBoundary from './components/ErrorBoundary';
+import MobilePayCallback from './components/MobilePayCallback';
+import PublicInvoicePage from './components/PublicInvoicePage'; // Import the new public invoice page
 
 // Ensure ActiveSection type is imported
 import { ActiveSection } from './types';
@@ -122,10 +124,12 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Public Routes for Customer Portal Authentication */}
+        {/* Public Routes */}
         <Route path="/portal/login" element={<CustomerPortalLogin />} />
         <Route path="/portal/auth/check-email" element={<CheckEmail />} />
         <Route path="/portal/auth/callback" element={<CustomerPortalAuthCallback />} />
+        <Route path="/mobilepay-callback" element={<MobilePayCallback />} />
+        <Route path="/pay/invoice/:invoiceId" element={<PublicInvoicePage />} />
 
         {/* Customer Portal Routes (Protected) */}
         <Route
