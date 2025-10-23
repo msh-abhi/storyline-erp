@@ -1,4 +1,16 @@
-import { isObject, isArray } from 'lodash';
+/**
+ * Check if a value is an object (but not an array or null)
+ */
+const isObject = (value: any): value is Record<string, any> => {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+};
+
+/**
+ * Check if a value is an array
+ */
+const isArray = (value: any): value is any[] => {
+  return Array.isArray(value);
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObject = { [key: string]: any };
