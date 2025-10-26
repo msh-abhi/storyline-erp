@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Search, User, Phone, Wifi, Upload, Download, X, Check, FileText, Calendar, CreditCard } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../components/AuthProvider';
 import { Customer, Invoice } from '../types'; // Import Invoice type
 import { toast } from 'react-toastify';
 
 export default function CustomerManagement() {
   const { state, actions } = useApp();
+  const { authUser } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -62,8 +64,13 @@ export default function CustomerManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!authUser) {
+      toast.error("You must be logged in to create a customer.");
+      return;
+    }
+
     try {
-      const customerData: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'> = {
+      const customerData = {
         name: formData.name,
         email: formData.email,
         macAddress: formData.macAddress,
@@ -76,13 +83,14 @@ export default function CustomerManagement() {
         postalCode: formData.postalCode,
         notes: formData.notes,
         status: formData.status,
+        user_id: authUser.id,
       };
 
       if (editingCustomer) {
         await actions.updateCustomer(editingCustomer.id, customerData);
         toast.success("Customer updated successfully!");
       } else {
-        await actions.createCustomer(customerData);
+        await actions.createCustomer(customerData as any);
         toast.success("Customer added successfully!");
       }
 
@@ -762,21 +770,7 @@ export default function CustomerManagement() {
                 <h4 className="text-lg font-medium text-gray-900">Additional Information</h4>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      User ID
-                    </label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <input
-                        type="text"
-                        value={formData.customFields.userId || ''}
-                        onChange={(e) => updateCustomField('userId', e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="e.g., USER001"
-                      />
-                    </div>
-                  </div>
+
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">

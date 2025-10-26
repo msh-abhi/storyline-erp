@@ -1,5 +1,6 @@
 export interface Customer {
   id: string;
+  user_id?: string; // Added for multi-role system
   name: string;
   email: string;
   phone?: string;
@@ -88,6 +89,7 @@ export interface TVBox {
 
 export interface Sale {
   id: string;
+  user_id?: string; // Added for multi-role system
   productId: string;
   productName: string;
   productType: 'digital_code' | 'tv_box' | 'subscription';
@@ -133,6 +135,7 @@ export interface EmailTemplate {
 
 export interface Subscription {
   id: string;
+  user_id?: string; // Added for multi-role system
   customer_id: string;
   customerName: string;
   productId: string;

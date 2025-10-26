@@ -99,7 +99,7 @@ export const keysToSnake = <T>(obj: T): T => {
   if (isObject(obj) && !isArray(obj)) {
     const newObj: AnyObject = {};
     Object.keys(obj as AnyObject).forEach((key) => {
-      const newKey = camelToSnake(key);
+      const newKey = key === 'user_id' ? 'user_id' : camelToSnake(key);
       newObj[newKey] = keysToSnake((obj as AnyObject)[key]);
     });
     return newObj as T;

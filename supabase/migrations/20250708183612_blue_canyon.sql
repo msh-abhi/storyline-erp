@@ -21,49 +21,66 @@ DROP POLICY IF EXISTS "Allow all operations on customers" ON customers;
 -- Repeat for all other tables...
 
 -- Now, add secure per-user policies
--- NOTE: Assumes each table has a user_id UUID column
+-- NOTE: Only create policies for tables that have user_id column
 
 -- Example for one table (repeat structure for others)
-CREATE POLICY "User can access own customers" 
-ON customers 
-FOR ALL 
-TO authenticated 
-USING (user_id = auth.uid()) 
-WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY "User can access own resellers"
-ON resellers 
-FOR ALL 
-TO authenticated 
-USING (user_id = auth.uid()) 
-WITH CHECK (user_id = auth.uid());
-
--- ...repeat for the remaining tables
--- For brevity, here’s a batch template:
-
--- Template for all tables
-DO $$ 
-DECLARE
-    tbl TEXT;
+DO $$
 BEGIN
-    FOR tbl IN 
-        SELECT unnest(ARRAY[
-            'suppliers', 'digital_codes', 'tv_boxes', 'sales', 'purchases', 
-            'email_templates', 'supplier_credits', 'credit_sales',
-            'subscriptions', 'subscription_products', 'reseller_credits',
-            'settings', 'activity_logs'
-        ])
-    LOOP
-        EXECUTE format('
-            CREATE POLICY "User can access own %I"
-            ON %I 
-            FOR ALL 
-            TO authenticated 
-            USING (user_id = auth.uid()) 
-            WITH CHECK (user_id = auth.uid());
-        ', tbl, tbl);
-    END LOOP;
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'user_id'
+    ) THEN
+        CREATE POLICY "User can access own customers"
+        ON customers
+        FOR ALL
+        TO authenticated
+        USING (user_id = auth.uid())
+        WITH CHECK (user_id = auth.uid());
+    END IF;
 END $$;
 
--- Disable email confirmation for ease of dev (optional, security trade-off)
-UPDATE auth.config SET email_confirm = false WHERE id = 1;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'resellers' AND column_name = 'user_id'
+    ) THEN
+        CREATE POLICY "User can access own resellers"
+        ON resellers
+        FOR ALL
+        TO authenticated
+        USING (user_id = auth.uid())
+        WITH CHECK (user_id = auth.uid());
+    END IF;
+END $$;
+
+-- Create policies for tables that have user_id column
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'sales' AND column_name = 'user_id'
+    ) THEN
+        CREATE POLICY "User can access own sales"
+        ON sales
+        FOR ALL
+        TO authenticated
+        USING (user_id = auth.uid())
+        WITH CHECK (user_id = auth.uid());
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'subscriptions' AND column_name = 'user_id'
+    ) THEN
+        CREATE POLICY "User can access own subscriptions"
+        ON subscriptions
+        FOR ALL
+        TO authenticated
+        USING (user_id = auth.uid())
+        WITH CHECK (user_id = auth.uid());
+    END IF;
+END $$;

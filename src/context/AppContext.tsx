@@ -19,7 +19,7 @@ import {
   AppState, AppAction, initialState, appReducer,
   Customer, Reseller, Supplier, DigitalCode, TVBox, Sale, Purchase,
   Subscription, Invoice, PaymentTransaction, EmailTemplate, SubscriptionProduct,
-  ExchangeRates, SupportedCurrency, Settings, Payment
+  SupportedCurrency, Settings, Payment
 } from '../types';
 
 // Define AppContextType to match the structure of your context value
@@ -93,7 +93,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const withErrorHandling = <T extends (...args: any[]) => Promise<any>>(fn: T) => {
-    return async (...args: Parameters<T>): Promise<ReturnType<T> | undefined> => {
+    return async (...args: Parameters<T>): Promise<Awaited<ReturnType<T>> | undefined> => {
       try {
         return await fn(...args);
       } catch (error) {
@@ -112,71 +112,107 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }), []);
 
-  const loadAllData = useCallback(withErrorHandling(async () => {
+  const loadAllData = useCallback(async () => {
     if (loadDataTriggered.current || !authUser) return;
-    
+
     dispatch({ type: 'SET_LOADING', payload: true });
     loadDataTriggered.current = true;
 
     let dataPayload: Partial<AppState> = {};
-      
-    if (isAdmin) {
-      await fetchExchangeRates();
-        
-      const [
-        customers, resellers, suppliers, digitalCodes, tvBoxes, sales,
-        purchases, emailTemplates, subscriptions, subscriptionProducts,
-        invoices, payments, paymentTransactions, settings
-      ] = await Promise.all([
-        customerService.getAll(),
-        resellerService.getAll(),
-        supplierService.getAll(),
-        digitalCodeService.getAll(),
-        tvBoxService.getAll(),
-        saleService.getAll(),
-        purchaseService.getAll(),
-        emailTemplateService.getAll(),
-        subscriptionService.getAll(),
-        subscriptionProductService.getAll(),
-        invoiceService.getAll(),
-        paymentService.getAll(),
-        paymentTransactionService.getAll(),
-        settingsService.get(),
-      ]);
-        
-      dataPayload = {
-        customers: customers || [],
-        resellers: resellers || [],
-        suppliers: suppliers || [],
-        digitalCodes: digitalCodes || [],
-        tvBoxes: tvBoxes || [],
-        sales: sales || [],
-        purchases: purchases || [],
-        emailTemplates: emailTemplates || [],
-        subscriptions: subscriptions || [],
-        subscriptionProducts: subscriptionProducts || [],
-        invoices: invoices || [],
-        payments: payments || [],
-        paymentTransactions: paymentTransactions || [],
-        settings: settings || null,
-      };
-    } else {
-      await fetchExchangeRates();
-      dataPayload = {
-        customers: [], resellers: [], suppliers: [], digitalCodes: [], tvBoxes: [], sales: [],
-        purchases: [], emailTemplates: [], subscriptions: [], subscriptionProducts: [],
-        invoices: [], payments: [], paymentTransactions: [], settings: null
-      };
+
+    try {
+      if (isAdmin) {
+        await fetchExchangeRates();
+
+        const [
+          customers, resellers, suppliers, digitalCodes, tvBoxes, sales,
+          purchases, emailTemplates, subscriptions, subscriptionProducts,
+          invoices, payments, paymentTransactions, settings
+        ] = await Promise.all([
+          customerService.getAll(),
+          resellerService.getAll(),
+          supplierService.getAll(),
+          digitalCodeService.getAll(),
+          tvBoxService.getAll(),
+          saleService.getAll(),
+          purchaseService.getAll(),
+          emailTemplateService.getAll(),
+          subscriptionService.getAll(),
+          subscriptionProductService.getAll(),
+          invoiceService.getAll(),
+          paymentService.getAll(),
+          paymentTransactionService.getAll(),
+          settingsService.get(),
+        ]);
+
+        dataPayload = {
+          customers: customers || [],
+          resellers: resellers || [],
+          suppliers: suppliers || [],
+          digitalCodes: digitalCodes || [],
+          tvBoxes: tvBoxes || [],
+          sales: sales || [],
+          purchases: purchases || [],
+          emailTemplates: emailTemplates || [],
+          subscriptions: subscriptions || [],
+          subscriptionProducts: subscriptionProducts || [],
+          invoices: invoices || [],
+          payments: payments || [],
+          paymentTransactions: paymentTransactions || [],
+          settings: settings || null,
+        };
+      } else {
+        await fetchExchangeRates();
+        const [
+          customers, resellers, suppliers, digitalCodes, tvBoxes, sales,
+          purchases, emailTemplates, subscriptions, subscriptionProducts,
+          invoices, payments, paymentTransactions, settings
+        ] = await Promise.all([
+          customerService.getAll(),
+          resellerService.getAll(),
+          supplierService.getAll(),
+          digitalCodeService.getAll(),
+          tvBoxService.getAll(),
+          saleService.getAll(),
+          purchaseService.getAll(),
+          emailTemplateService.getAll(),
+          subscriptionService.getAll(),
+          subscriptionProductService.getAll(),
+          invoiceService.getAll(),
+          paymentService.getAll(),
+          paymentTransactionService.getAll(),
+          settingsService.get(),
+        ]);
+        dataPayload = {
+          customers: customers || [],
+          resellers: resellers || [],
+          suppliers: suppliers || [],
+          digitalCodes: digitalCodes || [],
+          tvBoxes: tvBoxes || [],
+          sales: sales || [],
+          purchases: purchases || [],
+          emailTemplates: emailTemplates || [],
+          subscriptions: subscriptions || [],
+          subscriptionProducts: subscriptionProducts || [],
+          invoices: invoices || [],
+          payments: payments || [],
+          paymentTransactions: paymentTransactions || [],
+          settings: settings || null,
+        };
+      }
+
+      dispatch({
+        type: 'SET_INITIAL_DATA',
+        payload: dataPayload as any
+      });
+
+    } catch (error) {
+      handleErrors(error);
+    } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
+        loadDataTriggered.current = false;
     }
-
-    dispatch({
-      type: 'SET_INITIAL_DATA',
-      payload: dataPayload as any
-    });
-
-    dispatch({ type: 'SET_LOADING', payload: false });
-    loadDataTriggered.current = false;
-  }), [isAdmin, authUser, fetchExchangeRates]);
+  }, [isAdmin, authUser, fetchExchangeRates]);
 
   useEffect(() => {
     if (authInitialized && !authLoading) {
@@ -193,7 +229,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
 
   const allActions: AppContextType['actions'] = useMemo(() => ({
-    loadAllData: withErrorHandling(loadAllData),
+    loadAllData,
     getDisplayCurrency: (): SupportedCurrency => {
       return (state.settings?.currency as SupportedCurrency) || 'DKK';
     },
@@ -202,7 +238,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: 'SET_SETTINGS', payload: updatedSettings });
       return updatedSettings;
     }),
-    createCustomer: withErrorHandling(async (customer) => { const newC = await customerService.create(customer as any); dispatch({ type: 'ADD_CUSTOMER', payload: newC }); return newC; }),
+    createCustomer: withErrorHandling(async (customer) => {
+    if (!authUser?.id) {
+      throw new Error("User not authenticated - authUser.id is missing");
+    }
+    
+    console.log("Creating customer with authUser.id:", authUser.id);
+    console.log("Customer data before adding user_id:", customer);
+    
+    // Ensure user_id is explicitly set
+    const customerWithUserId = {
+      ...customer,
+      user_id: authUser.id // This should already be set, but ensure it
+    };
+    
+    console.log("Customer data WITH user_id:", customerWithUserId);
+    
+    const newC = await customerService.create(customerWithUserId as any);
+    dispatch({ type: 'ADD_CUSTOMER', payload: newC });
+    return newC;
+  }),
     updateCustomer: withErrorHandling(async (id, customer) => { const updatedC = await customerService.update(id, customer as any); dispatch({ type: 'UPDATE_CUSTOMER', payload: updatedC }); return updatedC; }),
     deleteCustomer: withErrorHandling(async (id) => { await customerService.delete(id); dispatch({ type: 'DELETE_CUSTOMER', payload: id }); }),
     createReseller: withErrorHandling(async (reseller) => { const newR = await resellerService.create(reseller as any); dispatch({ type: 'ADD_RESELLER', payload: newR }); return newR; }),
@@ -221,7 +276,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     createTVBox: withErrorHandling(async (tvBox) => { const newT = await tvBoxService.create(tvBox as any); dispatch({ type: 'ADD_TV_BOX', payload: newT }); return newT; }),
     updateTVBox: withErrorHandling(async (id, tvBox) => { const updatedT = await tvBoxService.update(id, tvBox as any); dispatch({ type: 'UPDATE_TV_BOX', payload: updatedT }); return updatedT; }),
     deleteTVBox: withErrorHandling(async (id) => { await tvBoxService.delete(id); dispatch({ type: 'DELETE_TV_BOX', payload: id }); }),
-    createSale: withErrorHandling(async (sale) => { const newS = await saleService.create(sale as any); dispatch({ type: 'ADD_SALE', payload: newS }); return newS; }),
+    createSale: withErrorHandling(async (sale) => {
+    if (!authUser?.id) {
+      throw new Error("User not authenticated - authUser.id is missing");
+    }
+    
+    console.log("Creating sale with authUser.id:", authUser.id);
+    
+    const saleWithUserId = {
+      ...sale,
+      user_id: authUser.id
+    };
+    
+    console.log("Sale data WITH user_id:", saleWithUserId);
+    
+    const newS = await saleService.create(saleWithUserId as any);
+    dispatch({ type: 'ADD_SALE', payload: newS });
+    return newS;
+  }),
     updateSale: withErrorHandling(async (id, sale) => { const updatedS = await saleService.update(id, sale as any); dispatch({ type: 'UPDATE_SALE', payload: updatedS }); return updatedS; }),
     deleteSale: withErrorHandling(async (id) => { await saleService.delete(id); dispatch({ type: 'DELETE_SALE', payload: id }); }),
     createPurchase: withErrorHandling(async (purchase) => { const newP = await purchaseService.create(purchase as any); dispatch({ type: 'ADD_PURCHASE', payload: newP }); return newP; }),
@@ -231,7 +303,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateEmailTemplate: withErrorHandling(async (id, template) => { const updatedET = await emailTemplateService.update(id, template as any); dispatch({ type: 'UPDATE_EMAIL_TEMPLATE', payload: updatedET }); return updatedET; }),
     deleteEmailTemplate: withErrorHandling(async (id) => { await emailTemplateService.delete(id); dispatch({ type: 'DELETE_EMAIL_TEMPLATE', payload: id }); }),
     sendEmail: withErrorHandling(async (_to, _subject, _content, _templateData) => { console.log('Mocked sendEmail'); }),
-    createSubscription: withErrorHandling(async (subscription) => { const newS = await subscriptionService.create(subscription as any); dispatch({ type: 'ADD_SUBSCRIPTION', payload: newS }); return newS; }),
+    createSubscription: withErrorHandling(async (subscription) => {
+    if (!authUser?.id) {
+      throw new Error("User not authenticated - authUser.id is missing");
+    }
+    
+    console.log("Creating subscription with authUser.id:", authUser.id);
+    
+    const subscriptionWithUserId = {
+      ...subscription,
+      user_id: authUser.id
+    };
+    
+    console.log("Subscription data WITH user_id:", subscriptionWithUserId);
+    
+    const newS = await subscriptionService.create(subscriptionWithUserId as any);
+    dispatch({ type: 'ADD_SUBSCRIPTION', payload: newS });
+    return newS;
+  }),
     updateSubscription: withErrorHandling(async (id, subscription) => { const updatedS = await subscriptionService.update(id, subscription as any); dispatch({ type: 'UPDATE_SUBSCRIPTION', payload: updatedS }); return updatedS; }),
     deleteSubscription: withErrorHandling(async (id) => { await subscriptionService.delete(id); dispatch({ type: 'DELETE_SUBSCRIPTION', payload: id }); }),
     createSubscriptionProduct: withErrorHandling(async (product) => { const newSP = await subscriptionProductService.create(product as any); dispatch({ type: 'ADD_SUBSCRIPTION_PRODUCT', payload: newSP }); return newSP; }),
@@ -253,7 +342,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { success: true, data: { status: 'COMPLETED' } };
       }),
     },
-  }), [state, loadAllData, fetchExchangeRates, dispatch]);
+  }), [state, loadAllData, fetchExchangeRates, dispatch, authUser]);
 
   const value = useMemo(() => ({ state, dispatch, actions: allActions }), [state, dispatch, allActions]);
 

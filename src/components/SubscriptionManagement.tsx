@@ -53,7 +53,7 @@ export default function SubscriptionManagement() {
     try {
       // First, create the subscription record
       const baseSubscriptionData: Omit<Subscription, 'id' | 'createdAt'> = {
-        customerId: formData.customerId,
+        customer_id: formData.customerId,
         customerName: customer.name,
         productId: subscriptionProduct.id,
         productName: subscriptionProduct.name,

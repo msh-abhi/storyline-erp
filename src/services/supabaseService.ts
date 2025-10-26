@@ -111,8 +111,30 @@ export const customerService = {
     return data.map(convertCustomerFromDb);
   },
   create: async (customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> => {
-    const { data, error } = await supabase.from('customers').insert(keysToSnake(customer)).select().single();
-    if (error) throw error;
+    console.log("customerService.create - BEFORE keysToSnake:", customer);
+    console.log("user_id value:", customer.user_id);
+    
+    // Convert to snake_case
+    const snakeCaseData = keysToSnake(customer);
+    console.log("customerService.create - AFTER keysToSnake:", snakeCaseData);
+    console.log("user_id after conversion:", snakeCaseData.user_id);
+    
+    // CRITICAL: If user_id is missing, throw error
+    if (!snakeCaseData.user_id) {
+      throw new Error("CRITICAL ERROR: user_id is missing after keysToSnake conversion!");
+    }
+    
+    const { data, error } = await supabase
+      .from('customers')
+      .insert(snakeCaseData)
+      .select()
+      .single();
+      
+    if (error) {
+      console.error("Supabase insert error:", error);
+      throw error;
+    }
+    
     return convertCustomerFromDb(data);
   },
   update: async (id: string, customer: Partial<Customer>): Promise<Customer> => {
@@ -221,8 +243,27 @@ export const saleService = {
     return data.map(convertSaleFromDb);
   },
   create: async (sale: Omit<Sale, 'id' | 'createdAt' | 'updatedAt' | 'saleDate'>): Promise<Sale> => {
-    const { data, error } = await supabase.from('sales').insert(keysToSnake(sale)).select().single();
-    if (error) throw error;
+    console.log("saleService.create - BEFORE keysToSnake:", sale);
+    console.log("user_id value:", sale.user_id);
+    
+    const snakeCaseData = keysToSnake(sale);
+    console.log("saleService.create - AFTER keysToSnake:", snakeCaseData);
+    
+    if (!snakeCaseData.user_id) {
+      throw new Error("CRITICAL ERROR: user_id is missing after keysToSnake conversion!");
+    }
+    
+    const { data, error } = await supabase
+      .from('sales')
+      .insert(snakeCaseData)
+      .select()
+      .single();
+      
+    if (error) {
+      console.error("Supabase insert error:", error);
+      throw error;
+    }
+    
     return convertSaleFromDb(data);
   },
   update: async (id: string, sale: Partial<Sale>): Promise<Sale> => {
@@ -270,8 +311,27 @@ export const subscriptionService = {
     return data.map(convertSubscriptionFromDb);
   },
   create: async (subscription: Omit<Subscription, 'id' | 'createdAt' | 'updatedAt'>): Promise<Subscription> => {
-    const { data, error } = await supabase.from('subscriptions').insert(keysToSnake(subscription)).select().single();
-    if (error) throw error;
+    console.log("subscriptionService.create - BEFORE keysToSnake:", subscription);
+    console.log("user_id value:", subscription.user_id);
+    
+    const snakeCaseData = keysToSnake(subscription);
+    console.log("subscriptionService.create - AFTER keysToSnake:", snakeCaseData);
+    
+    if (!snakeCaseData.user_id) {
+      throw new Error("CRITICAL ERROR: user_id is missing after keysToSnake conversion!");
+    }
+    
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .insert(snakeCaseData)
+      .select()
+      .single();
+      
+    if (error) {
+      console.error("Supabase insert error:", error);
+      throw error;
+    }
+    
     return convertSubscriptionFromDb(data);
   },
   update: async (id: string, subscription: Partial<Subscription>): Promise<Subscription> => {
