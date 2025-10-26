@@ -25,6 +25,7 @@ export default function CustomerManagement() {
     postalCode: '',
     notes: '',
     status: 'active',
+    user_id: authUser?.id || '',
   });
 
   // CSV Import state
@@ -76,12 +77,12 @@ export default function CustomerManagement() {
         macAddress: formData.macAddress,
         whatsappNumber: formData.whatsappNumber,
         customFields: formData.customFields,
-        phone: formData.phone,
-        address: formData.address,
-        city: formData.city,
-        country: formData.country,
-        postalCode: formData.postalCode,
-        notes: formData.notes,
+        phone: formData.phone || '',
+        address: formData.address || '',
+        city: formData.city || '',
+        country: formData.country || '',
+        postalCode: formData.postalCode || '',
+        notes: formData.notes || '',
         status: formData.status,
         user_id: authUser.id,
       };
@@ -105,6 +106,7 @@ export default function CustomerManagement() {
     setFormData({
       name: '', email: '', macAddress: '', whatsappNumber: '', customFields: {},
       phone: '', address: '', city: '', country: '', postalCode: '', notes: '', status: 'active',
+      user_id: authUser?.id || '',
     });
     setShowForm(false);
     setEditingCustomer(null);
@@ -125,6 +127,7 @@ export default function CustomerManagement() {
       postalCode: customer.postalCode || '',
       notes: customer.notes || '',
       status: customer.status || 'active',
+      user_id: customer.user_id || authUser?.id || '',
     });
     setShowForm(true);
   };
@@ -271,7 +274,7 @@ export default function CustomerManagement() {
         const customerData: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'> = {
           name: '', email: '', status: 'active', customFields: {},
           phone: '', address: '', city: '', country: '', postalCode: '', notes: '',
-          macAddress: '', whatsappNumber: ''
+          macAddress: '', whatsappNumber: '', user_id: authUser?.id || ''
         };
 
         Object.entries(fieldMapping).forEach(([csvField, targetField]) => {
