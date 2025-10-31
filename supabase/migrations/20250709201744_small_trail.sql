@@ -1,3 +1,13 @@
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'subscriptions' AND column_name = 'updated_at'
+  ) THEN
+    ALTER TABLE subscriptions ADD COLUMN updated_at timestamptz DEFAULT now();
+  END IF;
+END $$;
+
 /*
   # Update Subscription Reminders to 10/5 Days
 

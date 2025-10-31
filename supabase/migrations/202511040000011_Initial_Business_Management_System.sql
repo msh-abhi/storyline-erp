@@ -1,29 +1,4 @@
 /*
-  RLS for single-user app
-  - Require login for all access
-  - No user_id restrictions (shared access for one account only)
-*/
-
--- Enable Row-Level Security on all tables
-ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE resellers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE digital_codes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tv_boxes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
-ALTER TABLE purchases ENABLE ROW LEVEL SECURITY;
-ALTER TABLE email_templates ENABLE ROW LEVEL SECURITY;
-ALTER TABLE supplier_credits ENABLE ROW LEVEL SECURITY;
-ALTER TABLE credit_sales ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subscription_products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reseller_credits ENABLE ROW LEVEL SECURITY;
-ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
-
--- Drop old policies (if any)
-DROP POLICY IF EXISTS "Allow all operations on customers" ON customers;
-DROP POLICY IF EXISTS "Allow all operations on resellers" ON resellers;/*
   # Initial Business Management Schema
 
   1. New Tables
@@ -275,15 +250,25 @@ ALTER TABLE supplier_credits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credit_sales ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for public access (since this is a single-user business app)
+DROP POLICY IF EXISTS "Allow all operations on customers" ON customers;
 CREATE POLICY "Allow all operations on customers" ON customers FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow all operations on resellers" ON resellers;
 CREATE POLICY "Allow all operations on resellers" ON resellers FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow all operations on suppliers" ON suppliers;
 CREATE POLICY "Allow all operations on suppliers" ON suppliers FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow all operations on digital_codes" ON digital_codes;
 CREATE POLICY "Allow all operations on digital_codes" ON digital_codes FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow all operations on tv_boxes" ON tv_boxes;
 CREATE POLICY "Allow all operations on tv_boxes" ON tv_boxes FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow all operations on sales" ON sales;
 CREATE POLICY "Allow all operations on sales" ON sales FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow all operations on purchases" ON purchases;
 CREATE POLICY "Allow all operations on purchases" ON purchases FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow all operations on email_templates" ON email_templates;
 CREATE POLICY "Allow all operations on email_templates" ON email_templates FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow all operations on supplier_credits" ON supplier_credits;
 CREATE POLICY "Allow all operations on supplier_credits" ON supplier_credits FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow all operations on credit_sales" ON credit_sales;
 CREATE POLICY "Allow all operations on credit_sales" ON credit_sales FOR ALL USING (true);
 
 -- Create indexes for better performance
@@ -319,40 +304,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create trigger for supplier credit balance updates
+DROP TRIGGER IF EXISTS trigger_update_supplier_credit_balance ON supplier_credits;
 CREATE TRIGGER trigger_update_supplier_credit_balance
   AFTER INSERT ON supplier_credits
   FOR EACH ROW
   EXECUTE FUNCTION update_supplier_credit_balance();
-DROP POLICY IF EXISTS "Allow all operations on suppliers" ON suppliers;
-DROP POLICY IF EXISTS "Allow all operations on digital_codes" ON digital_codes;
-DROP POLICY IF EXISTS "Allow all operations on tv_boxes" ON tv_boxes;
-DROP POLICY IF EXISTS "Allow all operations on sales" ON sales;
-DROP POLICY IF EXISTS "Allow all operations on purchases" ON purchases;
-DROP POLICY IF EXISTS "Allow all operations on email_templates" ON email_templates;
-DROP POLICY IF EXISTS "Allow all operations on supplier_credits" ON supplier_credits;
-DROP POLICY IF EXISTS "Allow all operations on credit_sales" ON credit_sales;
-DROP POLICY IF EXISTS "Allow all operations on subscriptions" ON subscriptions;
-DROP POLICY IF EXISTS "Allow all operations on subscription_products" ON subscription_products;
-DROP POLICY IF EXISTS "Allow all operations on reseller_credits" ON reseller_credits;
-DROP POLICY IF EXISTS "Allow all operations on settings" ON settings;
-DROP POLICY IF EXISTS "Allow all operations on activity_logs" ON activity_logs;
-
--- Create policies: any authenticated user has full access
-CREATE POLICY "Authenticated can access customers" ON customers FOR ALL TO authenticated USING (true);
-CREATE POLICY "Authenticated can access resellers" ON resellers FOR ALL TO authenticated USING (true);
-CREATE POLICY "Authenticated can access suppliers" ON suppliers FOR ALL TO authenticated USING (true);
-CREATE POLICY "Authenticated can access digital_codes" ON digital_codes FOR ALL TO authenticated USING (true);
-CREATE POLICY "Authenticated can access tv_boxes" ON tv_boxes FOR ALL TO authenticated USING (true);
-CREATE POLICY "Authenticated can access sales" ON sales FOR ALL TO authenticated USING (true);
-CREATE POLICY "Authenticated can access purchases" ON purchases FOR ALL TO authenticated USING (true);
-CREATE POLICY "Authenticated can access email_templates" ON email_templates FOR ALL TO authenticated USING (true);
-CREATE POLICY "Authenticated can access supplier_credits" ON supplier_credits FOR ALL TO authenticated USING (true);
-CREATE POLICY "Authenticated can access credit_sales" ON credit_sales FOR ALL TO authenticated USING (true);
-CREATE POLICY "Authenticated can access subscriptions" ON subscriptions FOR ALL TO authenticated USING (true);
-CREATE POLICY "Authenticated can access subscription_products" ON subscription_products FOR ALL TO authenticated USING (true);
-CREATE POLICY "Authenticated can access reseller_credits" ON reseller_credits FOR ALL TO authenticated USING (true);
-CREATE POLICY "Authenticated can access settings" ON settings FOR ALL TO authenticated USING (true);
-CREATE POLICY "Authenticated can access activity_logs" ON activity_logs FOR ALL TO authenticated USING (true);
-
--- Optional: Turn off email confirmation for easy access
-UPDATE auth.config SET email_confirm = false WHERE id = 1;

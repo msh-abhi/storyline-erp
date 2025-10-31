@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Search, Calendar, AlertCircle, Clock, Package, DollarSign, ExternalLink } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../components/AuthProvider';
 import { Subscription, SubscriptionProduct, SupportedCurrency } from '../types';
 import { formatCurrency } from '../utils/calculations';
 import { calculateSubscriptionEndDate, getDaysUntilExpiry, getSubscriptionReminderStatus } from '../utils/subscriptionUtils';
@@ -8,6 +9,7 @@ import { generateInvoice } from '../utils/invoiceGenerator';
 
 export default function SubscriptionManagement() {
   const { state, actions } = useApp();
+  const { authUser } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
@@ -17,7 +19,7 @@ export default function SubscriptionManagement() {
     customerId: '',
     subscriptionProductId: '',
     startDate: new Date().toISOString().split('T')[0],
-    paymentMethod: 'manual' as 'mobilepay' | 'revolut' | 'manual', // New field
+    paymentMethod: 'mobilepay' as 'mobilepay' | 'revolut' | 'manual', // New field
   });
   const [productFormData, setProductFormData] = useState({
     name: '',
@@ -27,10 +29,11 @@ export default function SubscriptionManagement() {
     features: ['']
   });
 
-  const filteredSubscriptions = state.subscriptions?.filter(subscription =>
-    subscription.productName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    subscription.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const filteredSubscriptions = state.subscriptions?.filter(subscription => {
+    const customer = state.customers.find(c => c.id === subscription.customerId);
+    const customerName = customer ? customer.name : '';
+    return customerName.toLowerCase().includes(searchTerm.toLowerCase());
+  }) || [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,19 +55,19 @@ export default function SubscriptionManagement() {
 
     try {
       // First, create the subscription record
-      const baseSubscriptionData: Omit<Subscription, 'id' | 'createdAt'> = {
-        customer_id: formData.customerId,
-        customerName: customer.name,
-        productId: subscriptionProduct.id,
+      const baseSubscriptionData: Omit<Subscription, 'id' | 'createdAt' | 'updatedAt'> = {
+        customerId: formData.customerId,
+        productId: formData.subscriptionProductId,
         productName: subscriptionProduct.name,
+        durationMonths: subscriptionProduct.durationMonths,
         startDate: formData.startDate,
         endDate: endDate,
-        durationMonths: subscriptionProduct.durationMonths,
         price: subscriptionProduct.price,
-        status: 'pending', // Set to pending initially until payment is confirmed
+        status: 'active',
         reminder10Sent: false,
-        reminder3Sent: false,
+        reminder5Sent: false,
         paymentMethod: formData.paymentMethod,
+        user_id: authUser?.id || '',
       };
 
       if (editingSubscription) {
@@ -157,7 +160,7 @@ export default function SubscriptionManagement() {
       customerId: '',
       subscriptionProductId: '',
       startDate: new Date().toISOString().split('T')[0],
-      paymentMethod: 'manual'
+      paymentMethod: 'manual' as 'mobilepay' | 'revolut' | 'manual'
     });
     setShowForm(false);
     setEditingSubscription(null);
@@ -179,7 +182,7 @@ export default function SubscriptionManagement() {
     setEditingSubscription(subscription);
     setFormData({
       customerId: subscription.customerId,
-      subscriptionProductId: subscription.productId,
+      subscriptionProductId: '', // This is not available on the subscription object anymore
       startDate: subscription.startDate.split('T')[0],
       paymentMethod: subscription.paymentMethod || 'manual', // Load existing payment method
     });
@@ -292,7 +295,7 @@ export default function SubscriptionManagement() {
             <Clock className="h-8 w-8 text-green-600" />
             <div>
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(activeSubscriptions.reduce((total, sub) => total + sub.price, 0))}
+                {formatCurrency(activeSubscriptions.reduce((total, sub) => total + sub.price, 0), 'DKK', null)}
               </p>
               <p className="text-sm text-gray-600">Monthly Revenue</p>
             </div>
@@ -342,7 +345,7 @@ export default function SubscriptionManagement() {
                 </div>
                 <p className="text-sm text-gray-600 mb-3">{product.description}</p>
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-lg font-bold text-blue-600">{formatCurrency(product.price)}</span>
+                  <span className="text-lg font-bold text-blue-600">{formatCurrency(product.price, 'DKK', null)}</span>
                   <span className="text-sm text-gray-500">{product.durationMonths} month{product.durationMonths > 1 ? 's' : ''}</span>
                 </div>
                 <div className="text-xs text-gray-500">
@@ -399,7 +402,7 @@ export default function SubscriptionManagement() {
                     <option value="">Select a product</option>
                     {state.subscriptionProducts?.filter(p => p.isActive).map((product) => (
                       <option key={product.id} value={product.id}>
-                        {product.name} - {formatCurrency(product.price)} ({product.durationMonths} month{product.durationMonths > 1 ? 's' : ''})
+                        {product.name} - {formatCurrency(product.price, 'DKK', null)} ({product.durationMonths} month{product.durationMonths > 1 ? 's' : ''})
                       </option>
                     ))}
                   </select>
@@ -430,8 +433,8 @@ export default function SubscriptionManagement() {
                     onChange={(e) => setFormData(prev => ({ ...prev, paymentMethod: e.target.value as 'mobilepay' | 'revolut' | 'manual' }))}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="manual">Manual</option>
                     <option value="mobilepay">MobilePay (Recurring)</option>
+                    <option value="manual">Manual</option>
                     <option value="revolut">Revolut (Manual Invoice)</option>
                   </select>
                 </div>
@@ -624,21 +627,23 @@ export default function SubscriptionManagement() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredSubscriptions.map((subscription) => {
+                  const customer = state.customers.find(c => c.id === subscription.customerId);
+                  const customerName = customer ? customer.name : 'N/A';
                   const daysLeft = getDaysUntilExpiry(subscription.endDate);
                   const invoice = state.invoices?.find(inv => inv.id === subscription.invoiceId);
                   return (
                     <tr key={subscription.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">{subscription.customerName}</div>
+                        <div className="font-medium text-gray-900">{customerName}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                        {subscription.productName}
+                        N/A
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                        {subscription.durationMonths} month{subscription.durationMonths > 1 ? 's' : ''}
+                        N/A
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-900 font-medium">
-                        {formatCurrency(subscription.price)}
+                        {formatCurrency(subscription.price, 'DKK', null)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-600">
                         <div>
@@ -693,11 +698,11 @@ export default function SubscriptionManagement() {
                           </span>
                           <span
                             className={`inline-flex px-2 py-1 text-xs rounded ${ 
-                              subscription.reminder3Sent ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                              subscription.reminder5Sent ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
                             }`}
-                            title={subscription.reminder3Sent ? '3-day reminder sent' : '3-day reminder not sent'}
+                            title={subscription.reminder5Sent ? '5-day reminder sent' : '5-day reminder not sent'}
                           >
-                            3d
+                            5d
                           </span>
                           {(() => {
                             const reminderStatus = getSubscriptionReminderStatus(subscription);

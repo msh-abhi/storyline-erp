@@ -4,137 +4,174 @@ import { useApp } from '../context/AppContext';
 import { Sale, DigitalCode, TVBox, SubscriptionProduct, Customer, Reseller } from '../types';
 import { formatCurrency, calculateTotalRevenue, calculateInventoryProfit, calculateOutstandingAmount } from '../utils/calculations';
 
+import { generateInvoice } from '../utils/invoiceGenerator';
+
 export default function SalesManagement() {
   const { state, actions } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const initialFormData = {
-    productType: 'digital_code' as 'digital_code' | 'tv_box' | 'subscription',
-    productId: '',
-    buyerType: 'customer' as 'customer' | 'reseller',
-    buyerId: '',
-    quantity: 1,
-    paymentStatus: 'received' as 'received' | 'due' | 'partial',
-    status: 'completed' as 'completed' | 'pending' | 'cancelled',
-  };
-  const [formData, setFormData] = useState(initialFormData);
-
-  const filteredSales = state.sales.filter((sale: Sale) =>
-    (sale.productName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (sale.buyerName || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const getAvailableProducts = (): (DigitalCode | TVBox | SubscriptionProduct)[] => {
-    switch (formData.productType) {
-      case 'digital_code':
-        return state.digitalCodes.filter((code: DigitalCode) => code.quantity > (code.soldQuantity || 0));
-      case 'tv_box':
-        return state.tvBoxes.filter((box: TVBox) => box.quantity > (box.soldQuantity || 0));
-      case 'subscription':
-        return state.subscriptionProducts?.filter((product: SubscriptionProduct) => product.isActive) || [];
-      default:
-        return [];
-    }
-  };
-
-  const availableProducts = getAvailableProducts();
-  const availableBuyers = formData.buyerType === 'customer' ? state.customers : state.resellers;
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const resetForm = () => {
-    setFormData(initialFormData);
-    setEditingSale(null);
-    setShowForm(false);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const product = availableProducts.find((p: DigitalCode | TVBox | SubscriptionProduct) => p.id === formData.productId);
-    const buyer = availableBuyers.find((b: Customer | Reseller) => b.id === formData.buyerId);
-
-    if (!product || !buyer) return alert('Please select a valid product and buyer.');
-
-    let unitPrice = 0;
-    let productName = '';
-    let purchasePrice = 0;
-
-    if (formData.productType === 'subscription') {
-      const subProd = product as SubscriptionProduct;
-      unitPrice = subProd.price;
-      productName = subProd.name;
-    } else {
-      const stockProd = product as DigitalCode | TVBox;
-      unitPrice = formData.buyerType === 'customer' ? stockProd.customerPrice : stockProd.resellerPrice;
-      productName = 'name' in stockProd ? stockProd.name : stockProd.model;
-      purchasePrice = stockProd.purchasePrice || 0;
-    }
-
-    const totalPrice = unitPrice * formData.quantity;
-    const profit = (unitPrice - purchasePrice) * formData.quantity;
-
-    const saleData: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'> = {
-      productId: formData.productId,
-      productName,
-      productType: formData.productType,
-      buyerId: formData.buyerId,
-      buyerName: buyer.name,
-      buyerType: formData.buyerType,
-      customerId: formData.buyerType === 'customer' ? formData.buyerId : null,
-      quantity: formData.quantity,
-      unitPrice,
-      totalPrice,
-      profit,
-      paymentStatus: formData.paymentStatus,
-      status: formData.status,
-      saleDate: new Date().toISOString(),
+    const initialFormData = {
+      productType: 'digital_code' as 'digital_code' | 'tv_box' | 'subscription',
+      productId: '',
+      buyerType: 'customer' as 'customer' | 'reseller',
+      buyerId: '',
+      quantity: 1,
+      paymentMethod: 'mobilepay' as 'mobilepay' | 'revolut' | 'manual' | 'cash' | 'paypal',
+      status: 'completed' as 'completed' | 'pending' | 'cancelled',
     };
 
-    try {
-      if (editingSale) {
-        await actions.updateSale(editingSale.id, saleData);
-      } else {
-        const newSale = await actions.createSale(saleData);
-        if (newSale && (formData.productType === 'digital_code' || formData.productType === 'tv_box')) {
-          const stockProduct = product as DigitalCode | TVBox;
-          const updatedStock = { soldQuantity: (stockProduct.soldQuantity || 0) + formData.quantity };
-          if (formData.productType === 'digital_code') {
-            await actions.updateDigitalCode(product.id, updatedStock);
-          } else {
-            await actions.updateTVBox(product.id, updatedStock);
-          }
-        }
-        if (newSale && formData.productType === 'subscription') {
-          const subProd = product as SubscriptionProduct;
-          const startDate = new Date();
-          const endDate = new Date();
-          endDate.setMonth(startDate.getMonth() + subProd.durationMonths);
-          await actions.createSubscription({
-            customer_id: buyer.id,
-            customerName: buyer.name,
-            productId: subProd.id,
-            productName: subProd.name,
-            status: 'active',
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
-            price: subProd.price,
-            durationMonths: subProd.durationMonths,
-            reminder7Sent: false,
-            reminder3Sent: false,
-          });
-        }
+    const [formData, setFormData] = useState(initialFormData);
+
+    const filteredSales = state.sales.filter((sale: Sale) =>
+      (sale.productName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (sale.buyerName || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const getAvailableProducts = (): (DigitalCode | TVBox | SubscriptionProduct)[] => {
+      switch (formData.productType) {
+        case 'digital_code':
+          return state.digitalCodes.filter((code: DigitalCode) => code.quantity > (code.soldQuantity || 0));
+        case 'tv_box':
+          return state.tvBoxes.filter((box: TVBox) => box.quantity > (box.soldQuantity || 0));
+        case 'subscription':
+          return state.subscriptionProducts?.filter((product: SubscriptionProduct) => product.isActive) || [];
+        default:
+          return [];
       }
-      resetForm();
-    } catch (error) {
-      console.error("Error saving sale:", error);
-      // Optionally show a toast notification
-    }
-  };
+    };
+
+    const availableProducts = getAvailableProducts();
+    const availableBuyers = formData.buyerType === 'customer' ? state.customers : state.resellers;
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      const { name, value } = e.target;
+      setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const resetForm = () => {
+      setFormData(initialFormData);
+      setEditingSale(null);
+      setShowForm(false);
+    };
+
+      const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        const product = availableProducts.find((p: DigitalCode | TVBox | SubscriptionProduct) => p.id === formData.productId);
+        const buyer = availableBuyers.find((b: Customer | Reseller) => b.id === formData.buyerId);
+
+        if (!product || !buyer) return alert('Please select a valid product and buyer.');
+
+        let unitPrice = 0;
+        let productName = '';
+        let purchasePrice = 0;
+
+        if (formData.productType === 'subscription') {
+          const subProd = product as SubscriptionProduct;
+          unitPrice = subProd.price;
+          productName = subProd.name;
+        } else {
+          const stockProd = product as DigitalCode | TVBox;
+          unitPrice = formData.buyerType === 'customer' ? stockProd.customerPrice : stockProd.resellerPrice;
+          productName = 'name' in stockProd ? stockProd.name : stockProd.model;
+          purchasePrice = stockProd.purchasePrice || 0;
+        }
+
+        const totalPrice = unitPrice * formData.quantity;
+        const profit = (unitPrice - purchasePrice) * formData.quantity;
+
+        const isOfflinePayment = ['manual', 'cash', 'paypal'].includes(formData.paymentMethod);
+
+        const saleData: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'> = {
+          productId: formData.productId,
+          productName,
+          productType: formData.productType,
+          buyerId: formData.buyerId,
+          buyerName: buyer.name,
+          buyerType: formData.buyerType,
+          customerId: formData.buyerType === 'customer' ? formData.buyerId : null,
+          quantity: formData.quantity,
+          unitPrice,
+          totalPrice,
+          totalAmount: totalPrice,
+          profit,
+          paymentMethod: formData.paymentMethod,
+          status: isOfflinePayment ? formData.status : 'pending',
+          paymentStatus: isOfflinePayment ? 'paid' : 'unpaid',
+          saleDate: new Date().toISOString(),
+        };
+
+        try {
+                    const newSale = await actions.createSale(saleData);
+                    if (!newSale) throw new Error('Failed to create sale.');
+
+                    // Send email notification
+                    try {
+                      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                        },
+                        body: JSON.stringify({
+                          to: buyer.email,
+                          subject: `Your order confirmation for ${productName}`,
+                          content: `Dear ${buyer.name},<br><br>Thank you for your purchase of ${productName}.<br><br>Quantity: ${formData.quantity}<br>Total Price: ${totalPrice}<br><br>Best regards,<br>Jysk Streaming Team`,
+                        }),
+                      });
+                    } catch (emailError) {
+                      console.error('Failed to send email notification:', emailError);
+                      // Do not block the UI for email errors
+                    }
+
+          const invoiceResult = await generateInvoice({
+            customerId: buyer.id,
+            customerName: buyer.name,
+            customerEmail: buyer.email,
+            amount: totalPrice,
+            currency: state.settings?.currency || 'DKK',
+            dueDate: new Date().toISOString(),
+            paymentMethod: formData.paymentMethod,
+            metadata: {
+              saleId: newSale.id,
+              productName,
+              quantity: formData.quantity,
+            },
+          });
+
+          if (!invoiceResult.success || !invoiceResult.invoice) {
+            throw new Error(invoiceResult.error || 'Failed to generate invoice.');
+          }
+
+          await actions.updateSale(newSale.id, { invoiceId: invoiceResult.invoice.id });
+
+          if (formData.productType === 'digital_code' || formData.productType === 'tv_box') {
+            const stockProduct = product as DigitalCode | TVBox;
+            const updatedStock = { soldQuantity: (stockProduct.soldQuantity || 0) + formData.quantity };
+            if (formData.productType === 'digital_code') {
+              await actions.updateDigitalCode(product.id, updatedStock);
+            } else {
+              await actions.updateTVBox(product.id, updatedStock);
+            }
+          }
+
+          if (invoiceResult.paymentLink && formData.paymentMethod === 'mobilepay') {
+            window.location.href = invoiceResult.paymentLink;
+          } else if (invoiceResult.paymentLink && formData.paymentMethod === 'revolut') {
+            alert(`Revolut payment link generated: ${invoiceResult.paymentLink}. Please send this to the customer.`);
+          } else {
+            alert('Sale recorded successfully!');
+          }
+
+          resetForm();
+
+        } catch (error) {
+          console.error("Error saving sale:", error);
+          alert(`Error saving sale: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      };
 
   const handleEdit = (sale: Sale) => {
     setEditingSale(sale);
@@ -144,7 +181,7 @@ export default function SalesManagement() {
       buyerType: sale.buyerType,
       buyerId: sale.buyerId,
       quantity: sale.quantity,
-      paymentStatus: sale.paymentStatus,
+      paymentMethod: sale.paymentMethod,
       status: sale.status,
     });
     setShowForm(true);
@@ -328,54 +365,102 @@ export default function SalesManagement() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Quantity *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    name="quantity" // FIX: Added name attribute
-                    value={formData.quantity}
-                    onChange={handleChange} // FIX: Using handleChange
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Payment Status *
-                  </label>
-                  <select
-                    name="paymentStatus" // FIX: Added name attribute
-                    value={formData.paymentStatus}
-                    onChange={handleChange} // FIX: Using handleChange
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="received">Payment Received</option>
-                    <option value="due">Payment Due</option>
-                    <option value="partial">Partial Payment</option>
-                  </select>
-                </div>
+                              <div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status *
-                  </label>
-                  <select
-                    name="status" // FIX: Added name attribute
-                    value={formData.status}
-                    onChange={handleChange} // FIX: Using handleChange
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="completed">Completed</option>
-                    <option value="pending">Pending</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                </div>
-              </div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+
+                                  Quantity *
+
+                                </label>
+
+                                <input
+
+                                  type="number"
+
+                                  min="1"
+
+                                  required
+
+                                  name="quantity" // FIX: Added name attribute
+
+                                  value={formData.quantity}
+
+                                  onChange={handleChange} // FIX: Using handleChange
+
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+
+                                />
+
+                              </div>
+
+                                              <div>
+
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+
+                                                  Payment Method *
+
+                                                </label>
+
+                                                <select
+
+                                                  name="paymentMethod"
+
+                                                  value={formData.paymentMethod}
+
+                                                  onChange={handleChange}
+
+                                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+
+                                                >
+
+                                                  <option value="mobilepay">MobilePay</option>
+
+                                                  <option value="manual">Manual</option>
+
+                                                  <option value="cash">Cash</option>
+
+                                                  <option value="paypal">PayPal</option>
+
+                                                  <option value="revolut">Revolut</option>
+
+                                                </select>
+
+                                              </div>
+
+                                              {['manual', 'cash', 'paypal'].includes(formData.paymentMethod) && (
+
+                                                <div>
+
+                                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+
+                                                    Status *
+
+                                                  </label>
+
+                                                  <select
+
+                                                    name="status"
+
+                                                    value={formData.status}
+
+                                                    onChange={handleChange}
+
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+
+                                                  >
+
+                                                    <option value="completed">Completed</option>
+
+                                                    <option value="pending">Pending</option>
+
+                                                  </select>
+
+                                                </div>
+
+                                              )}
+                            </div>
 
               <div className="flex justify-end space-x-3 pt-4">
                 <button
@@ -427,9 +512,7 @@ export default function SalesManagement() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Profit
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Payment
-                  </th>
+
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
@@ -467,15 +550,7 @@ export default function SalesManagement() {
                         {formatCurrency(sale.profit, state.settings?.currency, state.exchangeRates, state.settings?.displayCurrency)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        sale.paymentStatus === 'received' ? 'bg-green-100 text-green-800' :
-                        sale.paymentStatus === 'due' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {sale.paymentStatus}
-                      </span>
-                    </td>
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                         sale.status === 'completed' ? 'bg-green-100 text-green-800' :

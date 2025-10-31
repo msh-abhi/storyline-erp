@@ -194,16 +194,19 @@ ALTER TABLE woocommerce_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE woocommerce_sync_log ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for woocommerce_orders
+DROP POLICY IF EXISTS "Authenticated users can read all orders" ON woocommerce_orders;
 CREATE POLICY "Authenticated users can read all orders"
   ON woocommerce_orders FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can insert orders" ON woocommerce_orders;
 CREATE POLICY "Authenticated users can insert orders"
   ON woocommerce_orders FOR INSERT
   TO authenticated
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated users can update orders" ON woocommerce_orders;
 CREATE POLICY "Authenticated users can update orders"
   ON woocommerce_orders FOR UPDATE
   TO authenticated
@@ -211,16 +214,19 @@ CREATE POLICY "Authenticated users can update orders"
   WITH CHECK (true);
 
 -- RLS Policies for woocommerce_products
+DROP POLICY IF EXISTS "Authenticated users can read all products" ON woocommerce_products;
 CREATE POLICY "Authenticated users can read all products"
   ON woocommerce_products FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can insert products" ON woocommerce_products;
 CREATE POLICY "Authenticated users can insert products"
   ON woocommerce_products FOR INSERT
   TO authenticated
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated users can update products" ON woocommerce_products;
 CREATE POLICY "Authenticated users can update products"
   ON woocommerce_products FOR UPDATE
   TO authenticated
@@ -228,16 +234,19 @@ CREATE POLICY "Authenticated users can update products"
   WITH CHECK (true);
 
 -- RLS Policies for woocommerce_subscriptions
+DROP POLICY IF EXISTS "Authenticated users can read all subscriptions" ON woocommerce_subscriptions;
 CREATE POLICY "Authenticated users can read all subscriptions"
   ON woocommerce_subscriptions FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can insert subscriptions" ON woocommerce_subscriptions;
 CREATE POLICY "Authenticated users can insert subscriptions"
   ON woocommerce_subscriptions FOR INSERT
   TO authenticated
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated users can update subscriptions" ON woocommerce_subscriptions;
 CREATE POLICY "Authenticated users can update subscriptions"
   ON woocommerce_subscriptions FOR UPDATE
   TO authenticated
@@ -245,11 +254,13 @@ CREATE POLICY "Authenticated users can update subscriptions"
   WITH CHECK (true);
 
 -- RLS Policies for woocommerce_sync_log
+DROP POLICY IF EXISTS "Authenticated users can read sync logs" ON woocommerce_sync_log;
 CREATE POLICY "Authenticated users can read sync logs"
   ON woocommerce_sync_log FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can insert sync logs" ON woocommerce_sync_log;
 CREATE POLICY "Authenticated users can insert sync logs"
   ON woocommerce_sync_log FOR INSERT
   TO authenticated
@@ -265,16 +276,19 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Triggers for updated_at
+DROP TRIGGER IF EXISTS update_woocommerce_orders_updated_at ON woocommerce_orders;
 CREATE TRIGGER update_woocommerce_orders_updated_at
   BEFORE UPDATE ON woocommerce_orders
   FOR EACH ROW
   EXECUTE FUNCTION update_woocommerce_updated_at();
 
+DROP TRIGGER IF EXISTS update_woocommerce_products_updated_at ON woocommerce_products;
 CREATE TRIGGER update_woocommerce_products_updated_at
   BEFORE UPDATE ON woocommerce_products
   FOR EACH ROW
   EXECUTE FUNCTION update_woocommerce_updated_at();
 
+DROP TRIGGER IF EXISTS update_woocommerce_subscriptions_updated_at ON woocommerce_subscriptions;
 CREATE TRIGGER update_woocommerce_subscriptions_updated_at
   BEFORE UPDATE ON woocommerce_subscriptions
   FOR EACH ROW

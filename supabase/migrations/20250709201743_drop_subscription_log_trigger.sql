@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS trigger_log_subscription_activity ON subscriptions;

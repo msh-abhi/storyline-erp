@@ -59,7 +59,8 @@ const convertPurchaseFromDb = (row: any): Purchase => ({
 const convertSubscriptionFromDb = (row: any): Subscription => ({
     ...keysToCamel(row),
     price: ensureNumber(row.price),
-    durationMonths: ensureNumber(row.duration_months),
+    reminder10Sent: row.reminder10_sent || false,
+    reminder5Sent: row.reminder5_sent || false,
 });
 
 const convertSubscriptionProductFromDb = (row: any): SubscriptionProduct => ({
@@ -109,6 +110,16 @@ export const customerService = {
     const { data, error } = await supabase.from('customers').select('*');
     if (error) throw error;
     return data.map(convertCustomerFromDb);
+  },
+  findByEmail: async (email: string): Promise<Customer | null> => {
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('email', email)
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? convertCustomerFromDb(data) : null;
   },
   create: async (customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> => {
     console.log("customerService.create - BEFORE keysToSnake:", customer);
@@ -242,16 +253,10 @@ export const saleService = {
     if (error) throw error;
     return data.map(convertSaleFromDb);
   },
-  create: async (sale: Omit<Sale, 'id' | 'createdAt' | 'updatedAt' | 'saleDate'>): Promise<Sale> => {
-    console.log("saleService.create - BEFORE keysToSnake:", sale);
-    console.log("user_id value:", sale.user_id);
-    
+  create: async (sale: Sale): Promise<Sale> => {
+
     const snakeCaseData = keysToSnake(sale);
     console.log("saleService.create - AFTER keysToSnake:", snakeCaseData);
-    
-    if (!snakeCaseData.user_id) {
-      throw new Error("CRITICAL ERROR: user_id is missing after keysToSnake conversion!");
-    }
     
     const { data, error } = await supabase
       .from('sales')
@@ -312,14 +317,8 @@ export const subscriptionService = {
   },
   create: async (subscription: Omit<Subscription, 'id' | 'createdAt' | 'updatedAt'>): Promise<Subscription> => {
     console.log("subscriptionService.create - BEFORE keysToSnake:", subscription);
-    console.log("user_id value:", subscription.user_id);
-    
     const snakeCaseData = keysToSnake(subscription);
     console.log("subscriptionService.create - AFTER keysToSnake:", snakeCaseData);
-    
-    if (!snakeCaseData.user_id) {
-      throw new Error("CRITICAL ERROR: user_id is missing after keysToSnake conversion!");
-    }
     
     const { data, error } = await supabase
       .from('subscriptions')
@@ -437,7 +436,11 @@ export const exchangeRateService = {
         return null;
       }
 
-      return keysToCamel(data);
+      return {
+        rates: data.rates,
+        lastUpdated: data.updated_at,
+        success: true
+      };
 
     } catch (err) {
       console.error("supabaseService: DEBUG: Unexpected error fetching exchange rates", err);

@@ -15,15 +15,17 @@ const CustomerPortalLogin: React.FC = () => {
     setMessage('');
 
     // The redirect URL for the magic link. This should be your domain + /portal/auth/callback
-    // For local development, it might be http://localhost:5173/portal/auth/callback
     const redirectTo = `${window.location.origin}/portal/auth/callback`;
+    console.log('CustomerPortalLogin: Sending magic link with redirectTo:', redirectTo);
 
     const result = await magicLinkSignIn(email, redirectTo);
 
     if (result.success) {
+      console.log('CustomerPortalLogin: Magic link sent successfully');
       setMessage('Magic link sent! Check your email to log in.');
       navigate('/portal/auth/check-email'); // Redirect to a page confirming email sent
     } else {
+      console.error('CustomerPortalLogin: Failed to send magic link:', result.error);
       setMessage(result.error || 'Failed to send magic link. Please try again.');
     }
     setLoading(false);

@@ -89,7 +89,6 @@ export interface TVBox {
 
 export interface Sale {
   id: string;
-  user_id?: string; // Added for multi-role system
   productId: string;
   productName: string;
   productType: 'digital_code' | 'tv_box' | 'subscription';
@@ -100,8 +99,12 @@ export interface Sale {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  totalAmount: number;
   profit: number;
-  paymentStatus: 'received' | 'due' | 'partial';
+  paymentMethod: 'manual' | 'mobilepay' | 'revolut' | 'cash' | 'paypal';
+  paymentStatus: 'received' | 'due';
+  invoiceId?: string;
+
   status: 'completed' | 'pending' | 'cancelled';
   saleDate: string;
   createdAt: string;
@@ -135,20 +138,22 @@ export interface EmailTemplate {
 
 export interface Subscription {
   id: string;
-  user_id?: string; // Added for multi-role system
-  customer_id: string;
-  customerName: string;
-  productId: string;
-  productName: string;
-  status: 'active' | 'inactive' | 'cancelled' | 'expired';
+  customerId: string;
+  productId?: string; // Add this line
+  productName?: string; // Add this line
+  durationMonths?: number; // Add this line
+  status: 'active' | 'expired' | 'cancelled' | 'renewed' | 'pending';
   startDate: string;
   endDate: string;
   price: number;
-  durationMonths: number;
-  reminder7Sent: boolean;
-  reminder3Sent: boolean;
+  reminder10Sent: boolean;
+  reminder5Sent: boolean;
+  invoiceId?: string;
+  mobilepayAgreementId?: string;
+  paymentMethod: 'mobilepay' | 'revolut' | 'manual';
   createdAt: string;
   updatedAt: string;
+  user_id?: string; // Added for multi-role system
 }
 
 export interface SubscriptionProduct {
@@ -158,6 +163,7 @@ export interface SubscriptionProduct {
   price: number;
   durationMonths: number;
   isActive: boolean;
+  features: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -204,6 +210,7 @@ export interface Settings {
   language: SupportedLanguage;
   companyName: string;
   emailSettings: any;
+  displayCurrency?: SupportedCurrency;
   createdAt: string;
   updatedAt: string;
 }
@@ -222,11 +229,10 @@ export interface UserProfile {
 
 export interface CustomerPortalUser {
   id: string;
-  auth_id: string;
+  auth_provider_id: string;
   customer_id: string | null;
   email: string;
   created_at?: string;
-  updated_at?: string;
   last_login_at?: string;
 }
 

@@ -1,4 +1,4 @@
-import { Invoice, Subscription, Customer, SupportedCurrency } from '../types';
+import { Invoice, Subscription, SupportedCurrency } from '../types';
 import { invoiceService } from '../services/supabaseService';
 import { mobilepayService } from '../services/mobilepayService';
 import { revolutService } from '../services/revolutService';
@@ -10,7 +10,7 @@ interface GenerateInvoiceOptions {
   amount: number;
   currency: SupportedCurrency;
   dueDate: string;
-  paymentMethod: 'mobilepay' | 'revolut' | 'manual';
+  paymentMethod: 'mobilepay' | 'revolut' | 'manual' | 'cash' | 'paypal';
   subscription?: Subscription;
   metadata?: Record<string, any>;
 }
@@ -18,8 +18,9 @@ interface GenerateInvoiceOptions {
 export async function generateInvoice(options: GenerateInvoiceOptions): Promise<{ success: boolean; invoice?: Invoice; paymentLink?: string; error?: string }> {
   const { customerId, customerName, customerEmail, amount, currency, dueDate, paymentMethod, subscription, metadata } = options;
 
-  let paymentLink: string | undefined;
+  let currentPaymentMethod: 'mobilepay' | 'revolut' | 'manual' = (paymentMethod === 'cash' || paymentMethod === 'paypal') ? 'manual' : paymentMethod as 'mobilepay' | 'revolut' | 'manual';
   let externalPaymentId: string | undefined; // For MobilePay agreement ID or Revolut payment ID
+  let paymentLink: string | undefined;
 
   try {
     if (paymentMethod === 'mobilepay') {
@@ -42,20 +43,26 @@ export async function generateInvoice(options: GenerateInvoiceOptions): Promise<
       paymentLink = mobilePayResult.data.paymentUrl;
       externalPaymentId = mobilePayResult.data.agreementId; // MobilePay agreement ID
     } else if (paymentMethod === 'revolut') {
-      // For Revolut, create a payment request
-      const revolutResult = await revolutService.createPaymentRequest({
-        amount: amount,
-        currency: currency,
-        reference: `Invoice for ${customerName} - ${subscription?.productName || 'Service'}`,
-        recipientEmail: customerEmail,
-        recipientName: customerName,
-      });
+      try {
+        // For Revolut, create a payment request
+        const revolutResult = await revolutService.createPaymentRequest({
+          amount: amount,
+          currency: currency,
+          reference: `Invoice for ${customerName} - ${subscription?.productName || 'Service'}`,
+        });
 
-      if (!revolutResult.success || !revolutResult.data?.public_url) {
-        throw new Error(revolutResult.error || 'Failed to get Revolut payment link');
+        if (revolutResult.success && revolutResult.data?.public_url) {
+          paymentLink = revolutResult.data.public_url;
+          externalPaymentId = revolutResult.data.id; // Revolut payment request ID
+        } else {
+          // If Revolut is not configured, we will allow it to fail silently and proceed with a manual invoice.
+          console.warn('Revolut payment link creation failed, proceeding with manual invoice. Error:', revolutResult.error);
+          currentPaymentMethod = 'manual';
+        }
+      } catch (error) {
+        console.warn('Revolut service is not available, proceeding with manual invoice. Error:', error);
+        currentPaymentMethod = 'manual';
       }
-      paymentLink = revolutResult.data.public_url;
-      externalPaymentId = revolutResult.data.id; // Revolut payment request ID
     }
 
     const newInvoice: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'> = {
@@ -66,7 +73,7 @@ export async function generateInvoice(options: GenerateInvoiceOptions): Promise<
       status: 'pending',
       dueDate: dueDate,
       issuedDate: new Date().toISOString(),
-      paymentMethod: paymentMethod,
+      paymentMethod: currentPaymentMethod,
       paymentLink: paymentLink,
       externalPaymentId: externalPaymentId,
       metadata: {

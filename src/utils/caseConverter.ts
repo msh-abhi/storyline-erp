@@ -21,7 +21,7 @@ type AnyObject = { [key: string]: any };
  * @returns The camelCase version of the string.
  */
 export const snakeToCamel = (str: string): string =>
-  str.replace(/([-_][a-z])/g, (group) =>
+  str.replace(/([-_][a-z0-9])/g, (group) =>
     group.toUpperCase().replace('-', '').replace('_', '')
   );
 
@@ -31,7 +31,9 @@ export const snakeToCamel = (str: string): string =>
  * @returns The snake_case version of the string.
  */
 export const camelToSnake = (str: string): string =>
-  str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+  str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+     .replace(/([a-z])([0-9])/g, '$1_$2')  // Insert underscore before numbers
+     .replace(/([0-9])([a-z])/g, '$1_$2'); // Insert underscore after numbers
 
 /**
  * Deeply converts the keys of an object from snake_case to camelCase.

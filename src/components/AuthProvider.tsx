@@ -9,7 +9,7 @@ import React, {
 // Import the specific User type from supabase-js if needed, distinct from your UserProfile
 import { User as SupabaseAuthUser } from '@supabase/supabase-js'; // Renamed to avoid conflict
 import { supabase } from '../lib/supabase'; // Import supabase from the correct location
-import { getCustomerPortalUserByAuthId, createCustomerPortalUser, getUserProfile } from "../services/supabaseService"; // Import service functions
+import { getCustomerPortalUserByAuthId, createCustomerPortalUser, getUserProfile, customerService } from "../services/supabaseService"; // Import service functions
 import { CustomerPortalUser, UserProfile } from '../types'; // Import UserProfile
 
 type AuthContextType = {
@@ -21,6 +21,7 @@ type AuthContextType = {
   isAdmin: boolean;
   error: string | null; // Added error state
   signIn: (email: string) => Promise<void>;
+  magicLinkSignIn: (email: string, redirectTo?: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   // Add other auth actions if they exist in your original AuthProvider
   // updateUserProfile: (profileUpdate: Partial<UserProfile>) => Promise<void>; // Example
@@ -74,12 +75,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.debug("AuthProvider: User is not admin. Checking/creating portal user...");
         let portalUser = await getCustomerPortalUserByAuthId(uid);
         if (!portalUser && email) {
-          console.debug("AuthProvider: 📝 Portal user not found, creating...");
+          console.debug("AuthProvider: 📝 Portal user not found, finding or creating customer...");
+
+          // Find existing customer by email or create new one
+          let customer = await customerService.findByEmail(email);
+          if (!customer) {
+            console.debug("AuthProvider: No existing customer found, creating new customer...");
+            customer = await customerService.create({
+              name: email.split('@')[0], // Use part before @ as name
+              email: email,
+              phone: '',
+              address: '',
+              city: '',
+              country: '',
+              postalCode: '',
+              whatsappNumber: '',
+              macAddress: '',
+              user_id: uid,
+              status: 'active',
+              customFields: {},
+            });
+            console.debug("AuthProvider: Customer created:", customer);
+          } else {
+            console.debug("AuthProvider: Found existing customer:", customer);
+          }
+
+          // Create portal user linked to the customer
           portalUser = await createCustomerPortalUser({
-            authProviderId: uid,
-            customerId: null,
+            auth_provider_id: uid,
+            customer_id: customer.id,
             email: email,
-          } as any);
+          });
           console.debug("AuthProvider: Portal user created:", portalUser);
         } else {
           console.debug("AuthProvider: Found existing portal user:", portalUser);
@@ -179,9 +205,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Listener for subsequent changes
     const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
        if (!isMounted) return;
-       console.log(`AuthProvider: 🔔 Auth state changed: ${event}`, { 
+       console.log(`AuthProvider: 🔔 Auth state changed: ${event}`, {
          userId: session?.user?.id,
-         event 
+         email: session?.user?.email,
+         event
        });
 
        setAuthUser(session?.user ?? null); // Update the raw Supabase user immediately
@@ -193,6 +220,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
          setAuthLoading(true);
          await loadUserData(session.user);
          setAuthLoading(false);
+         console.log('AuthProvider: User data loaded, current state:', {
+           isAdmin,
+           hasUserProfile: !!userProfile,
+           hasPortalUser: !!customerPortalUser
+         });
        } else if (event === 'SIGNED_OUT') {
          console.log('AuthProvider: User signed out, clearing all data...');
          setUserProfile(null);
@@ -240,6 +272,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
      alert('Check your email for the login link!');
    }, []);
 
+   const magicLinkSignIn = useCallback(async (email: string, redirectTo?: string): Promise<{ success: boolean; error?: string }> => {
+     setError(null);
+     console.log('AuthProvider: Attempting magicLinkSignIn for', email);
+
+     try {
+       const { error: signInError } = await supabase.auth.signInWithOtp({
+         email,
+         options: {
+           emailRedirectTo: redirectTo || window.location.origin
+         }
+       });
+
+       if (signInError) {
+         console.error("AuthProvider: magicLinkSignIn error:", signInError);
+         setError(signInError.message);
+         return { success: false, error: signInError.message };
+       }
+
+       console.log('AuthProvider: Magic link sent successfully');
+       return { success: true };
+     } catch (err: unknown) {
+       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+       console.error("AuthProvider: Unexpected error in magicLinkSignIn:", err);
+       setError(errorMessage);
+       return { success: false, error: errorMessage };
+     }
+   }, []);
+
    const signOut = useCallback(async () => {
      setAuthLoading(true);
      setError(null);
@@ -263,8 +323,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isAdmin,
     error, // Expose error state
     signIn,
+    magicLinkSignIn,
     signOut,
   };
+
+  console.log('AuthProvider: Providing context - authInitialized:', authInitialized, 'authUser:', !!authUser, 'authLoading:', authLoading);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

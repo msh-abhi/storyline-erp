@@ -186,57 +186,29 @@ async function sendReminderEmail(customer: Customer, subscription: Subscription,
     Jysk Streaming Team
   `;
 
-  const emailData = {
-    sender: {
-      name: 'Jysk Streaming',
-      email: SENDER_EMAIL
-    },
-    to: [
-      {
-        email: customer.email,
-        name: customer.name
-      }
-    ],
-    subject: subject,
-    htmlContent: `
-      <html>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: ${daysLeft <= 5 ? '#fef3c7' : '#f8f9fa'}; padding: 20px; border-radius: 8px; margin-bottom: 20px; ${daysLeft <= 5 ? 'border-left: 4px solid #f59e0b;' : ''}">
-              <h2 style="color: ${daysLeft <= 5 ? '#d97706' : '#2563eb'}; margin: 0;">
-                ${daysLeft <= 5 ? '⚠️ ' : ''}Jysk Streaming
-              </h2>
-              ${daysLeft <= 5 ? '<p style="color: #d97706; font-weight: bold; margin: 5px 0 0 0;">URGENT RENEWAL REQUIRED</p>' : ''}
-            </div>
-            <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
-              ${content.replace(/\n/g, '<br>')}
-            </div>
-            <div style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: center;">
-              <p style="margin: 0; color: #6b7280; font-size: 14px;">
-                Best regards,<br>
-                Jysk Streaming Team<br>
-                <a href="mailto:${SENDER_EMAIL}" style="color: #2563eb;">${SENDER_EMAIL}</a>
-              </p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `
-  };
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
 
-  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+  const response = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
     method: 'POST',
     headers: {
-      'Accept': 'application/json',
       'Content-Type': 'application/json',
-      'api-key': BREVO_API_KEY
     },
-    body: JSON.stringify(emailData)
+    body: JSON.stringify({
+      to: customer.email,
+      subject,
+      content,
+      templateData: {
+        name: customer.name,
+        product_name: subscription.product_name,
+        end_date: new Date(subscription.end_date).toLocaleDateString(),
+        days_left: daysLeft.toString(),
+      }
+    })
   });
 
   if (!response.ok) {
     const errorData = await response.text();
-    throw new Error(`Brevo API error: ${response.status} - ${errorData}`);
+    throw new Error(`Failed to send email: ${response.status} - ${errorData}`);
   }
 
   return await response.json();

@@ -273,6 +273,7 @@ CREATE INDEX IF NOT EXISTS idx_credit_sales_supplier_id ON credit_sales(supplier
 CREATE INDEX IF NOT EXISTS idx_credit_sales_reseller_id ON credit_sales(reseller_id);
 
 -- Create function to update supplier credit balance
+DROP FUNCTION IF EXISTS update_supplier_credit_balance CASCADE;
 CREATE OR REPLACE FUNCTION update_supplier_credit_balance()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -294,7 +295,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create trigger for supplier credit balance updates
-CREATE TRIGGER trigger_update_supplier_credit_balance
+DROP TRIGGER IF EXISTS trigger_update_supplier_credit_balance ON supplier_credits;
+CREATE TRIGGER trigger_update_update_supplier_credit_balance
   AFTER INSERT ON supplier_credits
   FOR EACH ROW
   EXECUTE FUNCTION update_supplier_credit_balance();

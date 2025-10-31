@@ -400,35 +400,60 @@ ALTER TABLE IF EXISTS email_logs ENABLE ROW LEVEL SECURITY;
 
 
 -- 4. Create secure policies for all tables (Admin Full Access)
+DROP POLICY IF EXISTS "Admin full access on customers" ON customers;
 CREATE POLICY "Admin full access on customers" ON customers FOR ALL USING (is_admin());
+DROP POLICY IF EXISTS "Admin full access on resellers" ON resellers;
 CREATE POLICY "Admin full access on resellers" ON resellers FOR ALL USING (is_admin());
+DROP POLICY IF EXISTS "Admin full access on suppliers" ON suppliers;
 CREATE POLICY "Admin full access on suppliers" ON suppliers FOR ALL USING (is_admin());
+DROP POLICY IF EXISTS "Admin full access on digital_codes" ON digital_codes;
 CREATE POLICY "Admin full access on digital_codes" ON digital_codes FOR ALL USING (is_admin());
+DROP POLICY IF EXISTS "Admin full access on tv_boxes" ON tv_boxes;
 CREATE POLICY "Admin full access on tv_boxes" ON tv_boxes FOR ALL USING (is_admin());
+DROP POLICY IF EXISTS "Admin full access on sales" ON sales;
 CREATE POLICY "Admin full access on sales" ON sales FOR ALL USING (is_admin());
+DROP POLICY IF EXISTS "Admin full access on purchases" ON purchases;
 CREATE POLICY "Admin full access on purchases" ON purchases FOR ALL USING (is_admin());
+DROP POLICY IF EXISTS "Admin full access on email_templates" ON email_templates;
 CREATE POLICY "Admin full access on email_templates" ON email_templates FOR ALL USING (is_admin());
+DROP POLICY IF EXISTS "Admin full access on subscriptions" ON subscriptions;
 CREATE POLICY "Admin full access on subscriptions" ON subscriptions FOR ALL USING (is_admin());
+DROP POLICY IF EXISTS "Admin full access on settings" ON settings;
 CREATE POLICY "Admin full access on settings" ON settings FOR ALL USING (is_admin());
+DROP POLICY IF EXISTS "Admin full access on invoices" ON invoices;
 CREATE POLICY "Admin full access on invoices" ON invoices FOR ALL USING (is_admin());
+DROP POLICY IF EXISTS "Admin full access on payment_transactions" ON payment_transactions;
 CREATE POLICY "Admin full access on payment_transactions" ON payment_transactions FOR ALL USING (is_admin());
+DROP POLICY IF EXISTS "Admin full access on payments" ON payments;
 CREATE POLICY "Admin full access on payments" ON payments FOR ALL USING (is_admin()); -- New payments table
+DROP POLICY IF EXISTS "Admin full access on woocommerce_orders" ON woocommerce_orders;
 CREATE POLICY "Admin full access on woocommerce_orders" ON woocommerce_orders FOR ALL USING (is_admin());
+DROP POLICY IF EXISTS "Admin full access on exchange_rates" ON exchange_rates;
 CREATE POLICY "Admin full access on exchange_rates" ON exchange_rates FOR ALL USING (is_admin());
+DROP POLICY IF EXISTS "Admin full access on email_logs" ON email_logs;
 CREATE POLICY "Admin full access on email_logs" ON email_logs FOR ALL USING (is_admin());
 
 -- Policies for public.users
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.users;
 CREATE POLICY "Users can view their own profile" ON public.users FOR SELECT USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.users;
 CREATE POLICY "Users can update their own profile" ON public.users FOR UPDATE USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Admins can manage all user profiles" ON public.users;
 CREATE POLICY "Admins can manage all user profiles" ON public.users FOR ALL USING (is_admin());
 
 -- Policies for customer_portal_users
+DROP POLICY IF EXISTS "Users can view their own portal record" ON public.customer_portal_users;
 CREATE POLICY "Users can view their own portal record" ON public.customer_portal_users FOR SELECT USING (auth.uid() = auth_provider_id);
+DROP POLICY IF EXISTS "Admins can view all portal records" ON public.customer_portal_users;
 CREATE POLICY "Admins can view all portal records" ON public.customer_portal_users FOR SELECT USING (is_admin());
 
 -- Policies for customer-specific data (credentials, messages)
+DROP POLICY IF EXISTS "Customers can manage their own credentials" ON public.customer_credentials;
 CREATE POLICY "Customers can manage their own credentials" ON public.customer_credentials FOR ALL USING (EXISTS (SELECT 1 FROM customer_portal_users WHERE customer_portal_users.customer_id = public.customer_credentials.customer_id AND customer_portal_users.auth_provider_id = auth.uid()));
+DROP POLICY IF EXISTS "Admins can manage all credentials" ON public.customer_credentials;
 CREATE POLICY "Admins can manage all credentials" ON public.customer_credentials FOR ALL USING (is_admin());
 
+DROP POLICY IF EXISTS "Customers can manage their own messages" ON public.customer_messages;
 CREATE POLICY "Customers can manage their own messages" ON public.customer_messages FOR ALL USING (EXISTS (SELECT 1 FROM customer_portal_users WHERE customer_portal_users.customer_id = public.customer_messages.customer_id AND customer_portal_users.auth_provider_id = auth.uid()));
+DROP POLICY IF EXISTS "Admins can manage all messages" ON public.customer_messages;
 CREATE POLICY "Admins can manage all messages" ON public.customer_messages FOR ALL USING (is_admin());

@@ -277,23 +277,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateTVBox: withErrorHandling(async (id, tvBox) => { const updatedT = await tvBoxService.update(id, tvBox as any); dispatch({ type: 'UPDATE_TV_BOX', payload: updatedT }); return updatedT; }),
     deleteTVBox: withErrorHandling(async (id) => { await tvBoxService.delete(id); dispatch({ type: 'DELETE_TV_BOX', payload: id }); }),
     createSale: withErrorHandling(async (sale) => {
-    if (!authUser?.id) {
-      throw new Error("User not authenticated - authUser.id is missing");
-    }
-    
-    console.log("Creating sale with authUser.id:", authUser.id);
-    
-    const saleWithUserId = {
-      ...sale,
-      user_id: authUser.id
-    };
-    
-    console.log("Sale data WITH user_id:", saleWithUserId);
-    
-    const newS = await saleService.create(saleWithUserId as any);
-    dispatch({ type: 'ADD_SALE', payload: newS });
-    return newS;
-  }),
+      if (!authUser?.id) {
+        throw new Error("User not authenticated - authUser.id is missing");
+      }
+      const saleWithUserId = {
+        ...sale,
+        user_id: authUser.id,
+      };
+      const newS = await saleService.create(saleWithUserId);
+      dispatch({ type: 'ADD_SALE', payload: newS });
+      return newS;
+    }),
     updateSale: withErrorHandling(async (id, sale) => { const updatedS = await saleService.update(id, sale as any); dispatch({ type: 'UPDATE_SALE', payload: updatedS }); return updatedS; }),
     deleteSale: withErrorHandling(async (id) => { await saleService.delete(id); dispatch({ type: 'DELETE_SALE', payload: id }); }),
     createPurchase: withErrorHandling(async (purchase) => { const newP = await purchaseService.create(purchase as any); dispatch({ type: 'ADD_PURCHASE', payload: newP }); return newP; }),

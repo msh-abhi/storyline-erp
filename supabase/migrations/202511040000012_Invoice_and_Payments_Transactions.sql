@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS invoices (
 
 -- Enable RLS for invoices table
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all operations on invoices" ON invoices;
 CREATE POLICY "Allow all operations on invoices" ON invoices FOR ALL USING (true);
 
 -- Create indexes for invoices table
@@ -45,6 +46,7 @@ CREATE TABLE IF NOT EXISTS payment_transactions (
 
 -- Enable RLS for payment_transactions table
 ALTER TABLE payment_transactions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all operations on payment_transactions" ON payment_transactions;
 CREATE POLICY "Allow all operations on payment_transactions" ON payment_transactions FOR ALL USING (true);
 
 -- Create indexes for payment_transactions table
@@ -84,6 +86,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger for invoices updated_at
+DROP TRIGGER IF EXISTS update_invoices_updated_at_trigger ON invoices;
 CREATE TRIGGER update_invoices_updated_at_trigger
   BEFORE UPDATE ON invoices
   FOR EACH ROW
@@ -99,6 +102,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger for payment_transactions updated_at
+DROP TRIGGER IF EXISTS update_payment_transactions_updated_at_trigger ON payment_transactions;
 CREATE TRIGGER update_payment_transactions_updated_at_trigger
   BEFORE UPDATE ON payment_transactions
   FOR EACH ROW

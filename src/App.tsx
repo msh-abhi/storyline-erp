@@ -105,67 +105,75 @@ function AdminAppContent() {
 function App() {
   const { authUser, authInitialized, isAdmin, customerPortalUser, error } = useAuth();
 
-  if (!authInitialized) {
-    return (
-      <div className="min-h-screen gradient-bg flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading application...</p>
-          {error && (
-            <div className="mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
-              <p className="text-red-200 text-sm">Error: {error}</p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+  console.log('App: Component rendered, authInitialized:', authInitialized, 'authUser:', !!authUser);
 
   return (
     <Router>
       <Routes>
-        {/* Public Routes */}
-        <Route path="/portal/login" element={<CustomerPortalLogin />} />
-        <Route path="/portal/auth/check-email" element={<CheckEmail />} />
+        {/* Always accessible routes */}
         <Route path="/portal/auth/callback" element={<CustomerPortalAuthCallback />} />
         <Route path="/mobilepay-callback" element={<MobilePayCallback />} />
         <Route path="/pay/invoice/:invoiceId" element={<PublicInvoicePage />} />
 
-        {/* Customer Portal Routes (Protected) */}
-        <Route
-          path="/portal/*"
-          element={
-            authUser && customerPortalUser && !isAdmin ? (
-              <CustomerPortalLayout>
-                <Routes>
-                  <Route path="dashboard" element={<CustomerPortalDashboard />} />
-                  <Route path="subscriptions" element={<CustomerPortalSubscriptions />} />
-                  <Route path="billing" element={<CustomerPortalBilling />} />
-                  <Route path="profile" element={<CustomerPortalProfile />} />
-                  <Route path="credentials" element={<CustomerPortalCredentials />} />
-                  <Route path="contact" element={<CustomerPortalContact />} />
-                  <Route path="*" element={<Navigate to="dashboard" replace />} />
-                </Routes>
-              </CustomerPortalLayout>
-            ) : (
-              <Navigate to="/portal/login" replace />
-            )
-          }
-        />
+        {/* Routes that depend on auth initialization */}
+        {authInitialized ? (
+          <>
+            {/* Public Routes */}
+            <Route path="/portal/login" element={<CustomerPortalLogin />} />
+            <Route path="/portal/auth/check-email" element={<CheckEmail />} />
 
-        {/* Admin ERP Routes (Protected) */}
-        <Route
-          path="/*"
-          element={
-            authUser && isAdmin ? (
-              <AdminAppContent />
-            ) : authUser && customerPortalUser && !isAdmin ? (
-              <Navigate to="/portal/dashboard" replace />
-            ) : (
-              <LoginForm />
-            )
-          }
-        />
+            {/* Customer Portal Routes (Protected) */}
+            <Route
+              path="/portal/*"
+              element={
+                authUser && customerPortalUser && !isAdmin ? (
+                  <CustomerPortalLayout>
+                    <Routes>
+                      <Route path="dashboard" element={<CustomerPortalDashboard />} />
+                      <Route path="subscriptions" element={<CustomerPortalSubscriptions />} />
+                      <Route path="billing" element={<CustomerPortalBilling />} />
+                      <Route path="profile" element={<CustomerPortalProfile />} />
+                      <Route path="credentials" element={<CustomerPortalCredentials />} />
+                      <Route path="contact" element={<CustomerPortalContact />} />
+                      <Route path="*" element={<Navigate to="dashboard" replace />} />
+                    </Routes>
+                  </CustomerPortalLayout>
+                ) : (
+                  <Navigate to="/portal/login" replace />
+                )
+              }
+            />
+
+            {/* Admin ERP Routes (Protected) */}
+            <Route
+              path="/*"
+              element={
+                authUser && isAdmin ? (
+                  <AdminAppContent />
+                ) : authUser && customerPortalUser && !isAdmin ? (
+                  <Navigate to="/portal/dashboard" replace />
+                ) : (
+                  <LoginForm />
+                )
+              }
+            />
+          </>
+        ) : (
+          /* Loading screen for all routes when auth not initialized (except callback) */
+          <Route path="/*" element={
+            <div className="min-h-screen gradient-bg flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-white text-lg">Loading application...</p>
+                {error && (
+                  <div className="mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
+                    <p className="text-red-200 text-sm">Error: {error}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          } />
+        )}
       </Routes>
     </Router>
   );
