@@ -1,7 +1,7 @@
 import {
   Customer, Reseller, Supplier, DigitalCode, TVBox, Sale, Purchase,
   Subscription, Invoice, PaymentTransaction, EmailTemplate, SubscriptionProduct,
-  ExchangeRates, SupportedCurrency, Settings, Payment,
+  ExchangeRates, Settings, Payment,
   CustomerPortalUser, CustomerMessage, CustomerCredential, UserProfile
 } from '../types';
 import { supabase } from '../lib/supabase';
@@ -625,4 +625,52 @@ export const getCustomerCredentials = async (customerId: string): Promise<Custom
     throw error;
   }
   return keysToCamel(data);
+  };
+  // --- Dashboard Services ---
+
+export const getCustomerInvoicesByCustomerId = async (customerId: string): Promise<Invoice[]> => {
+  console.debug("supabaseService: Fetching customer invoices for customer_id:", customerId);
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('*')
+    .eq('customer_id', customerId)
+    .order('issued_date', { ascending: false });
+  if (error) throw error;
+  return data.map(convertInvoiceFromDb);
+};
+
+export const getCustomerDashboardData = async (customerId: string): Promise<{
+  subscriptions: Subscription[];
+  invoices: Invoice[];
+  messages: CustomerMessage[];
+  credentials: CustomerCredential[];
+}> => {
+  console.debug("supabaseService: Fetching complete dashboard data for customer_id:", customerId);
+  
+  const [subscriptions, invoices, messages, credentials] = await Promise.all([
+    subscriptionService.getByCustomerId(customerId),
+    getCustomerInvoicesByCustomerId(customerId),
+    getCustomerMessages(customerId),
+    getCustomerCredentials(customerId)
+  ]);
+
+  return {
+    subscriptions,
+    invoices,
+    messages,
+    credentials
+  };
+};
+
+export const getCustomerPaymentTransactions = async (customerId: string): Promise<PaymentTransaction[]> => {
+  console.debug("supabaseService: Fetching customer payment transactions for customer_id:", customerId);
+  const { data, error } = await supabase
+    .from('payment_transactions')
+    .select('*')
+    .eq('customer_id', customerId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+  if (error) throw error;
+  return data.map(convertPaymentTransactionFromDb);
+
 };

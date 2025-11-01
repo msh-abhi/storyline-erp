@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from './AuthProvider';
 import { createCustomerMessage, getCustomerMessages } from '../services/supabaseService';
 import { CustomerMessage } from '../types';
-import { Send, Clock } from 'lucide-react';
+// import { Send, Clock } from 'lucide-react'; // Unused imports removed
 import { toast } from 'react-toastify';
 
 export default function CustomerPortalContact() {
@@ -14,9 +14,13 @@ export default function CustomerPortalContact() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Use type assertion to access the camelCase properties after keysToCamel conversion
+  const portalUser = customerPortalUser as any;
+  const hasCustomer = portalUser?.customerId && portalUser?.customerId !== null;
+
   useEffect(() => {
     const fetchMessages = async () => {
-      if (!customerPortalUser || !customerPortalUser.customer_id) {
+      if (!customerPortalUser || !hasCustomer) {
         setError("No customer account is found for this user.");
         setLoading(false);
         return;
@@ -24,7 +28,7 @@ export default function CustomerPortalContact() {
       try {
         setLoading(true);
         setError(null);
-        const data = await getCustomerMessages(customerPortalUser.customer_id);
+        const data = await getCustomerMessages(portalUser.customerId);
         setMessages(data);
       } catch (err) {
         setError("Failed to load message history.");
@@ -39,7 +43,7 @@ export default function CustomerPortalContact() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !subject.trim() || !customerPortalUser || !customerPortalUser.customer_id) {
+    if (!newMessage.trim() || !subject.trim() || !customerPortalUser || !hasCustomer) {
       toast.warn("Subject and message cannot be empty.");
       return;
     }
@@ -47,7 +51,7 @@ export default function CustomerPortalContact() {
     setSending(true);
     try {
       const createdMessage = await createCustomerMessage({
-        customer_id: customerPortalUser.customer_id,
+        customer_id: portalUser.customerId,
         message: newMessage,
         subject: subject,
         category: 'General Inquiry',   // Default value from form
@@ -70,6 +74,21 @@ export default function CustomerPortalContact() {
 
   if (error) {
     return <div className="p-6 text-red-500">{error}</div>;
+  }
+
+  if (!customerPortalUser || !hasCustomer) {
+    return (
+      <div className="p-6 bg-white rounded-lg shadow-md">
+        <h1 className="text-3xl font-bold text-gray-800 mb-4">Contact Support</h1>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-yellow-800">No customer account is found for this user.</p>
+          <p className="text-sm text-yellow-600 mt-2">
+            Debug info: Portal User ID: {portalUser?.id || 'None'},
+            Customer ID: {portalUser?.customerId || 'None'}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -111,7 +130,7 @@ export default function CustomerPortalContact() {
                             value={subject}
                             onChange={(e) => setSubject(e.target.value)}
                             className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            disabled={sending || !customerPortalUser?.customer_id}
+                            disabled={sending || !hasCustomer}
                         />
                     </div>
                     <div>
@@ -122,13 +141,13 @@ export default function CustomerPortalContact() {
                             onChange={(e) => setNewMessage(e.target.value)}
                             rows={4}
                             className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            disabled={sending || !customerPortalUser?.customer_id}
+                            disabled={sending || !hasCustomer}
                         />
                     </div>
                     <button
                         type="submit"
                         className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                        disabled={sending || !newMessage.trim() || !subject.trim()}
+                        disabled={sending || !newMessage.trim() || !subject.trim() || !hasCustomer}
                     >
                         {sending ? 'Sending...' : 'Submit Ticket'}
                     </button>

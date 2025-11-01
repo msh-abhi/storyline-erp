@@ -7,9 +7,22 @@ export default function CustomerPortalAuthCallback() {
   const { authInitialized, authUser, customerPortalUser, authLoading } = useAuth();
 
   useEffect(() => {
-    // Don't do anything until the AuthProvider has finished its initial loading.
+    console.log('[AuthCallback] Checking status:', {
+      authInitialized,
+      hasAuthUser: !!authUser,
+      hasPortalUser: !!customerPortalUser,
+      isLoading: authLoading
+    });
+
+    // Don't do anything until AuthProvider has finished initializing and loading data
     if (!authInitialized) {
       console.log('[AuthCallback] Waiting for AuthProvider to initialize...');
+      return;
+    }
+
+    // If still loading user data, wait for it to complete
+    if (authLoading) {
+      console.log('[AuthCallback] Waiting for user data to load...');
       return;
     }
 
@@ -18,17 +31,22 @@ export default function CustomerPortalAuthCallback() {
       isPortalUser: !!customerPortalUser,
     });
 
-    // After initialization, we can decide where to send the user.
+    // After initialization and loading, we can decide where to send the user.
     if (authUser && customerPortalUser) {
       // If we have both the auth user and the portal user, login was successful.
       console.log('[AuthCallback] User is fully authenticated. Redirecting to dashboard...');
       navigate('/portal/dashboard', { replace: true });
+    } else if (authUser && !customerPortalUser) {
+      // If we have auth user but no portal user, it might be an admin user or there's an issue
+      console.log('[AuthCallback] User has auth but no portal user. Checking if admin...');
+      // This could be an admin user, so redirect to admin dashboard
+      navigate('/dashboard', { replace: true });
     } else {
       // If anything is missing after initialization, the login failed or is incomplete.
       console.warn('[AuthCallback] User not fully authenticated after init. Redirecting to login.');
       navigate('/portal/login', { replace: true });
     }
-  }, [authInitialized, authUser, customerPortalUser, navigate]);
+  }, [authInitialized, authUser, customerPortalUser, authLoading, navigate]);
 
   // Display a generic loading screen while we wait for the AuthProvider.
   return (

@@ -74,6 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!isAdminStatus) {
         console.debug("AuthProvider: User is not admin. Checking/creating portal user...");
         let portalUser = await getCustomerPortalUserByAuthId(uid);
+        
         if (!portalUser && email) {
           console.debug("AuthProvider: 📝 Portal user not found, finding or creating customer...");
 
@@ -100,13 +101,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.debug("AuthProvider: Found existing customer:", customer);
           }
 
-          // Create portal user linked to the customer
-          portalUser = await createCustomerPortalUser({
-            auth_provider_id: uid,
-            customer_id: customer.id,
-            email: email,
-          });
-          console.debug("AuthProvider: Portal user created:", portalUser);
+          try {
+            // Create portal user linked to the customer
+            portalUser = await createCustomerPortalUser({
+              auth_provider_id: uid,
+              customer_id: customer.id,
+              email: email,
+            });
+            console.debug("AuthProvider: Portal user created:", portalUser);
+          } catch (createError: unknown) {
+            // Handle 409 conflict - try to fetch again in case it was created by another process
+            if (createError instanceof Error && createError.message.includes('409')) {
+              console.debug("AuthProvider: 409 conflict detected, fetching existing portal user...");
+              portalUser = await getCustomerPortalUserByAuthId(uid);
+              if (!portalUser) {
+                throw new Error("Failed to create or fetch customer portal user after 409 conflict");
+              }
+            } else {
+              throw createError;
+            }
+          }
         } else {
           console.debug("AuthProvider: Found existing portal user:", portalUser);
         }
@@ -123,13 +137,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error("AuthProvider: ❌ Error in loadUserData:", error);
       setError(`Failed to load user data: ${errorMessage}`);
       
-      // Set safe defaults on error
+      // Set safe defaults on error, but don't throw to prevent blocking the auth flow
       setUserProfile(null);
       setIsAdmin(false);
       setCustomerPortalUser(null);
-      
-      // Re-throw to let calling code handle if needed
-      throw error;
     }
   }, []); // Empty dependency array - relies on passed-in currentAuthUser
 

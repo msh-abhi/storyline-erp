@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from './AuthProvider';
 import { getCustomerCredentials } from '../services/supabaseService';
 import { CustomerCredential } from '../types';
 import { toast } from 'react-toastify';
+import { Tv } from 'lucide-react';
 
 // A simple component to display a single credential securely
 const CredentialCard = ({ credential }: { credential: CustomerCredential }) => {
@@ -68,9 +69,13 @@ export default function CustomerPortalCredentials() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Use type assertion to access the camelCase properties after keysToCamel conversion
+  const portalUser = customerPortalUser as any;
+  const hasCustomer = portalUser?.customerId && portalUser?.customerId !== null;
+
   useEffect(() => {
     const fetchCredentials = async () => {
-      if (!customerPortalUser || !customerPortalUser.customer_id) {
+      if (!customerPortalUser || !hasCustomer) {
         setError("No customer account is found for this user.");
         setLoading(false);
         return;
@@ -79,7 +84,7 @@ export default function CustomerPortalCredentials() {
       try {
         setLoading(true);
         setError(null);
-        const data = await getCustomerCredentials(customerPortalUser.customer_id);
+        const data = await getCustomerCredentials(portalUser.customerId);
         setCredentials(data);
       } catch (err: any) {
         console.error("Failed to fetch credentials:", err);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthProvider';
 import { customerService } from '../services/supabaseService';
+import { Customer } from '../types';
 
 const CustomerPortalProfile: React.FC = () => {
     const { authUser, userProfile, customerPortalUser } = useAuth();
@@ -11,19 +12,24 @@ const CustomerPortalProfile: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
+  // Use type assertion to access the camelCase properties after keysToCamel conversion
+  const portalUser = customerPortalUser as any;
+  const hasCustomer = portalUser?.customerId && portalUser?.customerId !== null;
+
   useEffect(() => {
     if (userProfile) {
-      setName(userProfile.name || '');
+      setName(userProfile.email?.split('@')[0] || 'User');
     }
     if (authUser) {
       setEmail(authUser.email || '');
     }
-    if (customerPortalUser && customerPortalUser.customer_id) {
+    if (customerPortalUser && hasCustomer) {
       const fetchCustomer = async () => {
-        const customerData = await customerService.getById(customerPortalUser.customer_id);
+        const customerData = await customerService.getById(portalUser.customerId);
         if (customerData) {
           setCustomer(customerData);
           setWhatsappNumber(customerData.whatsappNumber || '');
+          setName(customerData.name || userProfile?.email?.split('@')[0] || 'User');
         }
       };
       fetchCustomer();

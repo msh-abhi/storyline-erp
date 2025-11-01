@@ -215,9 +215,71 @@ export default function SubscriptionManagement() {
     if (confirm('Are you sure you want to delete this subscription product?')) {
       try {
         await actions.deleteSubscriptionProduct(id);
+        alert('Product deleted successfully!');
       } catch (error) {
         console.error('Error deleting subscription product:', error);
+        alert('Error deleting product. Please try again.');
       }
+    }
+  };
+
+  const handleCleanDuplicates = async () => {
+    if (!confirm('This will identify and remove duplicate subscription products. Only the most recent product with the same name and duration will be kept. Continue?')) {
+      return;
+    }
+
+    try {
+      const products = state.subscriptionProducts || [];
+      const duplicateGroups = products.reduce((acc, product) => {
+        const key = `${product.name.toLowerCase()}-${product.durationMonths}`;
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(product);
+        return acc;
+      }, {} as Record<string, typeof products>);
+
+      const duplicates = Object.entries(duplicateGroups)
+        .filter(([_, group]) => group.length > 1);
+
+      if (duplicates.length === 0) {
+        alert('No duplicate subscription products found!');
+        return;
+      }
+
+      const duplicateNames = duplicates.map(([, group]) =>
+        `${group[0].name} (${group[0].durationMonths} months): ${group.length} duplicates`
+      ).join('\n');
+
+      const confirmMessage = `Found ${duplicates.length} duplicate product groups:\n\n${duplicateNames}\n\nThis will remove all but the most recent product in each group. Continue?`;
+      
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+
+      // Remove duplicates, keeping the most recent one
+      for (const [_, group] of duplicates) {
+        const sortedGroup = group.sort((a, b) =>
+          new Date(b.updatedAt || b.createdAt || 0).getTime() -
+          new Date(a.updatedAt || a.createdAt || 0).getTime()
+        );
+        
+        const toKeep = sortedGroup[0];
+        const toRemove = sortedGroup.slice(1);
+
+        console.log(`Keeping: ${toKeep.name} (${toKeep.durationMonths} months) - ${toKeep.id}`);
+        console.log(`Removing duplicates:`, toRemove.map(p => `${p.name} - ${p.id}`));
+
+        for (const product of toRemove) {
+          await actions.deleteSubscriptionProduct(product.id);
+        }
+      }
+
+      alert(`Cleaned up ${duplicates.reduce((sum, [_, group]) => sum + (group.length - 1), 0)} duplicate products!`);
+      actions.loadAllData(); // Reload data to reflect changes
+    } catch (error) {
+      console.error('Error cleaning duplicates:', error);
+      alert('Error cleaning duplicates. Please try again.');
     }
   };
 
@@ -253,6 +315,13 @@ export default function SubscriptionManagement() {
           <p className="text-gray-600 mt-2">Manage customer subscriptions and renewal reminders</p>
         </div>
         <div className="flex space-x-3">
+          <button
+            onClick={handleCleanDuplicates}
+            className="bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2 shadow-sm"
+          >
+            <Trash2 className="h-4 w-4" />
+            <span>Clean Duplicates</span>
+          </button>
           <button
             onClick={() => setShowProductForm(true)}
             className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 shadow-sm"
@@ -320,42 +389,76 @@ export default function SubscriptionManagement() {
       {/* Subscription Products */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
         <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Subscription Products</h3>
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-gray-900">Subscription Products</h3>
+            <span className="text-sm text-gray-600">
+              {(() => {
+                const products = state.subscriptionProducts?.filter(p => p.isActive) || [];
+                const duplicateGroups = products.reduce((acc, product) => {
+                  const key = `${product.name.toLowerCase()}-${product.durationMonths}`;
+                  if (!acc[key]) acc[key] = 0;
+                  acc[key]++;
+                  return acc;
+                }, {} as Record<string, number>);
+                const duplicates = Object.values(duplicateGroups).filter(count => count > 1).reduce((sum, count) => sum + (count - 1), 0);
+                return `${products.length} products${duplicates > 0 ? ` (${duplicates} duplicates)` : ''}`;
+              })()}
+            </span>
+          </div>
         </div>
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {state.subscriptionProducts?.filter(p => p.isActive).map((product) => (
-              <div key={product.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-medium text-gray-900">{product.name}</h4>
-                  <div className="flex space-x-1">
-                    <button
-                      onClick={() => handleEditProduct(product)}
-                      className="text-blue-600 hover:text-blue-700 p-1"
-                    >
-                      <Edit2 className="h-3 w-3" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteProduct(product.id)}
-                      className="text-red-600 hover:text-red-700 p-1"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+            {state.subscriptionProducts?.filter(p => p.isActive).map((product) => {
+              const products = state.subscriptionProducts?.filter(p => p.isActive) || [];
+              const duplicates = products.filter(p =>
+                p.name.toLowerCase() === product.name.toLowerCase() &&
+                p.durationMonths === product.durationMonths &&
+                p.id !== product.id
+              );
+              const isDuplicate = duplicates.length > 0;
+              
+              return (
+                <div key={product.id} className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${
+                  isDuplicate ? 'border-orange-300 bg-orange-50' : 'border-gray-200'
+                }`}>
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-medium text-gray-900">{product.name}</h4>
+                    <div className="flex space-x-1">
+                      <button
+                        onClick={() => handleEditProduct(product)}
+                        className="text-blue-600 hover:text-blue-700 p-1"
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProduct(product.id)}
+                        className="text-red-600 hover:text-red-700 p-1"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                  {isDuplicate && (
+                    <div className="mb-2">
+                      <span className="inline-flex px-2 py-1 text-xs font-medium text-orange-800 bg-orange-200 rounded-full">
+                        ⚠️ Duplicate
+                      </span>
+                    </div>
+                  )}
+                  <p className="text-sm text-gray-600 mb-3">{product.description}</p>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-lg font-bold text-blue-600">{formatCurrency(product.price, 'DKK', null)}</span>
+                    <span className="text-sm text-gray-500">{product.durationMonths} month{product.durationMonths > 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {product.features?.slice(0, 2).map((feature, index) => (
+                      <div key={index}>• {feature}</div>
+                    ))}
+                    {product.features?.length > 2 && <div>• +{product.features.length - 2} more</div>}
                   </div>
                 </div>
-                <p className="text-sm text-gray-600 mb-3">{product.description}</p>
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-lg font-bold text-blue-600">{formatCurrency(product.price, 'DKK', null)}</span>
-                  <span className="text-sm text-gray-500">{product.durationMonths} month{product.durationMonths > 1 ? 's' : ''}</span>
-                </div>
-                <div className="text-xs text-gray-500">
-                  {product.features?.slice(0, 2).map((feature, index) => (
-                    <div key={index}>• {feature}</div>
-                  ))}
-                  {product.features?.length > 2 && <div>• +{product.features.length - 2} more</div>}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -629,6 +732,7 @@ export default function SubscriptionManagement() {
                 {filteredSubscriptions.map((subscription) => {
                   const customer = state.customers.find(c => c.id === subscription.customerId);
                   const customerName = customer ? customer.name : 'N/A';
+                  const subscriptionProduct = state.subscriptionProducts?.find(p => p.id === subscription.productId);
                   const daysLeft = getDaysUntilExpiry(subscription.endDate);
                   const invoice = state.invoices?.find(inv => inv.id === subscription.invoiceId);
                   return (
@@ -637,10 +741,10 @@ export default function SubscriptionManagement() {
                         <div className="font-medium text-gray-900">{customerName}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                        N/A
+                        {subscriptionProduct ? subscriptionProduct.name : (subscription.productName || 'Unknown')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                        N/A
+                        {subscriptionProduct ? `${subscriptionProduct.durationMonths} month${subscriptionProduct.durationMonths > 1 ? 's' : ''}` : (subscription.durationMonths ? `${subscription.durationMonths} month${subscription.durationMonths > 1 ? 's' : ''}` : 'N/A')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-900 font-medium">
                         {formatCurrency(subscription.price, 'DKK', null)}
