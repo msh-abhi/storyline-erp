@@ -19,52 +19,50 @@ const CustomerPortalLayout: React.FC<CustomerPortalLayoutProps> = ({ children })
   const customerName = customerData?.name || portalUser?.email || 'Customer';
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-gray-50 font-sans">
       {/* Sidebar */}
-      <aside className="w-64 bg-blue-800 text-white flex flex-col p-4">
-        <div className="text-2xl font-bold mb-8 text-center">
-          My Portal
+      <aside className="w-64 bg-gray-900 text-gray-400 flex flex-col p-4 shadow-lg">
+        <div className="text-center py-6">
+          <h1 className="text-3xl font-extrabold text-white tracking-wider">Customer Portal</h1>
+          <p className="text-xs text-gray-500 mt-1">StoryLine</p>
         </div>
-        <nav className="flex-1">
-          <ul>
-            <li className="mb-2">
-              <Link to="/portal/dashboard" className="flex items-center p-2 rounded-md hover:bg-blue-700 transition-colors">
-                <LayoutDashboard className="mr-3" size={20} /> Dashboard
-              </Link>
-            </li>
-            <li className="mb-2">
-              <Link to="/portal/subscriptions" className="flex items-center p-2 rounded-md hover:bg-blue-700 transition-colors">
-                <CreditCard className="mr-3" size={20} /> Subscriptions
-              </Link>
-            </li>
-            <li className="mb-2">
-              <Link to="/portal/billing" className="flex items-center p-2 rounded-md hover:bg-blue-700 transition-colors">
-                <FileText className="mr-3" size={20} /> Billing History
-              </Link>
-            </li>
-            <li className="mb-2">
-              <Link to="/portal/profile" className="flex items-center p-2 rounded-md hover:bg-blue-700 transition-colors">
-                <User className="mr-3" size={20} /> Profile
-              </Link>
-            </li>
-            <li className="mb-2">
-              <Link to="/portal/credentials" className="flex items-center p-2 rounded-md hover:bg-blue-700 transition-colors">
-                <Tv className="mr-3" size={20} /> IPTV Credentials
-              </Link>
-            </li>
-            <li className="mb-2">
-              <Link to="/portal/contact" className="flex items-center p-2 rounded-md hover:bg-blue-700 transition-colors">
-                <Mail className="mr-3" size={20} /> Contact Us
-              </Link>
-            </li>
-          </ul>
+        <nav className="flex-1 space-y-2">
+          <Link to="/portal/dashboard" className="flex items-center p-3 rounded-lg hover:bg-gray-700 transition-colors duration-200">
+            <LayoutDashboard className="mr-4" size={22} />
+            <span>Dashboard</span>
+          </Link>
+          <Link to="/portal/subscriptions" className="flex items-center p-3 rounded-lg hover:bg-gray-700 transition-colors duration-200">
+            <CreditCard className="mr-4" size={22} />
+            <span>Subscriptions</span>
+          </Link>
+          <Link to="/portal/billing" className="flex items-center p-3 rounded-lg hover:bg-gray-700 transition-colors duration-200">
+            <FileText className="mr-4" size={22} />
+            <span>Billing History</span>
+          </Link>
+          <Link to="/portal/profile" className="flex items-center p-3 rounded-lg hover:bg-gray-700 transition-colors duration-200">
+            <User className="mr-4" size={22} />
+            <span>Profile</span>
+          </Link>
+          <Link to="/portal/credentials" className="flex items-center p-3 rounded-lg hover:bg-gray-700 transition-colors duration-200">
+            <Tv className="mr-4" size={22} />
+            <span>IPTV Credentials</span>
+          </Link>
+          <Link to="/portal/contact" className="flex items-center p-3 rounded-lg hover:bg-gray-700 transition-colors duration-200">
+            <Mail className="mr-4" size={22} />
+            <span>Contact Us</span>
+          </Link>
         </nav>
-        <div className="mt-auto">
+        <div className="mt-auto pt-4 border-t border-gray-700">
+          <div className="text-center mb-4 p-3 bg-gray-800 rounded-lg">
+            <p className="text-sm font-semibold text-gray-300">Signed in as</p>
+            <p className="text-base font-bold text-white truncate" title={portalUser?.email}>{portalUser?.email}</p>
+          </div>
           <button
             onClick={handleSignOut}
-            className="flex items-center w-full p-2 rounded-md text-red-300 hover:bg-blue-700 hover:text-red-100 transition-colors"
+            className="flex items-center justify-center w-full p-3 rounded-lg bg-red-700 text-white hover:bg-red-800 transition-colors duration-200"
           >
-            <LogOut className="mr-3" size={20} /> Sign Out
+            <LogOut className="mr-2" size={20} />
+            <span className="font-bold">Sign Out</span>
           </button>
         </div>
       </aside>

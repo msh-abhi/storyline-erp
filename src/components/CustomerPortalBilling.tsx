@@ -72,8 +72,17 @@ const CustomerPortalBilling: React.FC = () => {
   const pendingInvoices = invoices.filter(inv => inv.status === 'pending');
   const pastInvoices = invoices.filter(inv => inv.status !== 'pending');
 
+  if (!customerPortalUser || !customerPortalUser.customer_id) {
+    return (
+      <div className="p-6 bg-white rounded-lg shadow-md">
+        <h1 className="text-3xl font-bold text-gray-800 mb-4">Billing History</h1>
+        <p>No customer account is found for this user.</p>
+      </div>
+    );
+  }
+
   if (loading) {
-    return <div className="p-6">Loading billing history...</div>;
+    return <div className="p-6">Loading...</div>;
   }
 
   if (error) {

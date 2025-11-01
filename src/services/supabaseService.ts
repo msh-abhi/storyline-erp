@@ -111,6 +111,16 @@ export const customerService = {
     if (error) throw error;
     return data.map(convertCustomerFromDb);
   },
+  getById: async (id: string): Promise<Customer | null> => {
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('id', id)
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? convertCustomerFromDb(data) : null;
+  },
   findByEmail: async (email: string): Promise<Customer | null> => {
     const { data, error } = await supabase
       .from('customers')
@@ -312,6 +322,14 @@ export const purchaseService = {
 export const subscriptionService = {
   getAll: async (): Promise<Subscription[]> => {
     const { data, error } = await supabase.from('subscriptions').select('*');
+    if (error) throw error;
+    return data.map(convertSubscriptionFromDb);
+  },
+  getByCustomerId: async (customerId: string): Promise<Subscription[]> => {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('customer_id', customerId);
     if (error) throw error;
     return data.map(convertSubscriptionFromDb);
   },

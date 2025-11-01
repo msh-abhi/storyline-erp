@@ -3,7 +3,8 @@ import { useAuth } from './AuthProvider';
 import { customerService } from '../services/supabaseService';
 
 const CustomerPortalProfile: React.FC = () => {
-  const { customerData, portalUser } = useAuth(); // Removed 'user' as it was not used
+    const { authUser, userProfile, customerPortalUser } = useAuth();
+  const [customer, setCustomer] = useState<Customer | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
@@ -11,35 +12,41 @@ const CustomerPortalProfile: React.FC = () => {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    if (customerData) {
-      setName(customerData.name || '');
-      setEmail(customerData.email || '');
-      setWhatsappNumber(customerData.whatsappNumber || '');
-    } else if (portalUser) {
-      setEmail(portalUser.email || ''); // Fallback to portalUser email if customerData not fully loaded
+    if (userProfile) {
+      setName(userProfile.name || '');
     }
-  }, [customerData, portalUser]);
+    if (authUser) {
+      setEmail(authUser.email || '');
+    }
+    if (customerPortalUser && customerPortalUser.customer_id) {
+      const fetchCustomer = async () => {
+        const customerData = await customerService.getById(customerPortalUser.customer_id);
+        if (customerData) {
+          setCustomer(customerData);
+          setWhatsappNumber(customerData.whatsappNumber || '');
+        }
+      };
+      fetchCustomer();
+    }
+  }, [userProfile, authUser, customerPortalUser]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
 
-    if (!customerData?.id) {
+    if (!customer?.id) {
       setMessage('Error: Customer data not found.');
       setLoading(false);
       return;
     }
 
     try {
-      await customerService.update(customerData.id, {
+      await customerService.update(customer.id, {
         name,
-        email,
         whatsappNumber,
-        // Add other editable fields here
       });
       setMessage('Profile updated successfully!');
-      // Optionally, refresh auth context or customer data
     } catch (error: any) {
       console.error('Error updating profile:', error);
       setMessage(`Failed to update profile: ${error.message}`);
