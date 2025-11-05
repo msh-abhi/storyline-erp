@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, DollarSign, Search, CreditCard, TrendingUp, Mail, 
 import { useApp } from '../context/AppContext';
 import { Reseller } from '../types';
 import { formatCurrency } from '../utils/calculations';
+import DataTable from './common/DataTable';
 
 export default function ResellerManagement() {
   const { state, actions } = useApp();
@@ -30,6 +31,8 @@ export default function ResellerManagement() {
     content: ''
   });
 
+  const formatCurrencyWrapper = (amount: number) => formatCurrency(amount, state.settings?.currency || 'DKK', state.exchangeRates, state.settings?.displayCurrency);
+
   const filteredResellers = state.resellers.filter(reseller =>
     reseller.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     reseller.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -45,6 +48,7 @@ export default function ResellerManagement() {
         commissionRate: formData.commissionRate,
         totalSales: formData.totalSales,
         outstandingPayment: formData.outstandingPayment,
+        outstandingBalance: formData.outstandingPayment, // Map outstandingPayment to outstandingBalance
         creditBalance: 0
       };
 
@@ -189,7 +193,7 @@ export default function ResellerManagement() {
             <TrendingUp className="h-8 w-8 text-green-600" />
             <div>
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(filteredResellers.reduce((total, r) => total + r.totalSales, 0))}
+                {formatCurrencyWrapper(filteredResellers.reduce((total, r) => total + r.totalSales, 0))}
               </p>
               <p className="text-sm text-gray-600">Total Sales</p>
             </div>
@@ -200,7 +204,7 @@ export default function ResellerManagement() {
             <DollarSign className="h-8 w-8 text-amber-600" />
             <div>
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(filteredResellers.reduce((total, r) => total + r.outstandingPayment, 0))}
+                {formatCurrencyWrapper(filteredResellers.reduce((total, r) => total + r.outstandingPayment, 0))}
               </p>
               <p className="text-sm text-gray-600">Outstanding Payments</p>
             </div>
@@ -210,7 +214,7 @@ export default function ResellerManagement() {
           <div className="flex items-center space-x-3">
             <CreditCard className="h-8 w-8 text-blue-600" />
             <div>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalCreditBalance)}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrencyWrapper(totalCreditBalance)}</p>
               <p className="text-sm text-gray-600">Total Credit Balance</p>
             </div>
           </div>
@@ -389,7 +393,7 @@ export default function ResellerManagement() {
               {creditFormData.saleAmount > 0 && (
                 <div className="bg-green-50 p-3 rounded-lg">
                   <p className="text-sm text-green-700">
-                    <strong>Profit:</strong> {formatCurrency(creditFormData.saleAmount)}
+                    <strong>Profit:</strong> {formatCurrencyWrapper(creditFormData.saleAmount)}
                   </p>
                   <p className="text-xs text-green-600 mt-1">
                     This amount will be added to your profit since credit costs nothing to provide.
@@ -497,9 +501,9 @@ export default function ResellerManagement() {
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium text-gray-900 mb-2">Financial Summary</h4>
-                <p className="text-sm text-gray-600">Total Sales: {formatCurrency(selectedReseller.totalSales)}</p>
-                <p className="text-sm text-gray-600">Outstanding: {formatCurrency(selectedReseller.outstandingPayment)}</p>
-                <p className="text-sm text-gray-600">Credit Balance: {formatCurrency(selectedReseller.creditBalance || 0)}</p>
+                <p className="text-sm text-gray-600">Total Sales: {formatCurrencyWrapper(selectedReseller.totalSales)}</p>
+                <p className="text-sm text-gray-600">Outstanding: {formatCurrencyWrapper(selectedReseller.outstandingPayment)}</p>
+                <p className="text-sm text-gray-600">Credit Balance: {formatCurrencyWrapper(selectedReseller.creditBalance || 0)}</p>
               </div>
             </div>
 
@@ -522,7 +526,7 @@ export default function ResellerManagement() {
                         <td className="px-4 py-2">{new Date(sale.saleDate).toLocaleDateString()}</td>
                         <td className="px-4 py-2">{sale.productName}</td>
                         <td className="px-4 py-2">{sale.quantity}</td>
-                        <td className="px-4 py-2">{formatCurrency(sale.totalAmount)}</td>
+                        <td className="px-4 py-2">{formatCurrencyWrapper(sale.totalAmount)}</td>
                         <td className="px-4 py-2">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             (sale as any).paymentStatus === 'received' ? 'bg-green-100 text-green-800' :
@@ -591,16 +595,16 @@ export default function ResellerManagement() {
                       {reseller.email}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900 font-medium">
-                      {formatCurrency(reseller.totalSales)}
+                      {formatCurrencyWrapper(reseller.totalSales)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`font-medium ${reseller.outstandingPayment > 0 ? 'text-amber-600' : 'text-gray-900'}`}>
-                        {formatCurrency(reseller.outstandingPayment)}
+                        {formatCurrencyWrapper(reseller.outstandingPayment)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-medium text-green-600">
-                        {formatCurrency(reseller.creditBalance || 0)}
+                        {formatCurrencyWrapper(reseller.creditBalance || 0)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-600">

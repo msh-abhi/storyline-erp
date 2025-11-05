@@ -1,4 +1,4 @@
-import React, {
+import {
   createContext,
   useContext,
   useEffect,
@@ -6,11 +6,10 @@ import React, {
   ReactNode,
   useCallback,
 } from "react";
-// Import the specific User type from supabase-js if needed, distinct from your UserProfile
-import { User as SupabaseAuthUser } from '@supabase/supabase-js'; // Renamed to avoid conflict
-import { supabase } from '../lib/supabase'; // Import supabase from the correct location
-import { getCustomerPortalUserByAuthId, createCustomerPortalUser, getUserProfile, customerService } from "../services/supabaseService"; // Import service functions
-import { CustomerPortalUser, UserProfile } from '../types'; // Import UserProfile
+import { User as SupabaseAuthUser } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
+import { getCustomerPortalUserByAuthId, createCustomerPortalUser, getUserProfile, customerService } from "../services/supabaseService";
+import { CustomerPortalUser, UserProfile } from '../types';
 
 type AuthContextType = {
   authUser: SupabaseAuthUser | null; // Raw Supabase auth user

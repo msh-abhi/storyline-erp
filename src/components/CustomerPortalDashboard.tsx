@@ -3,21 +3,16 @@ import { useAuth } from './AuthProvider';
 import { useNavigate } from 'react-router-dom';
 import { subscriptionService, getCustomerMessages, getCustomerCredentials, customerService } from '../services/supabaseService';
 import {
-  CreditCard, 
-  Calendar, 
-  CheckCircle, 
-  AlertCircle, 
-  Clock, 
-  FileText, 
-  Phone, 
+  CreditCard,
+  Calendar,
+  CheckCircle,
+  AlertCircle,
+  Clock,
   Tv,
   TrendingUp,
   DollarSign,
   Activity,
-  Bell,
   Zap,
-  Shield,
-  Users,
   MessageSquare,
   ExternalLink,
   Settings
@@ -59,6 +54,7 @@ const CustomerPortalDashboard: React.FC = () => {
 
   const customerName = userProfile?.email?.split('@')[0] || authUser?.email?.split('@')[0] || 'Customer';
   const customerEmail = authUser?.email || 'customer@example.com';
+  // customerEmail is used for email-related displays throughout the component
 
   // Use type assertion to access the camelCase properties after keysToCamel conversion
   const portalUser = customerPortalUser as any;
@@ -77,7 +73,7 @@ const CustomerPortalDashboard: React.FC = () => {
       const customerId = portalUser.customerId;
       
       // Load real customer data
-      const [subscriptions, messages, credentials, customerInfo] = await Promise.all([
+      const [subscriptions, messages, credentials, _customerInfo] = await Promise.all([
         subscriptionService.getByCustomerId(customerId),
         getCustomerMessages(customerId),
         getCustomerCredentials(customerId),
@@ -279,119 +275,157 @@ const CustomerPortalDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg p-8 text-white">
+      {/* Welcome Header - Enhanced with ERP styling */}
+      <div className="bg-gradient-to-br from-blue-600 via-purple-600 to-blue-800 rounded-xl p-8 text-white shadow-lg">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Welcome back, {customerName}!</h1>
-            <p className="text-blue-100">Here's what's happening with your account today.</p>
+            <h1 className="text-4xl font-bold mb-3">Welcome back, {customerName}!</h1>
+            <p className="text-blue-100 text-lg">Here's what's happening with your account today.</p>
+            <div className="mt-4 flex items-center space-x-2">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span className="text-sm text-blue-200">All systems operational</span>
+            </div>
           </div>
           <div className="text-right">
-            <p className="text-sm text-blue-200">Account Status</p>
-            <div className="flex items-center mt-1">
-              <CheckCircle size={16} className="text-green-300 mr-2" />
-              <span className="font-semibold text-green-300">Active</span>
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+              <p className="text-sm text-blue-200 mb-1">Account Status</p>
+              <div className="flex items-center justify-end">
+                <CheckCircle size={16} className="text-green-300 mr-2" />
+                <span className="font-semibold text-green-300">Active</span>
+              </div>
+              <p className="text-xs text-blue-300 mt-1">Since {new Date().getFullYear()}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Quick Stats Row */}
+      {/* Quick Stats Row - Enhanced with ERP styling */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Active Subscriptions Card */}
-        <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-gray-600">Active Subscriptions</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.activeSubscriptions}</p>
+        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-blue-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
+              <Tv className="h-6 w-6 text-blue-600" />
             </div>
-            <div className="p-2 bg-blue-100 rounded-full">
-              <Tv className="h-5 w-5 text-blue-600" />
+            <div className="text-right">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Active Services</p>
+              <p className="text-3xl font-bold text-gray-900 mt-1">{stats.activeSubscriptions}</p>
             </div>
           </div>
-          <div className="mt-3 flex items-center text-xs">
-            <TrendingUp className="h-3 w-3 text-green-500 mr-1" />
-            <span className="text-green-600">{stats.activeSubscriptions} package{stats.activeSubscriptions !== 1 ? 's' : ''} active</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <TrendingUp className="h-4 w-4 text-green-500 mr-2" />
+              <span className="text-sm font-medium text-green-600">
+                {stats.activeSubscriptions} service{stats.activeSubscriptions !== 1 ? 's' : ''} active
+              </span>
+            </div>
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
           </div>
         </div>
 
         {/* Next Payment Card */}
-        <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-orange-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-gray-600">Next Payment</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {stats.nextPaymentAmount > 0 ? formatCurrency(stats.nextPaymentAmount) : 'No payment due'}
+        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-orange-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl">
+              <Calendar className="h-6 w-6 text-orange-600" />
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Next Payment</p>
+              <p className="text-3xl font-bold text-gray-900 mt-1">
+                {stats.nextPaymentAmount > 0 ? formatCurrency(stats.nextPaymentAmount) : 'No due'}
               </p>
             </div>
-            <div className="p-2 bg-orange-100 rounded-full">
-              <Calendar className="h-5 w-5 text-orange-600" />
-            </div>
           </div>
-          <div className="mt-3 flex items-center text-xs">
-            <Clock className="h-3 w-3 text-orange-500 mr-1" />
-            <span className="text-orange-600">
-              {stats.nextPayment ? `Due ${formatDate(stats.nextPayment)}` : 'No upcoming payment'}
-            </span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Clock className="h-4 w-4 text-orange-500 mr-2" />
+              <span className="text-sm font-medium text-orange-600">
+                {stats.nextPayment ? formatDate(stats.nextPayment) : 'No upcoming'}
+              </span>
+            </div>
+            <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
           </div>
         </div>
 
         {/* Total Spent Card */}
-        <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-green-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-gray-600">Total Spent</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalSpent)}</p>
+        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-green-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-gradient-to-br from-green-50 to-green-100 rounded-xl">
+              <DollarSign className="h-6 w-6 text-green-600" />
             </div>
-            <div className="p-2 bg-green-100 rounded-full">
-              <DollarSign className="h-5 w-5 text-green-600" />
+            <div className="text-right">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Spent</p>
+              <p className="text-3xl font-bold text-gray-900 mt-1">{formatCurrency(stats.totalSpent)}</p>
             </div>
           </div>
-          <div className="mt-3 flex items-center text-xs">
-            <span className="text-green-600">Since joining</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <TrendingUp className="h-4 w-4 text-green-500 mr-2" />
+              <span className="text-sm font-medium text-green-600">Lifetime value</span>
+            </div>
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
           </div>
         </div>
 
         {/* Support Tickets Card */}
-        <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-purple-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-gray-600">Support Tickets</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.supportTickets}</p>
+        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-purple-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl">
+              <MessageSquare className="h-6 w-6 text-purple-600" />
             </div>
-            <div className="p-2 bg-purple-100 rounded-full">
-              <MessageSquare className="h-5 w-5 text-purple-600" />
+            <div className="text-right">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Support</p>
+              <p className="text-3xl font-bold text-gray-900 mt-1">{stats.supportTickets}</p>
             </div>
           </div>
-          <div className="mt-3 flex items-center text-xs">
-            <span className="text-purple-600">{stats.supportTickets} open ticket{stats.supportTickets !== 1 ? 's' : ''}</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <span className="text-sm font-medium text-purple-600">
+                {stats.supportTickets === 0 ? 'No open tickets' :
+                 `${stats.supportTickets} open ticket${stats.supportTickets !== 1 ? 's' : ''}`}
+              </span>
+            </div>
+            <div className={`w-2 h-2 rounded-full ${stats.supportTickets === 0 ? 'bg-green-500' : 'bg-orange-500'}`}></div>
           </div>
         </div>
       </div>
 
-      {/* Main Content Grid */}
+      {/* Main Content Grid - Enhanced with ERP styling */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Activity */}
-        <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
-            <button 
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <Activity className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
+                <p className="text-sm text-gray-500">Your latest account updates</p>
+              </div>
+            </div>
+            <button
               onClick={() => navigate('/portal/activity')}
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
             >
               View All <ExternalLink size={14} className="ml-1" />
             </button>
           </div>
-          <div className="space-y-4">
-            {recentActivity.map((activity) => (
-              <div key={activity.id} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                <div className="flex-shrink-0 mt-1">
+          <div className="space-y-3">
+            {recentActivity.length > 0 ? recentActivity.map((activity) => (
+              <div key={activity.id} className="flex items-start space-x-4 p-4 hover:bg-gray-50 rounded-xl transition-all duration-200 group border border-transparent hover:border-gray-200">
+                <div className="flex-shrink-0 mt-1 p-2 bg-gray-50 rounded-lg group-hover:bg-gray-100 transition-colors">
                   {getActivityIcon(activity.type)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                  <p className="text-sm text-gray-600">{activity.description}</p>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-gray-900">{activity.title}</p>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(activity.status || 'unknown')}`}>
+                      {activity.status}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
+                  <p className="text-xs text-gray-400 mt-2">
                     {new Date(activity.timestamp).toLocaleDateString('en-DK', {
                       year: 'numeric',
                       month: 'short',
@@ -401,81 +435,130 @@ const CustomerPortalDashboard: React.FC = () => {
                     })}
                   </p>
                 </div>
-                {activity.status && (
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(activity.status)}`}>
-                    {activity.status}
-                  </span>
-                )}
               </div>
-            ))}
+            )) : (
+              <div className="text-center py-8">
+                <Activity className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">No recent activity</p>
+                <p className="text-sm text-gray-400">Your account activity will appear here</p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Quick Actions & Service Status */}
+        {/* Quick Actions & Service Status - Enhanced with ERP styling */}
         <div className="space-y-6">
           {/* Quick Actions */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+          <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="p-2 bg-indigo-50 rounded-lg">
+                <Settings className="h-5 w-5 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
+                <p className="text-sm text-gray-500">Common tasks</p>
+              </div>
+            </div>
             <div className="space-y-3">
-              <button 
+              <button
                 onClick={() => navigate('/portal/billing')}
-                className="w-full flex items-center p-3 text-left bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group"
+                className="w-full flex items-center p-4 text-left bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-xl transition-all duration-200 group border border-blue-200 hover:border-blue-300"
               >
-                <CreditCard className="h-5 w-5 text-blue-600 mr-3" />
-                <span className="font-medium text-blue-900 group-hover:text-blue-700">Pay Bill</span>
+                <div className="p-2 bg-blue-100 rounded-lg mr-4 group-hover:bg-blue-200 transition-colors">
+                  <CreditCard className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-blue-900 group-hover:text-blue-700">Pay Bill</p>
+                  <p className="text-sm text-blue-600">View and pay invoices</p>
+                </div>
               </button>
-              <button 
+              <button
                 onClick={() => navigate('/portal/subscriptions')}
-                className="w-full flex items-center p-3 text-left bg-green-50 hover:bg-green-100 rounded-lg transition-colors group"
+                className="w-full flex items-center p-4 text-left bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 rounded-xl transition-all duration-200 group border border-green-200 hover:border-green-300"
               >
-                <Tv className="h-5 w-5 text-green-600 mr-3" />
-                <span className="font-medium text-green-900 group-hover:text-green-700">Manage Services</span>
+                <div className="p-2 bg-green-100 rounded-lg mr-4 group-hover:bg-green-200 transition-colors">
+                  <Tv className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-green-900 group-hover:text-green-700">Manage Services</p>
+                  <p className="text-sm text-green-600">Subscriptions & plans</p>
+                </div>
               </button>
-              <button 
+              <button
                 onClick={() => navigate('/portal/contact')}
-                className="w-full flex items-center p-3 text-left bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors group"
+                className="w-full flex items-center p-4 text-left bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 rounded-xl transition-all duration-200 group border border-purple-200 hover:border-purple-300"
               >
-                <MessageSquare className="h-5 w-5 text-purple-600 mr-3" />
-                <span className="font-medium text-purple-900 group-hover:text-purple-700">Contact Support</span>
+                <div className="p-2 bg-purple-100 rounded-lg mr-4 group-hover:bg-purple-200 transition-colors">
+                  <MessageSquare className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-purple-900 group-hover:text-purple-700">Contact Support</p>
+                  <p className="text-sm text-purple-600">Get help & assistance</p>
+                </div>
               </button>
-              <button 
+              <button
                 onClick={() => navigate('/portal/profile')}
-                className="w-full flex items-center p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors group"
+                className="w-full flex items-center p-4 text-left bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 rounded-xl transition-all duration-200 group border border-gray-200 hover:border-gray-300"
               >
-                <Settings className="h-5 w-5 text-gray-600 mr-3" />
-                <span className="font-medium text-gray-900 group-hover:text-gray-700">Account Settings</span>
+                <div className="p-2 bg-gray-100 rounded-lg mr-4 group-hover:bg-gray-200 transition-colors">
+                  <Settings className="h-5 w-5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900 group-hover:text-gray-700">Account Settings</p>
+                  <p className="text-sm text-gray-600">Profile & preferences</p>
+                </div>
               </button>
             </div>
           </div>
 
-          {/* Service Status */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Service Status</h3>
+          {/* Service Status - Enhanced with ERP styling */}
+          <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-green-50 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">System Status</h3>
+                  <p className="text-sm text-gray-500">All systems operational</p>
+                </div>
+              </div>
               <div className="flex items-center">
-                <div className={`w-3 h-3 rounded-full mr-2 ${
+                <div className={`w-3 h-3 rounded-full mr-2 animate-pulse ${
                   stats.serviceStatus === 'healthy' ? 'bg-green-400' :
                   stats.serviceStatus === 'warning' ? 'bg-yellow-400' : 'bg-red-400'
                 }`}></div>
                 <span className="text-sm font-medium text-gray-600 capitalize">{stats.serviceStatus}</span>
               </div>
             </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Streaming Service</span>
-                <CheckCircle size={16} className="text-green-500" />
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center">
+                  <CheckCircle size={16} className="text-green-500 mr-3" />
+                  <span className="text-sm font-medium text-green-800">Streaming Service</span>
+                </div>
+                <span className="text-xs text-green-600 font-medium">Online</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Payment System</span>
-                <CheckCircle size={16} className="text-green-500" />
+              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center">
+                  <CheckCircle size={16} className="text-green-500 mr-3" />
+                  <span className="text-sm font-medium text-green-800">Payment System</span>
+                </div>
+                <span className="text-xs text-green-600 font-medium">Operational</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Support System</span>
-                <CheckCircle size={16} className="text-green-500" />
+              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center">
+                  <CheckCircle size={16} className="text-green-500 mr-3" />
+                  <span className="text-sm font-medium text-green-800">Support System</span>
+                </div>
+                <span className="text-xs text-green-600 font-medium">Available</span>
               </div>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-200">
-              <p className="text-xs text-gray-500">Last updated: {new Date().toLocaleTimeString('en-DK')}</p>
+              <p className="text-xs text-gray-500 flex items-center">
+                <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                Last updated: {new Date().toLocaleTimeString('en-DK')}
+              </p>
             </div>
           </div>
         </div>

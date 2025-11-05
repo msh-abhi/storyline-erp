@@ -2,24 +2,28 @@ import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './components/AuthProvider';
 
-// Admin ERP Components
-import Sidebar from './components/Sidebar';
+// Enhanced Admin ERP Components
 import TopBar from './components/TopBar';
-import Dashboard from './components/Dashboard';
 import CustomerManagement from './components/CustomerManagement';
 import ResellerManagement from './components/ResellerManagement';
 import SupplierManagement from './components/SupplierManagement';
 import DigitalCodeManagement from './components/DigitalCodeManagement';
 import TVBoxManagement from './components/TVBoxManagement';
-import SalesManagement from './components/SalesManagement';
-import PurchaseManagement from './components/PurchaseManagement';
-import SubscriptionManagement from './components/SubscriptionManagement';
 import EmailTemplateManagement from './components/EmailTemplateManagement';
 import EmailLogs from './components/EmailLogs';
 import WooCommerceOrders from './components/WooCommerceOrders';
 import Settings from './components/Settings';
 import InvoiceManagement from './components/InvoiceManagement';
 import LoginForm from './components/LoginForm'; // Existing admin login form
+
+// NEW: Standardized Components
+import EnhancedNavigation from './components/standardized/EnhancedNavigation';
+import EnhancedUnifiedSalesModule from './components/standardized/modules/EnhancedUnifiedSalesModule';
+import EnhancedUnifiedPurchaseModule from './components/standardized/modules/EnhancedUnifiedPurchaseModule';
+import SubscriptionCustomerManagement from './components/standardized/modules/SubscriptionCustomerManagement';
+import SubscriptionProductsManagement from './components/standardized/modules/SubscriptionProductsManagement';
+import IntegrationsManagement from './components/standardized/modules/IntegrationsManagement';
+import CleanDashboard from './components/standardized/modules/CleanDashboard';
 
 // New Customer Portal Components
 import CustomerPortalLogin from './components/CustomerPortalLogin'; // New
@@ -49,24 +53,30 @@ function AdminAppContent() {
   const renderActiveSection = () => {
     switch (activeSection) {
       case 'dashboard':
-        return <Dashboard onSectionChange={setActiveSection} />;
+        return <CleanDashboard onSectionChange={setActiveSection} />;
+      case 'analytics':
+        return <CleanDashboard onSectionChange={setActiveSection} />; // Enhanced analytics view
       case 'customers':
         return <CustomerManagement />;
       case 'resellers':
         return <ResellerManagement />;
-      case 'suppliers':
-        return <SupplierManagement />;
       case 'digital-codes':
         return <DigitalCodeManagement />;
       case 'tv-boxes':
         return <TVBoxManagement />;
       case 'sales':
-        return <SalesManagement />;
-      case 'purchases':
-        return <PurchaseManagement />;
+        return <EnhancedUnifiedSalesModule />;
+      case 'subscription-products':
+        return <SubscriptionProductsManagement />;
       case 'subscriptions':
-        return <SubscriptionManagement />;
-      case 'email-templates': // FIX: Changed from 'emails' to 'email-templates' to match type
+        return <SubscriptionCustomerManagement />;
+      case 'purchases':
+        return <EnhancedUnifiedPurchaseModule />;
+      case 'suppliers':
+        return <SupplierManagement />;
+      case 'invoices':
+        return <InvoiceManagement />;
+      case 'email-templates':
         return <EmailTemplateManagement />;
       case 'email-logs':
         return <EmailLogs />;
@@ -74,22 +84,22 @@ function AdminAppContent() {
         return <WooCommerceOrders />;
       case 'settings':
         return <Settings />;
-      case 'invoices':
-        return <InvoiceManagement />;
+      case 'integrations':
+        return <IntegrationsManagement />;
       default:
-        return <Dashboard onSectionChange={setActiveSection} />;
+        return <CleanDashboard onSectionChange={setActiveSection} />;
     }
   };
 
   return (
       <div className="relative min-h-screen gradient-bg">
         <div className="fixed top-0 left-0 h-screen z-30">
-          <Sidebar
+          <EnhancedNavigation
             activeSection={activeSection}
             onSectionChange={setActiveSection}
           />
         </div>
-        <div className="ml-64 flex-1 flex flex-col min-h-screen overflow-y-auto">
+        <div className="ml-80 flex-1 flex flex-col min-h-screen overflow-y-auto">
           <TopBar />
           <main className="flex-1 p-6">
             <ErrorBoundary>

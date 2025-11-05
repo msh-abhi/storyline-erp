@@ -106,7 +106,10 @@ export function calculateYearlyProfit(sales: Sale[], purchases: Purchase[], year
 export function calculateOutstandingAmount(sales: Sale[]): number {
   if (!sales) return 0;
   return sales
-    .filter(sale => sale.paymentStatus === 'due')
+    .filter(sale =>
+      sale.paymentStatus === 'due' || // Unpaid invoice amounts
+      sale.status === 'pending' // Pending sales awaiting payment
+    )
     .reduce((total, sale) => total + ensureNumber(sale.totalPrice), 0);
 }
 
@@ -123,7 +126,10 @@ export function calculateResellerCreditProfit(resellers: Reseller[]): number {
 export function calculateOutstandingFromSales(sales: Sale[]): number {
   if (!sales) return 0;
   return sales
-    .filter(sale => sale.paymentStatus === 'due')
+    .filter(sale =>
+      sale.paymentStatus === 'due' || // Unpaid invoice amounts
+      sale.status === 'pending' // Pending sales awaiting payment
+    )
     .reduce((total, sale) => total + ensureNumber(sale.totalPrice), 0);
 }
 

@@ -125,6 +125,15 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
       changeType: netProfit >= 0 ? 'positive' : 'negative'
     },
     {
+      title: 'Total Expenses',
+      value: formatCurrency(totalExpenses, 'DKK', state.exchangeRates, displayCurrency),
+      icon: TrendingDown,
+      color: 'text-red-600',
+      bgColor: 'bg-red-50',
+      change: '+5.2%',
+      changeType: 'negative'
+    },
+    {
       title: 'Outstanding Receivables',
       value: formatCurrency(outstandingReceivables + outstandingFromSales + totalPendingInvoices, 'DKK', state.exchangeRates, displayCurrency),
       icon: AlertCircle,

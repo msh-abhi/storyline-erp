@@ -1,8 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts';
 
-const SENDINBLUE_API_KEY = Deno.env.get('SENDINBLUE_API_KEY'); // For Deno/Supabase Functions
-const SENDER_EMAIL = 'kontakt@jysk-streaming.fun';
-
 interface Subscription {
   id: string;
   customer_id: string;
@@ -19,6 +16,14 @@ interface Customer {
   email: string;
 }
 
+interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  content: string;
+  trigger: string;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -28,15 +33,31 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // This function would be called by a cron job or scheduled task
-    // For now, it's a manual trigger endpoint
-    
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!supabaseUrl || !supabaseKey) {
       throw new Error('Missing Supabase configuration');
     }
+
+    // Get email templates for reminders
+    const templatesResponse = await fetch(`${supabaseUrl}/rest/v1/email_templates?trigger=in.(subscription_10_day_reminder,subscription_5_day_reminder)&select=*`, {
+      headers: {
+        'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!templatesResponse.ok) {
+      throw new Error('Failed to fetch email templates');
+    }
+
+    const templates: EmailTemplate[] = await templatesResponse.json();
+    const templatesByTrigger = templates.reduce((acc, template) => {
+      acc[template.trigger] = template;
+      return acc;
+    }, {} as Record<string, EmailTemplate>);
 
     // Get subscriptions that need reminders
     const subscriptionsResponse = await fetch(`${supabaseUrl}/rest/v1/subscriptions?status=eq.active&select=*`, {
@@ -77,7 +98,12 @@ Deno.serve(async (req: Request) => {
 
       // Send 10-day reminder
       if (daysUntilExpiry <= 10 && daysUntilExpiry > 5 && !subscription.reminder_10_sent) {
-        await sendReminderEmail(customer, subscription, 10);
+        const template = templatesByTrigger['subscription_10_day_reminder'];
+        if (template) {
+          await sendReminderEmail(customer, subscription, 10, template);
+        } else {
+          console.warn(`10-day reminder template not found for subscription ${subscription.id}`);
+        }
         
         // Update subscription to mark reminder as sent
         await fetch(`${supabaseUrl}/rest/v1/subscriptions?id=eq.${subscription.id}`, {
@@ -95,7 +121,12 @@ Deno.serve(async (req: Request) => {
 
       // Send 5-day reminder
       if (daysUntilExpiry <= 5 && daysUntilExpiry > 0 && !subscription.reminder_5_sent) {
-        await sendReminderEmail(customer, subscription, 5);
+        const template = templatesByTrigger['subscription_5_day_reminder'];
+        if (template) {
+          await sendReminderEmail(customer, subscription, 5, template);
+        } else {
+          console.warn(`5-day reminder template not found for subscription ${subscription.id}`);
+        }
         
         // Update subscription to mark reminder as sent
         await fetch(`${supabaseUrl}/rest/v1/subscriptions?id=eq.${subscription.id}`, {
@@ -158,35 +189,24 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-async function sendReminderEmail(customer: Customer, subscription: Subscription, daysLeft: number) {
-  const urgencyLevel = daysLeft <= 5 ? 'URGENT: ' : '';
-  const subject = `${urgencyLevel}Subscription Reminder - ${subscription.product_name} expires in ${daysLeft} days`;
-  
-  const content = `
-    Dear ${customer.name},
-
-    ${daysLeft <= 5 ? 'This is an urgent reminder' : 'This is a friendly reminder'} that your subscription for ${subscription.product_name} will expire in ${daysLeft} days.
-
-    Subscription Details:
-    - Service: ${subscription.product_name}
-    - Expiry Date: ${new Date(subscription.end_date).toLocaleDateString()}
-
-    To continue enjoying our services without interruption, please renew your subscription before the expiry date.
-
-    You can renew by:
-    1. Contacting us directly
-    2. Visiting our website
-    3. Calling our support team
-
-    ${daysLeft <= 5 ? "Don't wait - renew today to avoid service interruption!" : ""}
-
-    If you have any questions or need assistance, please don't hesitate to contact us.
-
-    Best regards,
-    Jysk Streaming Team
-  `;
-
+async function sendReminderEmail(customer: Customer, subscription: Subscription, daysLeft: number, template: EmailTemplate) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  
+  // Replace placeholders in template content
+  let content = template.content;
+  const templateData = {
+    name: customer.name,
+    product_name: subscription.product_name,
+    end_date: new Date(subscription.end_date).toLocaleDateString(),
+    days_left: daysLeft.toString(),
+    email: customer.email
+  };
+
+  // Replace template placeholders
+  Object.entries(templateData).forEach(([key, value]) => {
+    const placeholder = `{{${key}}}`;
+    content = content.replace(new RegExp(placeholder, 'g'), value);
+  });
 
   const response = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
     method: 'POST',
@@ -195,14 +215,9 @@ async function sendReminderEmail(customer: Customer, subscription: Subscription,
     },
     body: JSON.stringify({
       to: customer.email,
-      subject,
+      subject: template.subject,
       content,
-      templateData: {
-        name: customer.name,
-        product_name: subscription.product_name,
-        end_date: new Date(subscription.end_date).toLocaleDateString(),
-        days_left: daysLeft.toString(),
-      }
+      templateData
     })
   });
 

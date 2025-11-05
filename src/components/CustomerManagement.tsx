@@ -1,16 +1,19 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit2, Trash2, Search, User, Phone, Wifi, Upload, Download, X, Check, FileText, Calendar, CreditCard } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Edit2, Trash2, Search, User, Phone, Wifi, Upload, Download, X, Check, FileText, Calendar, CreditCard, Eye } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../components/AuthProvider';
 import { Customer, Invoice } from '../types'; // Import Invoice type
 import { toast } from 'react-toastify';
+import DataTable from './common/DataTable';
 
 export default function CustomerManagement() {
   const { state, actions } = useApp();
   const { authUser } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState<Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>>({
     name: '',
@@ -37,15 +40,14 @@ export default function CustomerManagement() {
   const [importProgress, setImportProgress] = useState(0);
   const [importResults, setImportResults] = useState<{ success: number; errors: string[] }>({ success: 0, errors: [] });
 
-  const filteredCustomers = useMemo(() => {
-    return state.customers.filter((customer: Customer) => // Explicitly type customer
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (customer.macAddress && customer.macAddress.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (customer.whatsappNumber && customer.whatsappNumber.includes(searchTerm)) ||
-      (customer.customFields.userId && customer.customFields.userId.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [state.customers, searchTerm]);
+  // Sort customers by creation date (newest first)
+  const sortedCustomers = useMemo(() => {
+    return [...state.customers].sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0);
+      const dateB = new Date(b.createdAt || 0);
+      return dateB.getTime() - dateA.getTime();
+    });
+  }, [state.customers]);
 
   // Standard customer fields for mapping
   const standardFields = [
@@ -142,6 +144,16 @@ export default function CustomerManagement() {
         console.error('Error deleting customer:', error);
       }
     }
+  };
+
+  const handleCustomerClick = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setShowCustomerModal(true);
+  };
+
+  const handleCustomerModalClose = () => {
+    setShowCustomerModal(false);
+    setSelectedCustomer(null);
   };
 
   const addCustomField = () => {
@@ -609,6 +621,133 @@ export default function CustomerManagement() {
         </div>
       )}
 
+      {/* Customer Details Modal */}
+      {showCustomerModal && selectedCustomer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Customer Details</h3>
+              <button
+                onClick={handleCustomerModalClose}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="flex items-center space-x-4">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                  <User className="h-8 w-8 text-blue-600" />
+                </div>
+                <div>
+                  <h4 className="text-2xl font-bold text-gray-900">{selectedCustomer.name}</h4>
+                  <p className="text-gray-600">{selectedCustomer.email}</p>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-2 ${
+                    selectedCustomer.status === 'active' ? 'bg-green-100 text-green-800' :
+                    selectedCustomer.status === 'inactive' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {selectedCustomer.status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Contact Information</h5>
+                  <div className="space-y-3">
+                    {selectedCustomer.phone && (
+                      <div className="flex items-center">
+                        <Phone className="h-4 w-4 text-gray-400 mr-3" />
+                        <span className="text-sm text-gray-900">{selectedCustomer.phone}</span>
+                      </div>
+                    )}
+                    {selectedCustomer.whatsappNumber && (
+                      <div className="flex items-center">
+                        <Phone className="h-4 w-4 text-gray-400 mr-3" />
+                        <span className="text-sm text-gray-900">WhatsApp: {selectedCustomer.whatsappNumber}</span>
+                      </div>
+                    )}
+                    {selectedCustomer.address && (
+                      <div className="text-sm text-gray-900">
+                        <p>{selectedCustomer.address}</p>
+                        {selectedCustomer.city && <p>{selectedCustomer.city}, {selectedCustomer.country} {selectedCustomer.postalCode}</p>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Device Information</h5>
+                  <div className="space-y-3">
+                    {selectedCustomer.macAddress && (
+                      <div className="flex items-center">
+                        <Wifi className="h-4 w-4 text-gray-400 mr-3" />
+                        <span className="text-sm text-gray-900">{selectedCustomer.macAddress}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {selectedCustomer.customFields && Object.keys(selectedCustomer.customFields).length > 0 && (
+                <div>
+                  <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Additional Information</h5>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Object.entries(selectedCustomer.customFields).map(([key, value]) => (
+                        <div key={key} className="text-sm">
+                          <span className="font-medium text-gray-700">{key}:</span>
+                          <span className="ml-2 text-gray-900">{value as string}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedCustomer.notes && (
+                <div>
+                  <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Notes</h5>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <FileText className="h-4 w-4 text-gray-400 mr-3 mt-0.5" />
+                      <p className="text-sm text-gray-900">{selectedCustomer.notes}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t pt-6">
+                <div className="flex justify-between items-center text-sm text-gray-600">
+                  <span>Created: {selectedCustomer.createdAt ? new Date(selectedCustomer.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                  <span>Updated: {selectedCustomer.updatedAt ? new Date(selectedCustomer.updatedAt).toLocaleDateString() : 'Unknown'}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-4 pt-6 border-t">
+                <button
+                  onClick={handleCustomerModalClose}
+                  className="px-6 py-3 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    handleCustomerModalClose();
+                    handleEdit(selectedCustomer);
+                  }}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Edit Customer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add/Edit Form */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -773,8 +912,6 @@ export default function CustomerManagement() {
                 <h4 className="text-lg font-medium text-gray-900">Additional Information</h4>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Payment Method
@@ -876,53 +1013,38 @@ export default function CustomerManagement() {
       {/* Customer List */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         {state.loading ? (
-          <div className="p-12 text-center">Loading customers...</div>
-        ) : filteredCustomers.length === 0 ? (
-          <div className="p-12 text-center">
-            <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg">No customers found</p>
-            <p className="text-gray-400">Add your first customer to get started</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contact Info
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Device Info
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User Details
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredCustomers.map((customer: Customer) => ( // Explicitly type customer
-                  <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div className="ml-4">
-                          <div className="font-medium text-gray-900">{customer.name}</div>
-                          <div className="text-sm text-gray-500">{customer.email}</div>
+            <div className="p-12 text-center">Loading customers...</div>
+          ) : (
+            <DataTable
+              data={sortedCustomers}
+              columns={[
+                {
+                  key: 'name',
+                  label: 'Customer',
+                  render: (value, customer) => (
+                    <div 
+                      className="flex items-center cursor-pointer hover:bg-blue-50 rounded-lg p-2 transition-colors"
+                      onClick={() => handleCustomerClick(customer)}
+                    >
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <User className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div className="ml-4">
+                        <div className="font-medium text-blue-600 hover:text-blue-800">{customer.name}</div>
+                        <div className="text-sm text-gray-500">{customer.email}</div>
+                        <div className="text-xs text-gray-400 mt-1 flex items-center">
+                          <Eye className="h-3 w-3 mr-1" />
+                          Click to view details
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    </div>
+                  )
+                },
+                {
+                  key: 'email',
+                  label: 'Contact Info',
+                  render: (value, customer) => (
+                    <div>
                       <div className="text-sm text-gray-900">{customer.email}</div>
                       {customer.whatsappNumber && (
                         <div className="text-sm text-gray-500 flex items-center">
@@ -930,78 +1052,96 @@ export default function CustomerManagement() {
                           {customer.whatsappNumber}
                         </div>
                       )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {customer.macAddress ? (
-                        <div className="text-sm text-gray-900 flex items-center">
-                          <Wifi className="h-3 w-3 mr-1" />
-                          {customer.macAddress}
+                    </div>
+                  )
+                },
+                {
+                  key: 'macAddress',
+                  label: 'Device Info',
+                  render: (value, customer) => customer.macAddress ? (
+                    <div className="text-sm text-gray-900 flex items-center">
+                      <Wifi className="h-3 w-3 mr-1" />
+                      {customer.macAddress}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )
+                },
+                {
+                  key: 'customFields',
+                  label: 'User Details',
+                  render: (value, customer) => (
+                    <div className="text-sm text-gray-600 space-y-1">
+                      {customer.customFields?.userId && (
+                        <div className="flex items-center">
+                          <User className="h-3 w-3 mr-1 text-gray-400" />
+                          <span className="font-medium">ID:</span> {customer.customFields.userId}
                         </div>
-                      ) : (
-                        <span className="text-gray-400">-</span>
                       )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-600 space-y-1">
-                        {customer.customFields?.userId && (
-                          <div className="flex items-center">
-                            <User className="h-3 w-3 mr-1 text-gray-400" />
-                            <span className="font-medium">ID:</span> {customer.customFields.userId}
+                      {customer.customFields?.paymentMethod && (
+                        <div className="flex items-center">
+                          <CreditCard className="h-3 w-3 mr-1 text-gray-400" />
+                          <span className="font-medium">Payment:</span>
+                          <span className="ml-1 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                            {customer.customFields.paymentMethod}
+                          </span>
+                        </div>
+                      )}
+                      {customer.notes && (
+                        <div className="flex items-start">
+                          <FileText className="h-3 w-3 mr-1 text-gray-400 mt-0.5" />
+                          <span className="text-xs text-gray-500 line-clamp-2">{customer.notes}</span>
+                        </div>
+                      )}
+                      {customer.customFields && Object.entries(customer.customFields)
+                        .filter(([key]) => !['userId', 'paymentMethod', 'note'].includes(key))
+                        .map(([key, val]) => (
+                          <div key={key} className="text-xs">
+                            <span className="font-medium">{key}:</span> {val as string}
                           </div>
-                        )}
-                        {customer.customFields?.paymentMethod && (
-                          <div className="flex items-center">
-                            <CreditCard className="h-3 w-3 mr-1 text-gray-400" />
-                            <span className="font-medium">Payment:</span>
-                            <span className="ml-1 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
-                              {customer.customFields.paymentMethod}
-                            </span>
-                          </div>
-                        )}
-                        {customer.notes && (
-                          <div className="flex items-start">
-                            <FileText className="h-3 w-3 mr-1 text-gray-400 mt-0.5" />
-                            <span className="text-xs text-gray-500 line-clamp-2">{customer.notes}</span>
-                          </div>
-                        )}
-                        {customer.customFields && Object.entries(customer.customFields)
-                          .filter(([key]) => !['userId', 'paymentMethod', 'note'].includes(key))
-                          .map(([key, value]) => (
-                            <div key={key} className="text-xs">
-                              <span className="font-medium">{key}:</span> {value}
-                            </div>
-                          ))}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-600 flex items-center">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => handleEdit(customer)}
-                          className="text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(customer.id)}
-                          className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                        ))}
+                    </div>
+                  )
+                },
+                {
+                  key: 'createdAt',
+                  label: 'Created',
+                  sortable: true,
+                  render: (value) => (
+                    <div className="text-sm text-gray-600 flex items-center">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      {value ? new Date(value).toLocaleDateString() : '-'}
+                    </div>
+                  )
+                },
+                {
+                  key: 'actions',
+                  label: 'Actions',
+                  render: (value, customer) => (
+                    <div className="flex justify-end space-x-2">
+                      <button
+                        onClick={() => handleEdit(customer)}
+                        className="text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(customer.id)}
+                        className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )
+                }
+              ]}
+              searchKeys={['name', 'email', 'macAddress', 'whatsappNumber'] as (keyof Customer)[]}
+              pageSize={25}
+              emptyMessage="No customers found"
+              className="shadow-lg border border-gray-200"
+            />
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }

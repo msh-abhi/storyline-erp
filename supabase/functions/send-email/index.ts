@@ -1,6 +1,6 @@
 import { corsHeaders } from '../_shared/cors.ts';
 
-const SENDINBLUE_API_KEY = Deno.env.get('SENDINBLUE_API_KEY'); // For Deno/Supabase Functions
+const BREVO_API_KEY = Deno.env.get('SENDINBLUE_API_KEY'); // For Deno/Supabase Functions
 const DEFAULT_SENDER_EMAIL = 'kontakt@jysk-streaming.fun';
 const DEFAULT_SENDER_NAME = 'Jysk Streaming';
 

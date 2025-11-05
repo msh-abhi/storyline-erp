@@ -99,7 +99,7 @@ export default function SalesManagement() {
           profit,
           paymentMethod: formData.paymentMethod,
           status: isOfflinePayment ? formData.status : 'pending',
-          paymentStatus: isOfflinePayment ? 'paid' : 'unpaid',
+          paymentStatus: isOfflinePayment ? 'received' : 'due',
           saleDate: new Date().toISOString(),
         };
 

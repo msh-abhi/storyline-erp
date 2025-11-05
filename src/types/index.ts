@@ -42,6 +42,10 @@ export interface Reseller {
   phone?: string;
   address?: string;
   outstandingBalance: number;
+  commissionRate: number; // Make required with default 0
+  totalSales: number; // Make required with default 0
+  outstandingPayment: number; // Make required with default 0 (alias for outstandingBalance)
+  creditBalance: number; // Make required with default 0
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +58,9 @@ export interface Supplier {
   phone?: string;
   address?: string;
   amountOwed: number;
+  totalPurchases?: number;
+  creditBalance?: number;
+  totalCreditEarned?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -68,7 +75,10 @@ export interface DigitalCode {
   customerPrice: number;
   resellerPrice: number;
   purchasePrice: number;
+  purchaseSource: string; // Added missing field
   name: string;
+  description?: string; // Added optional field
+  category?: string; // Added optional field
   createdAt: string;
   updatedAt: string;
 }
@@ -83,6 +93,7 @@ export interface TVBox {
   customerPrice: number;
   resellerPrice: number;
   purchasePrice: number;
+  purchaseSource: string; // Added missing field for supplier/source
   createdAt: string;
   updatedAt: string;
 }
@@ -123,6 +134,8 @@ export interface Purchase {
   totalAmount: number;
   purchaseDate: string;
   status: 'completed' | 'pending' | 'cancelled';
+  description?: string; // Added optional description field
+  receiptUrl?: string; // Added optional receipt URL field
   createdAt: string;
   updatedAt: string;
 }
@@ -132,8 +145,26 @@ export interface EmailTemplate {
   name: string;
   subject: string;
   content: string;
+  trigger: string; // Required field
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface EmailLog {
+  id: string;
+  recipientEmail: string;
+  recipientName?: string;
+  templateId?: string;
+  templateName?: string;
+  subject: string;
+  content: string;
+  status: 'sent' | 'failed' | 'pending';
+  errorMessage?: string;
+  provider?: string;
+  providerMessageId?: string;
+  metadata?: Record<string, any>;
+  sentAt?: string;
+  createdAt?: string;
 }
 
 export interface Subscription {
@@ -204,13 +235,24 @@ export interface EmailSettings {
   senderEmail: string;
 }
 
+export interface BusinessSettings {
+  defaultPaymentMethod: string;
+  subscriptionAutoRenew: boolean;
+  reminderDays10: boolean;
+  reminderDays5: boolean;
+  allowManualPayments: boolean;
+  requirePrepayment: boolean;
+}
+
 export interface Settings {
   id: string;
   currency: SupportedCurrency;
   language: SupportedLanguage;
   companyName: string;
-  emailSettings: any;
+  emailSettings: EmailSettings;
+  businessSettings?: BusinessSettings;
   displayCurrency?: SupportedCurrency;
+  logoUrl?: string; // Add missing property
   createdAt: string;
   updatedAt: string;
 }
@@ -225,6 +267,7 @@ export interface UserProfile {
   id: string;
   email?: string | null;
   isAdmin?: boolean;
+  is_admin?: boolean;
 }
 
 export interface CustomerPortalUser {
@@ -264,20 +307,23 @@ export interface CustomerCredential {
 
 export type ActiveSection =
   | 'dashboard'
+  | 'analytics'
   | 'customers'
-  | 'subscriptions'
   | 'resellers'
-  | 'suppliers'
   | 'digital-codes'
   | 'tv-boxes'
   | 'sales'
+  | 'subscription-products'
+  | 'subscriptions'
   | 'purchases'
   | 'invoices'
   | 'emails'
   | 'email-logs'
   | 'email-templates'
   | 'woocommerce-orders'
-  | 'settings';
+  | 'suppliers'
+  | 'settings'
+  | 'integrations';
 
 // --- App State and Actions ---
 export interface AppState {
@@ -347,6 +393,63 @@ export type AppAction =
   | { type: 'UPDATE_SUBSCRIPTION_PRODUCT'; payload: SubscriptionProduct }
   | { type: 'DELETE_SUBSCRIPTION_PRODUCT'; payload: string };
 
+
+export interface WooCommerceOrder {
+  id: string;
+  orderNumber: string;
+  customerEmail: string;
+  status: string;
+  totalAmount: number;
+  currency: string;
+  products: WooCommerceProduct[];
+  createdAt: string;
+  updatedAt: string;
+  customerName?: string;
+  orderStatus?: string;
+  wooOrderId?: string;
+  paymentMethodTitle?: string;
+  orderDate?: string;
+  billingInfo?: any;
+  shippingInfo?: any;
+  customerNote?: string;
+  transactionId?: string;
+  completedDate?: string;
+}
+
+export interface WooCommerceProduct {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  sku: string;
+}
+
+export interface WooCommerceSubscription {
+  id: string;
+  customerId: string;
+  productId: string;
+  status: string;
+  amount: number;
+  startDate: string;
+  endDate: string;
+  wooSubscriptionId?: string;
+  orderId?: string;
+  nextPaymentDate?: string;
+  trialEndDate?: string;
+  billingPeriod?: string;
+  billingInterval?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface WooCommerceSyncLog {
+  id: string;
+  type: 'order' | 'product' | 'customer';
+  action: 'create' | 'update' | 'delete';
+  status: 'success' | 'failed';
+  message: string;
+  createdAt: string;
+}
 
 export const initialState: AppState = {
   loading: true,
