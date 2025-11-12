@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { 
-  LayoutDashboard, 
-  Users, 
-  ShoppingCart, 
-  Package, 
-  CreditCard, 
-  FileText, 
-  Settings, 
+import { useNavigate } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  Users,
+  ShoppingCart,
+  Package,
+  CreditCard,
+  FileText,
+  Settings,
   Store,
   
   MessageSquare,
@@ -31,15 +32,16 @@ interface StandardizedLayoutProps {
   onSectionChange: (section: string) => void;
 }
 
-const StandardizedLayout: React.FC<StandardizedLayoutProps> = ({ 
-  children, 
-  activeSection, 
-  onSectionChange 
+const StandardizedLayout: React.FC<StandardizedLayoutProps> = ({
+  children,
+  activeSection,
+  onSectionChange
 }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { signOut } = useAuth();
   const { state } = useApp();
+  const navigate = useNavigate();
 
   // Standardized ERP Navigation Structure
   const navigationGroups = [
@@ -210,7 +212,10 @@ const StandardizedLayout: React.FC<StandardizedLayoutProps> = ({
 
   const handleLogout = async () => {
     try {
+      console.log('ERPAppLayout: Starting logout process...');
       await signOut();
+      console.log('ERPAppLayout: Sign out successful, redirecting...');
+      navigate('/', { replace: true });
     } catch (error) {
       console.error('Logout error:', error);
     }

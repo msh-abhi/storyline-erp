@@ -237,6 +237,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
          });
        } else if (event === 'SIGNED_OUT') {
          console.log('AuthProvider: User signed out, clearing all data...');
+         setAuthUser(null);
          setUserProfile(null);
          setIsAdmin(false);
          setCustomerPortalUser(null);
@@ -314,14 +315,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
      setAuthLoading(true);
      setError(null);
      console.log('AuthProvider: Signing out...');
-     const { error: signOutError } = await supabase.auth.signOut();
-     // State will be cleared by onAuthStateChange listener
-     setAuthLoading(false);
-     if (signOutError) {
-        console.error("AuthProvider: signOut error:", signOutError);
-        setError(signOutError.message);
-        throw signOutError;
+     
+     try {
+       const { error: signOutError } = await supabase.auth.signOut();
+       
+       // State will be cleared by onAuthStateChange listener
+       console.log('AuthProvider: Logout successful');
+       
+     } catch (signOutError: any) {
+       console.error("AuthProvider: signOut error:", signOutError);
+       setError(signOutError?.message || 'Logout failed');
+       setAuthLoading(false);
+       throw signOutError;
      }
+     
+     setAuthLoading(false);
    }, []);
 
   const value: AuthContextType = {

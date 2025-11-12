@@ -5,6 +5,7 @@ import {
   Bell, Mail, Globe, ChevronRight, ChevronDown,
   Zap, Shield, Building2, ShoppingBag, LogOut, ChevronLeft
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { ActiveSection } from '../../types';
 import { useAuth } from '../../components/AuthProvider';
 import { useApp } from '../../context/AppContext';
@@ -41,6 +42,7 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
 }) => {
   const { authUser, signOut } = useAuth();
   const { state } = useApp();
+  const navigate = useNavigate();
   
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(['dashboard', 'customers', 'revenue', 'inventory', 'financial'])
@@ -249,6 +251,18 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
     onSectionChange(item.id);
   };
 
+  const handleLogout = async () => {
+    try {
+      console.log('EnhancedNavigation: Starting logout process...');
+      await signOut();
+      console.log('EnhancedNavigation: Sign out successful, redirecting...');
+      // Navigate to login page (which will be rendered by the router based on auth state)
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('EnhancedNavigation: Logout failed:', error);
+    }
+  };
+
   return (
     <div className={`bg-white shadow-xl border-r border-gray-200 flex flex-col h-full transition-all duration-300 ${collapsed ? 'w-16' : 'w-80'}`}>
       {/* Logo Header */}
@@ -421,7 +435,7 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
             </div>
           )}
           <button
-            onClick={signOut}
+            onClick={handleLogout}
             className="p-1 text-gray-400 hover:text-red-600 transition-colors"
             title="Sign Out"
           >
