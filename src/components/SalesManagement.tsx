@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Search, ShoppingCart, DollarSign, TrendingUp } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, ShoppingCart, DollarSign, TrendingUp, CheckCircle } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { useApp } from '../context/AppContext';
 import { Sale, DigitalCode, TVBox, SubscriptionProduct, Customer, Reseller } from '../types';
 import { formatCurrency, calculateTotalRevenue, calculateInventoryProfit, calculateOutstandingAmount } from '../utils/calculations';
@@ -70,7 +71,10 @@ export default function SalesManagement() {
         const product = availableProducts.find((p: DigitalCode | TVBox | SubscriptionProduct) => p.id === formData.productId);
         const buyer = availableBuyers.find((b: Customer | Reseller) => b.id === formData.buyerId);
 
-        if (!product || !buyer) return alert('Please select a valid product and buyer.');
+        if (!product || !buyer) {
+          toast.error('Please select a valid product and buyer.');
+          return;
+        }
 
         let unitPrice = 0;
         let productName = '';
@@ -89,7 +93,7 @@ export default function SalesManagement() {
 
         // Validate that we have a valid unit price
         if (!unitPrice || unitPrice <= 0) {
-          alert('Selected product does not have a valid price. Please check product pricing.');
+          toast.error('Selected product does not have a valid price. Please check product pricing.');
           return;
         }
 
@@ -174,16 +178,16 @@ export default function SalesManagement() {
           if (invoiceResult.paymentLink && formData.paymentMethod === 'mobilepay') {
             window.location.href = invoiceResult.paymentLink;
           } else if (invoiceResult.paymentLink && formData.paymentMethod === 'revolut') {
-            alert(`Revolut payment link generated: ${invoiceResult.paymentLink}. Please send this to the customer.`);
+            toast.info(`Revolut payment link generated: ${invoiceResult.paymentLink}. Please send this to the customer.`);
           } else {
-            alert('Sale recorded successfully!');
+            toast.success('Sale recorded successfully!');
           }
 
           resetForm();
 
         } catch (error) {
           console.error("Error saving sale:", error);
-          alert(`Error saving sale: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          toast.error(`Error saving sale: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       };
 
@@ -201,22 +205,61 @@ export default function SalesManagement() {
     setShowForm(true);
   };
 
+  const handleMarkAsComplete = async (id: string) => {
+    try {
+      await actions.updateSale(id, {
+        status: 'completed',
+        paymentStatus: 'received'
+      });
+      toast.success('Sale marked as completed successfully!');
+    } catch (error) {
+      console.error("Error marking sale as complete:", error);
+      toast.error(`Error updating sale: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this sale?')) {
       try {
+        // Find the sale to reverse inventory changes
+        const saleToDelete = state.sales.find(sale => sale.id === id);
+        if (!saleToDelete) {
+          console.error("Sale not found for deletion");
+          return;
+        }
+
+        // Reverse inventory changes for physical products
+        if (saleToDelete.productType === 'digital_code' || saleToDelete.productType === 'tv_box') {
+          const currentStock = saleToDelete.productType === 'digital_code'
+            ? state.digitalCodes.find(code => code.id === saleToDelete.productId)
+            : state.tvBoxes.find(box => box.id === saleToDelete.productId);
+
+          if (currentStock) {
+            const updatedSoldQuantity = Math.max(0, (currentStock.soldQuantity || 0) - saleToDelete.quantity);
+
+            if (saleToDelete.productType === 'digital_code') {
+              await actions.updateDigitalCode(saleToDelete.productId, { soldQuantity: updatedSoldQuantity });
+            } else {
+              await actions.updateTVBox(saleToDelete.productId, { soldQuantity: updatedSoldQuantity });
+            }
+          }
+        }
+
+        // Delete the sale
         await actions.deleteSale(id);
-        // Optionally, update stock if the sale is deleted
-        // This logic might need to be more complex depending on your business rules
+
+        toast.success('Sale deleted successfully. Inventory has been updated.');
       } catch (error) {
         console.error("Error deleting sale:", error);
+        toast.error(`Error deleting sale: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
   };
 
-  const totalRevenue = calculateTotalRevenue(filteredSales);
-  const totalProfit = calculateInventoryProfit(filteredSales);
-  const totalSales = filteredSales.length;
-  const outstandingAmount = calculateOutstandingAmount(filteredSales);
+  const totalRevenue = calculateTotalRevenue(state.sales);
+  const totalProfit = calculateInventoryProfit(state.sales);
+  const totalSales = state.sales.length;
+  const outstandingAmount = calculateOutstandingAmount(state.sales);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -569,15 +612,26 @@ export default function SalesManagement() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
+                        {sale.status === 'pending' && (
+                          <button
+                            onClick={() => handleMarkAsComplete(sale.id)}
+                            className="text-green-600 hover:text-green-700 p-1"
+                            title="Mark as Complete"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleEdit(sale)}
                           className="text-blue-600 hover:text-blue-700 p-1"
+                          title="Edit"
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(sale.id)}
                           className="text-red-600 hover:text-red-700 p-1"
+                          title="Delete"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>

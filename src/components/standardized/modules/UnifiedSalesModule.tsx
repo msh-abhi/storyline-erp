@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ShoppingCart, Package, DollarSign, TrendingUp, Search, Filter, Plus, Eye, Edit2, Trash2, Calendar, User } from 'lucide-react';
+import { ShoppingCart, Package, DollarSign, TrendingUp, Search, Filter, Plus, Eye, Edit2, Trash2, Calendar, User, CheckCircle } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { useApp } from '../../../context/AppContext';
 import { Sale } from '../../../types';
 import { formatCurrency, calculateTotalRevenue, calculateInventoryProfit } from '../../../utils/calculations';
@@ -31,12 +32,12 @@ const UnifiedSalesModule: React.FC = () => {
     return sale.status === statusFilter;
   });
 
-  // Calculate metrics
-  const totalRevenue = calculateTotalRevenue(filteredSales);
-  const totalProfit = calculateInventoryProfit(filteredSales);
-  const totalSales = filteredSales.length;
-  const completedSales = filteredSales.filter(s => s.status === 'completed').length;
-  const pendingSales = filteredSales.filter(s => s.status === 'pending').length;
+  // Calculate metrics (use all sales for stats, not filtered)
+  const totalRevenue = calculateTotalRevenue(state.sales);
+  const totalProfit = calculateInventoryProfit(state.sales);
+  const totalSales = state.sales.length;
+  const completedSales = state.sales.filter(s => s.status === 'completed').length;
+  const pendingSales = state.sales.filter(s => s.status === 'pending').length;
 
   const handleAddSale = () => {
     setEditingSale(null);
@@ -48,12 +49,53 @@ const UnifiedSalesModule: React.FC = () => {
     setShowAddModal(true);
   };
 
+  const handleMarkAsComplete = async (id: string) => {
+    try {
+      await actions.updateSale(id, {
+        status: 'completed',
+        paymentStatus: 'received'
+      });
+      toast.success('Sale marked as completed successfully!');
+    } catch (error) {
+      console.error("Error marking sale as complete:", error);
+      toast.error(`Error updating sale: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   const handleDeleteSale = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this sale?')) {
       try {
+        // Find the sale to reverse inventory changes
+        const saleToDelete = state.sales.find(sale => sale.id === id);
+        if (!saleToDelete) {
+          console.error("Sale not found for deletion");
+          return;
+        }
+
+        // Reverse inventory changes for physical products
+        if (saleToDelete.productType === 'digital_code' || saleToDelete.productType === 'tv_box') {
+          const currentStock = saleToDelete.productType === 'digital_code'
+            ? state.digitalCodes.find(code => code.id === saleToDelete.productId)
+            : state.tvBoxes.find(box => box.id === saleToDelete.productId);
+
+          if (currentStock) {
+            const updatedSoldQuantity = Math.max(0, (currentStock.soldQuantity || 0) - saleToDelete.quantity);
+
+            if (saleToDelete.productType === 'digital_code') {
+              await actions.updateDigitalCode(saleToDelete.productId, { soldQuantity: updatedSoldQuantity });
+            } else {
+              await actions.updateTVBox(saleToDelete.productId, { soldQuantity: updatedSoldQuantity });
+            }
+          }
+        }
+
+        // Delete the sale
         await actions.deleteSale(id);
+
+        toast.success('Sale deleted successfully. Inventory has been updated.');
       } catch (error) {
-        console.error('Error deleting sale:', error);
+        console.error("Error deleting sale:", error);
+        toast.error(`Error deleting sale: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
   };
@@ -315,6 +357,15 @@ const UnifiedSalesModule: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
+                        {sale.status === 'pending' && (
+                          <button
+                            onClick={() => handleMarkAsComplete(sale.id)}
+                            className="text-green-600 hover:text-green-700 p-1 rounded"
+                            title="Mark as Complete"
+                          >
+                            <CheckCircle size={16} />
+                          </button>
+                        )}
                         <button
                           onClick={() => {/* Handle view details */}}
                           className="text-blue-600 hover:text-blue-700 p-1 rounded"
