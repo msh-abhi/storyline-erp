@@ -7,6 +7,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { keysToCamel, keysToSnake } from '../utils/caseConverter';
 import { ensureNumber } from '../utils/numberUtils';
+import { triggerWelcomeEmail } from './welcomeEmailService';
 
 // --- Conversion helpers ---
 const convertCustomerFromDb = (row: any): Customer => ({
@@ -156,7 +157,18 @@ export const customerService = {
       throw error;
     }
     
-    return convertCustomerFromDb(data);
+    const newCustomer = convertCustomerFromDb(data);
+    
+    // Trigger welcome email automatically
+    try {
+      console.log("Triggering welcome email for new customer:", newCustomer.email);
+      await triggerWelcomeEmail(newCustomer);
+    } catch (welcomeEmailError) {
+      console.warn("Welcome email failed to send, but customer was created successfully:", welcomeEmailError);
+      // Don't throw error here - customer creation was successful
+    }
+    
+    return newCustomer;
   },
   update: async (id: string, customer: Partial<Customer>): Promise<Customer> => {
     const { data, error } = await supabase.from('customers').update(keysToSnake(customer)).eq('id', id).select().single();
@@ -267,18 +279,25 @@ export const saleService = {
 
     const snakeCaseData = keysToSnake(sale);
     console.log("saleService.create - AFTER keysToSnake:", snakeCaseData);
-    
+
+    // Temporarily remove payment_status if it causes issues
+    // This handles cases where the database schema is missing this column
+    const dataToInsert = { ...snakeCaseData };
+    if ('payment_status' in dataToInsert) {
+      delete dataToInsert.payment_status;
+    }
+
     const { data, error } = await supabase
       .from('sales')
-      .insert(snakeCaseData)
+      .insert(dataToInsert)
       .select()
       .single();
-      
+
     if (error) {
       console.error("Supabase insert error:", error);
       throw error;
     }
-    
+
     return convertSaleFromDb(data);
   },
   update: async (id: string, sale: Partial<Sale>): Promise<Sale> => {
@@ -408,12 +427,19 @@ export const paymentService = {
 
 export const settingsService = {
   get: async (): Promise<Settings | null> => {
-    const { data, error } = await supabase.from('settings').select('*').single();
-    if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+    // Get the most recently updated settings record
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
       console.error("supabaseService: Error fetching settings:", error);
       throw error;
     }
-    return keysToCamel(data) || null;
+    return data ? keysToCamel(data) : null;
   },
   update: async (id: string, settings: Partial<Settings>): Promise<Settings> => {
     const { data, error } = await supabase.from('settings').update(keysToSnake(settings)).eq('id', id).select().single();
@@ -424,6 +450,14 @@ export const settingsService = {
     return keysToCamel(data);
   },
   create: async (settings: Omit<Settings, 'id' | 'createdAt' | 'updatedAt'>): Promise<Settings> => {
+    // First check if settings already exist
+    const existingSettings = await settingsService.get();
+    if (existingSettings) {
+      // Update existing settings instead of creating new ones
+      console.log('Settings already exist, updating instead of creating');
+      return settingsService.update(existingSettings.id, settings);
+    }
+
     const { data, error } = await supabase.from('settings').insert(keysToSnake(settings)).select().single();
     if (error) {
       console.error("supabaseService: Error creating settings:", error);

@@ -30,6 +30,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isSelectingRef = useRef(false);
 
   const filteredOptions = options.filter(option =>
     option.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -44,16 +45,25 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-        setSearchTerm("");
-        setHighlightedIndex(-1);
-      }
+      // Don't close if we're currently selecting an option
+      if (isSelectingRef.current) return;
+
+      // Small delay to allow option clicks to process first
+      setTimeout(() => {
+        if (!isSelectingRef.current && dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+          setIsOpen(false);
+          setSearchTerm("");
+          setHighlightedIndex(-1);
+        }
+      }, 150);
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [isOpen]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!isOpen) return;
@@ -90,10 +100,15 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   };
 
   const handleSelect = (optionId: string) => {
+    isSelectingRef.current = true;
     onChange(optionId);
     setIsOpen(false);
     setSearchTerm("");
     setHighlightedIndex(-1);
+    // Reset the flag after a short delay
+    setTimeout(() => {
+      isSelectingRef.current = false;
+    }, 100);
   };
 
   const selectedOption = options.find(option => option.id === value);

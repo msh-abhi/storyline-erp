@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, Search, ShoppingCart, DollarSign, TrendingUp } fro
 import { useApp } from '../context/AppContext';
 import { Sale, DigitalCode, TVBox, SubscriptionProduct, Customer, Reseller } from '../types';
 import { formatCurrency, calculateTotalRevenue, calculateInventoryProfit, calculateOutstandingAmount } from '../utils/calculations';
+import SearchableSelect from './common/SearchableSelect';
 
 import { generateInvoice } from '../utils/invoiceGenerator';
 
@@ -45,6 +46,13 @@ export default function SalesManagement() {
     const availableProducts = getAvailableProducts();
     const availableBuyers = formData.buyerType === 'customer' ? state.customers : state.resellers;
 
+    // Convert buyers to SearchableSelect format
+    const buyerOptions = availableBuyers.map(buyer => ({
+      id: buyer.id,
+      label: buyer.name,
+      email: buyer.email
+    }));
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const { name, value } = e.target;
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -74,9 +82,15 @@ export default function SalesManagement() {
           productName = subProd.name;
         } else {
           const stockProd = product as DigitalCode | TVBox;
-          unitPrice = formData.buyerType === 'customer' ? stockProd.customerPrice : stockProd.resellerPrice;
+          unitPrice = formData.buyerType === 'customer' ? (stockProd.customerPrice || 0) : (stockProd.resellerPrice || 0);
           productName = 'name' in stockProd ? stockProd.name : stockProd.model;
           purchasePrice = stockProd.purchasePrice || 0;
+        }
+
+        // Validate that we have a valid unit price
+        if (!unitPrice || unitPrice <= 0) {
+          alert('Selected product does not have a valid price. Please check product pricing.');
+          return;
         }
 
         const totalPrice = unitPrice * formData.quantity;
@@ -348,20 +362,13 @@ export default function SalesManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Buyer *
                   </label>
-                  <select
-                    required
-                    name="buyerId" // FIX: Added name attribute
+                  <SearchableSelect
+                    options={buyerOptions}
                     value={formData.buyerId}
-                    onChange={handleChange} // FIX: Using handleChange
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select a buyer</option>
-                    {availableBuyers.map((buyer) => (
-                      <option key={buyer.id} value={buyer.id}>
-                        {buyer.name} ({buyer.email})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => setFormData(prev => ({ ...prev, buyerId: value }))}
+                    placeholder="Search and select a buyer..."
+                    className="w-full"
+                  />
                 </div>
               </div>
 

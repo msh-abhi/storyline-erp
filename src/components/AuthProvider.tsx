@@ -329,8 +329,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
        throw signOutError;
      }
      
+     // Determine user type and redirect appropriately
+     const isCustomerPortal = customerPortalUser && !isAdmin;
+     const redirectPath = isCustomerPortal ? '/portal/login' : '/';
+     
+     console.log(`AuthProvider: Redirecting to ${redirectPath} after logout`);
      setAuthLoading(false);
-   }, []);
+     
+     // Use window.location.href for immediate redirect after logout
+     setTimeout(() => {
+       window.location.href = redirectPath;
+     }, 100);
+     
+   }, [isAdmin, customerPortalUser]);
 
   const value: AuthContextType = {
     authUser, // Expose the raw Supabase user

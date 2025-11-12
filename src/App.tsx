@@ -11,6 +11,7 @@ import DigitalCodeManagement from './components/DigitalCodeManagement';
 import TVBoxManagement from './components/TVBoxManagement';
 import EmailTemplateManagement from './components/EmailTemplateManagement';
 import EmailLogs from './components/EmailLogs';
+import WelcomeEmailManager from './components/WelcomeEmailManager';
 import WooCommerceOrders from './components/WooCommerceOrders';
 import Settings from './components/Settings';
 import InvoiceManagement from './components/InvoiceManagement';
@@ -80,6 +81,8 @@ function AdminAppContent() {
         return <EmailTemplateManagement />;
       case 'email-logs':
         return <EmailLogs />;
+      case 'welcome-emails':
+        return <WelcomeEmailManager />;
       case 'woocommerce-orders':
         return <WooCommerceOrders />;
       case 'settings':

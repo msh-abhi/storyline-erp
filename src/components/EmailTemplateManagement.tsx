@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Mail, Send } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, Mail, Send, ToggleLeft, ToggleRight, TestTube } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { EmailTemplate } from '../types';
+import { settingsService } from '../services/supabaseService';
 import ReminderTemplateManager from './ReminderTemplateManager';
+import PendingEmailsManager from './PendingEmailsManager';
 
 export default function EmailTemplateManagement() {
-  const { state, actions } = useApp();
+  const { state, actions, dispatch } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [showSendForm, setShowSendForm] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
@@ -22,6 +24,12 @@ export default function EmailTemplateManagement() {
     customEmail: '',
     customName: ''
   });
+
+  // Welcome Email Automation State
+  const [welcomeEmailEnabled, setWelcomeEmailEnabled] = useState(false);
+  const [welcomeEmailTemplateId, setWelcomeEmailTemplateId] = useState<string>('');
+  const [welcomeEmailLoading, setWelcomeEmailLoading] = useState(false);
+  const [testEmailLoading, setTestEmailLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -322,6 +330,219 @@ Best regards,
     }
   }, [state.emailTemplates.length, actions]);
 
+  // Load Welcome Email Settings (but don't override during optimistic updates)
+  useEffect(() => {
+    const settings = state.settings;
+    if (settings) {
+      console.log('Loading welcome email settings from state:', {
+        welcome_email_enabled: settings.welcome_email_enabled,
+        welcome_email_template_id: settings.welcome_email_template_id
+      });
+
+      // Only update if we're not in a loading state (to avoid overriding optimistic updates)
+      if (!welcomeEmailLoading) {
+        setWelcomeEmailEnabled(Boolean(settings.welcome_email_enabled));
+        setWelcomeEmailTemplateId(settings.welcome_email_template_id || '');
+      }
+    } else {
+      // If no settings exist, try to create default settings
+      console.log('No settings found, attempting to create default settings');
+      const createDefaultSettings = async () => {
+        try {
+          const defaultSettings = await actions.createSettings({
+            companyName: 'StoryLine ERP',
+            currency: 'DKK',
+            language: 'en',
+            emailSettings: {
+              senderName: 'StoryLine ERP',
+              senderEmail: 'kontakt@jysk-streaming.fun',
+              brevoApiKey: ''
+            },
+            welcome_email_enabled: false,
+            welcome_email_template_id: undefined
+          });
+
+          if (defaultSettings) {
+            console.log('Default settings created successfully');
+            setWelcomeEmailEnabled(false);
+            setWelcomeEmailTemplateId('');
+          }
+        } catch (error) {
+          console.error('Failed to create default settings:', error);
+          // Still set defaults even if creation fails
+          setWelcomeEmailEnabled(false);
+          setWelcomeEmailTemplateId('');
+        }
+      };
+
+      createDefaultSettings();
+    }
+  }, [state.settings, welcomeEmailLoading, actions]);
+
+  // Create default settings if they don't exist
+  useEffect(() => {
+    const createDefaultSettings = async () => {
+      if (state.settings === null && state.emailTemplates.length > 0) {
+        try {
+          console.log('Creating default settings for welcome email automation...');
+          // Try to get existing settings first
+          const existingSettings = await settingsService.get();
+          if (existingSettings) {
+            // Settings exist, just update the state
+            dispatch({ type: 'SET_SETTINGS', payload: existingSettings });
+            console.log('Found existing settings:', existingSettings);
+          } else {
+            // No settings exist, create them
+            const defaultSettings = await actions.createSettings({
+              companyName: 'StoryLine ERP',
+              currency: 'DKK',
+              language: 'en',
+              emailSettings: {
+                senderName: 'StoryLine ERP',
+                senderEmail: 'kontakt@jysk-streaming.fun'
+              },
+              welcome_email_enabled: false,
+              welcome_email_template_id: undefined
+            });
+
+            if (defaultSettings) {
+              console.log('Default settings created successfully:', defaultSettings);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to create default settings:', error);
+        }
+      }
+    };
+
+    // Only create default settings if we have email templates loaded
+    if (state.emailTemplates.length > 0) {
+      createDefaultSettings();
+    }
+  }, [state.settings, state.emailTemplates, actions, dispatch]);
+
+  // Handle Welcome Email Toggle
+  const handleWelcomeEmailToggle = async () => {
+    if (!state.settings?.id) {
+      console.log('Settings not found, creating default settings...');
+
+      try {
+        const defaultSettings = await actions.createSettings({
+          companyName: 'StoryLine ERP',
+          currency: 'DKK',
+          language: 'en',
+          emailSettings: {
+            senderName: 'StoryLine ERP',
+            senderEmail: 'kontakt@jysk-streaming.fun'
+          },
+          welcome_email_enabled: true, // Enable it when creating
+          welcome_email_template_id: undefined
+        });
+
+        if (!defaultSettings?.id) {
+          console.error('Failed to create default settings');
+          alert('Failed to create settings. Please try again.');
+          return;
+        }
+
+        console.log('Default settings created successfully');
+        return;
+      } catch (error) {
+        console.error('Failed to create default settings:', error);
+        alert('Failed to create settings. Please try again.');
+        return;
+      }
+    }
+
+    const originalState = welcomeEmailEnabled;
+    const newState = !originalState;
+
+    setWelcomeEmailLoading(true);
+    setWelcomeEmailEnabled(newState); // Optimistic update
+
+    try {
+      await actions.updateSettings(state.settings.id, {
+        welcome_email_enabled: newState
+      });
+
+      console.log(`Welcome email automation ${newState ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      console.error('Failed to update welcome email setting:', error);
+      alert('Failed to update welcome email setting. Please try again.');
+      setWelcomeEmailEnabled(originalState); // Revert on error
+    } finally {
+      setWelcomeEmailLoading(false);
+    }
+  };
+
+  // Handle Welcome Email Template Selection
+  const handleWelcomeEmailTemplateChange = async (templateId: string) => {
+    if (!state.settings?.id) {
+      console.error('Settings not found');
+      return;
+    }
+
+    const originalTemplateId = welcomeEmailTemplateId;
+    setWelcomeEmailLoading(true);
+    setWelcomeEmailTemplateId(templateId); // Optimistic update
+
+    try {
+      await actions.updateSettings(state.settings.id, {
+        welcome_email_template_id: templateId || undefined
+      });
+      
+      console.log('Welcome email template updated:', templateId);
+    } catch (error) {
+      console.error('Failed to update welcome email template:', error);
+      alert('Failed to update welcome email template. Please try again.');
+      setWelcomeEmailTemplateId(originalTemplateId); // Revert on error
+    } finally {
+      setWelcomeEmailLoading(false);
+    }
+  };
+
+  // Test Welcome Email
+  const handleTestWelcomeEmail = async () => {
+    if (!welcomeEmailEnabled || !welcomeEmailTemplateId) {
+      alert('Please enable welcome email automation and select a template first.');
+      return;
+    }
+
+    if (!state.customers || state.customers.length === 0) {
+      alert('No customers found to test with. Please create a customer first.');
+      return;
+    }
+
+    setTestEmailLoading(true);
+    try {
+      const template = state.emailTemplates.find(t => t.id === welcomeEmailTemplateId);
+      if (!template) {
+        alert('Selected template not found.');
+        return;
+      }
+
+      // Use the first customer for testing
+      const testCustomer = state.customers[0];
+      await actions.sendEmail(
+        testCustomer.email,
+        template.subject,
+        template.content,
+        {
+          name: testCustomer.name,
+          email: testCustomer.email,
+          company: state.settings?.companyName || 'StoryLine ERP'
+        }
+      );
+
+      alert(`Test welcome email sent to: ${testCustomer.email}`);
+    } catch (error) {
+      console.error('Failed to send test welcome email:', error);
+      alert('Failed to send test welcome email. Please try again.');
+    } finally {
+      setTestEmailLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex justify-between items-center mb-8">
@@ -340,6 +561,101 @@ Best regards,
 
       {/* Reminder Template Manager */}
       <ReminderTemplateManager />
+
+      {/* Welcome Email Automation Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+              <Mail className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Welcome Email Automation</h3>
+              <p className="text-sm text-gray-600">Automatically send welcome emails to new customers</p>
+            </div>
+          </div>
+          <button
+            onClick={handleWelcomeEmailToggle}
+            disabled={welcomeEmailLoading}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+              welcomeEmailEnabled
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+            } ${welcomeEmailLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {welcomeEmailEnabled ? (
+              <ToggleRight className="w-5 h-5" />
+            ) : (
+              <ToggleLeft className="w-5 h-5" />
+            )}
+            <span className="font-medium">
+              {welcomeEmailLoading ? 'Updating...' : (welcomeEmailEnabled ? 'Enabled' : 'Disabled')}
+            </span>
+          </button>
+        </div>
+
+        {welcomeEmailEnabled && (
+          <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Welcome Email Template
+              </label>
+              <select
+                value={welcomeEmailTemplateId}
+                onChange={(e) => handleWelcomeEmailTemplateChange(e.target.value)}
+                disabled={welcomeEmailLoading}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+              >
+                <option value="">Select a welcome email template</option>
+                {state.emailTemplates
+                  .filter(template => template.trigger === 'new_customer')
+                  .map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">
+                  {welcomeEmailTemplateId
+                    ? 'Welcome emails will be sent automatically when new customers are created'
+                    : 'Please select a welcome email template to enable automation'
+                  }
+                </p>
+              </div>
+              {welcomeEmailTemplateId && (
+                <button
+                  onClick={handleTestWelcomeEmail}
+                  disabled={testEmailLoading}
+                  className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  <TestTube className="w-4 h-4" />
+                  <span>{testEmailLoading ? 'Testing...' : 'Test Email'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Pending Emails Manager */}
+      <div className="mb-6">
+        <PendingEmailsManager />
+      </div>
+
+      {/* Quick Test Section */}
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+        <h3 className="font-medium text-green-900 mb-2">🧪 How to Test Real Email Sending:</h3>
+        <div className="text-sm text-green-800 space-y-1">
+          <p><strong>1. Create a new customer</strong> → Welcome email will be triggered automatically</p>
+          <p><strong>2. Check "Pending Welcome Emails"</strong> section above for emails waiting to be sent</p>
+          <p><strong>3. Use "Send Now" or "Open in Email Client"</strong> to send emails to customers</p>
+          <p><strong>4. Check console logs</strong> for detailed email sending information</p>
+        </div>
+      </div>
 
       {/* Add/Edit Form */}
       {showForm && (

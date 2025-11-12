@@ -7,6 +7,7 @@ import { generateInvoice } from '../../../utils/invoiceGenerator';
 import DataTable from '../../common/DataTable';
 import SearchableSelect from '../../common/SearchableSelect';
 
+
 interface SaleFormData {
   productType: 'digital_code' | 'tv_box' | 'subscription';
   productId: string;
@@ -170,9 +171,15 @@ const EnhancedUnifiedSalesModule: React.FC = () => {
         purchasePrice = 0; // No direct cost for subscriptions
       } else {
         const stockProd = product as DigitalCode | TVBox;
-        unitPrice = formData.buyerType === 'customer' ? stockProd.customerPrice : stockProd.resellerPrice;
+        unitPrice = formData.buyerType === 'customer' ? (stockProd.customerPrice || 0) : (stockProd.resellerPrice || 0);
         productName = 'name' in stockProd ? stockProd.name : stockProd.model;
         purchasePrice = stockProd.purchasePrice || 0;
+      }
+
+      // Validate that we have a valid unit price
+      if (!unitPrice || unitPrice <= 0) {
+        alert('Selected product does not have a valid price. Please check product pricing.');
+        return;
       }
 
       const totalPrice = unitPrice * formData.quantity;
@@ -635,13 +642,21 @@ const EnhancedUnifiedSalesModule: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Product *
                   </label>
-                  <SearchableSelect
-                    options={productOptions}
+                  <select
+                    name="productId"
                     value={formData.productId}
-                    onChange={(value) => setFormData(prev => ({ ...prev, productId: value }))}
-                    placeholder="Search and select a product..."
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
                     disabled={availableProducts.length === 0}
-                  />
+                  >
+                    <option value="">Select a product</option>
+                    {productOptions.map(option => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -653,6 +668,7 @@ const EnhancedUnifiedSalesModule: React.FC = () => {
                     value={formData.buyerId}
                     onChange={(value) => setFormData(prev => ({ ...prev, buyerId: value }))}
                     placeholder="Search and select a buyer..."
+                    className="w-full"
                     disabled={availableBuyers.length === 0}
                   />
                 </div>

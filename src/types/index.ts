@@ -233,6 +233,7 @@ export interface Payment {
 export interface EmailSettings {
   senderName: string;
   senderEmail: string;
+  brevoApiKey?: string;
 }
 
 export interface BusinessSettings {
@@ -253,6 +254,8 @@ export interface Settings {
   businessSettings?: BusinessSettings;
   displayCurrency?: SupportedCurrency;
   logoUrl?: string; // Add missing property
+  welcome_email_enabled?: boolean; // Welcome email automation setting
+  welcome_email_template_id?: string; // ID of the welcome email template
   createdAt: string;
   updatedAt: string;
 }
@@ -320,6 +323,7 @@ export type ActiveSection =
   | 'emails'
   | 'email-logs'
   | 'email-templates'
+  | 'welcome-emails'
   | 'woocommerce-orders'
   | 'suppliers'
   | 'settings'

@@ -21,6 +21,23 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  if (!BREVO_API_KEY) {
+    console.error('SENDINBLUE_API_KEY is not set.');
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: 'Email service is not configured: Missing API Key.' 
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+
   try {
     const { 
       to, 

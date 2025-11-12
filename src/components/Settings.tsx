@@ -15,7 +15,8 @@ export default function SettingsComponent() {
     language: 'en' as 'en' | 'da',
     emailSettings: {
       senderName: '',
-      senderEmail: ''
+      senderEmail: '',
+      brevoApiKey: ''
     },
     businessSettings: {
       defaultPaymentMethod: 'Storyline',
@@ -40,7 +41,8 @@ export default function SettingsComponent() {
         language: state.settings.language || 'en',
         emailSettings: {
           senderName: state.settings.emailSettings?.senderName || '',
-          senderEmail: state.settings.emailSettings?.senderEmail || ''
+          senderEmail: state.settings.emailSettings?.senderEmail || '',
+          brevoApiKey: state.settings.emailSettings?.brevoApiKey || ''
         },
         businessSettings: {
           defaultPaymentMethod: state.settings.businessSettings?.defaultPaymentMethod || 'Storyline',
@@ -228,6 +230,28 @@ export default function SettingsComponent() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="noreply@yourcompany.com"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Brevo API Key
+                    </label>
+                    <input
+                      type="password"
+                      value={formData.emailSettings.brevoApiKey}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        emailSettings: {
+                          ...prev.emailSettings,
+                          brevoApiKey: e.target.value
+                        }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="xkeysib-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Required for sending welcome emails and reminders
+                    </p>
                   </div>
                 </div>
 
