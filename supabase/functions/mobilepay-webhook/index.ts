@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
@@ -51,6 +52,7 @@ Deno.serve(async (req: Request) => {
     let invoiceId: string | null = null;
     let subscriptionId: string | null = null;
     let customerId: string | null = null;
+    let saleId: string | null = null;
 
     // Try to find by externalPaymentId (which could be paymentId or agreementId)
     const { data: invoiceData, error: invoiceError } = await supabase
@@ -68,8 +70,23 @@ Deno.serve(async (req: Request) => {
       invoiceId = invoiceData.id;
       customerId = invoiceData.customer_id;
       subscriptionId = invoiceData.subscription_id;
+    }
+
+    // Try to find the sale record by payment reference or externalId
+    const { data: saleData, error: saleError } = await supabase
+      .from('sales')
+      .select('id, payment_status, status, buyer_id')
+      .eq('id', orderId || payload.reference)
+      .maybeSingle();
+
+    if (saleError) {
+      console.error('Error fetching sale:', saleError);
+    }
+
+    if (saleData) {
+      saleId = saleData.id;
     } else {
-      console.warn(`Invoice not found for paymentId: ${paymentId} or agreementId: ${agreementId}`);
+      console.warn(`Sale not found for orderId: ${orderId} or reference: ${payload.reference}`);
       // If no invoice found, we might still want to log the transaction
     }
 
@@ -160,8 +177,22 @@ Deno.serve(async (req: Request) => {
         .eq('id', invoiceId);
     }
 
+    // Update the sale record if sale was found and payment was successful
+    if (saleId && transactionStatus === 'paid') {
+      console.log(`Updating sale ${saleId} status to completed due to successful payment`);
+      
+      await supabase
+        .from('sales')
+        .update({
+          status: 'completed',
+          payment_status: 'received',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', saleId);
+    }
+
     // Update the subscription status if a subscription was found and payment was captured
-    if (subscriptionId && eventType === 'Payment.Captured' || eventType === 'Agreement.PaymentCaptured') {
+    if (subscriptionId && (eventType === 'Payment.Captured' || eventType === 'Agreement.PaymentCaptured')) {
       await supabase
         .from('subscriptions')
         .update({ status: subscriptionStatus })
@@ -176,9 +207,9 @@ Deno.serve(async (req: Request) => {
       }
     );
   } catch (error) {
-    console.error('MobilePay webhook processing error:', error.message);
+    console.error('MobilePay webhook processing error:', error instanceof Error ? error.message : 'Unknown error');
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }),
       {
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
         status: 500,

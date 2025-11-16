@@ -8,14 +8,26 @@ export const welcomeEmailService = {
   // Check if welcome emails are enabled in settings
   async isWelcomeEmailEnabled(): Promise<boolean> {
     try {
-      const { data: settings } = await supabase
+      // Try to get the latest settings record using a single query first
+      const { data: settings, error } = await supabase
         .from('settings')
         .select('welcome_email_enabled')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      return settings?.welcome_email_enabled ?? false;
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+        console.warn('Error fetching welcome email settings:', error);
+        return false;
+      }
+
+      const isEnabled = settings?.welcome_email_enabled ?? false;
+      console.log('Welcome email enabled check:', {
+        settings,
+        welcome_email_enabled: settings?.welcome_email_enabled,
+        isEnabled,
+        queryMethod: 'single',
+        timestamp: new Date().toISOString()
+      });
+      return isEnabled;
     } catch (error) {
       console.warn('Error checking welcome email settings:', error);
       return false; // Default to disabled if settings can't be loaded

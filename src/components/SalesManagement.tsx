@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import { Sale, DigitalCode, TVBox, SubscriptionProduct, Customer, Reseller } from '../types';
 import { formatCurrency, calculateTotalRevenue, calculateInventoryProfit, calculateOutstandingAmount } from '../utils/calculations';
 import SearchableSelect from './common/SearchableSelect';
+import { mobilepayService } from '../services/mobilepayService';
 
 import { generateInvoice } from '../utils/invoiceGenerator';
 
@@ -175,8 +176,64 @@ export default function SalesManagement() {
             }
           }
 
-          if (invoiceResult.paymentLink && formData.paymentMethod === 'mobilepay') {
-            window.location.href = invoiceResult.paymentLink;
+          // Handle MobilePay payment links
+          if (formData.paymentMethod === 'mobilepay') {
+            try {
+              // Create MobilePay payment link
+              const mobilepayResult = await mobilepayService.createPaymentLink({
+                externalId: newSale.id,
+                amount: totalPrice,
+                currency: state.settings?.currency || 'DKK',
+                description: `Payment for ${productName}`,
+                customerEmail: buyer.email,
+                customerName: buyer.name,
+                saleId: newSale.id,
+              });
+
+              if (mobilepayResult.success && mobilepayResult.data?.paymentLink) {
+                // Send email with payment link
+                try {
+                  await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                    },
+                    body: JSON.stringify({
+                      to: buyer.email,
+                      subject: `Your MobilePay payment link for ${productName}`,
+                      content: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                          <h2>Payment Link</h2>
+                          <p>Dear ${buyer.name},</p>
+                          <p>Thank you for your purchase of <strong>${productName}</strong>.</p>
+                          <p><strong>Amount:</strong> ${totalPrice} ${state.settings?.currency || 'DKK'}</p>
+                          <p><strong>Quantity:</strong> ${formData.quantity}</p>
+                          <p>Please click the link below to complete your payment via MobilePay:</p>
+                          <div style="text-align: center; margin: 20px 0;">
+                            <a href="${mobilepayResult.data.paymentLink}"
+                               style="background-color: #4CAF50; color: white; padding: 14px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                              Pay with MobilePay
+                            </a>
+                          </div>
+                          <p><small>This link will expire in 24 hours.</small></p>
+                          <p>Best regards,<br>StoryLine ERP Team</p>
+                        </div>
+                      `,
+                    }),
+                  });
+                  toast.success('Sale recorded successfully! Payment link sent to customer email.');
+                } catch (emailError) {
+                  console.error('Failed to send MobilePay email:', emailError);
+                  toast.info(`Sale recorded! Payment link: ${mobilepayResult.data.paymentLink}`);
+                }
+              } else {
+                throw new Error(mobilepayResult.error || 'Failed to create MobilePay payment link');
+              }
+            } catch (mobilepayError) {
+              console.error('MobilePay error:', mobilepayError);
+              toast.error(`Sale recorded, but failed to create MobilePay payment link: ${mobilepayError instanceof Error ? mobilepayError.message : 'Unknown error'}`);
+            }
           } else if (invoiceResult.paymentLink && formData.paymentMethod === 'revolut') {
             toast.info(`Revolut payment link generated: ${invoiceResult.paymentLink}. Please send this to the customer.`);
           } else {

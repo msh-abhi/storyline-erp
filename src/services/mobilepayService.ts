@@ -2,17 +2,19 @@ import { supabase } from '../lib/supabase';
 import { SupportedCurrency } from '../types';
 
 interface CreateRecurringPaymentAgreementPayload {
-  externalId: string; // Your unique ID for this agreement
-  customerId: string;
-  subscriptionId: string;
-  amount: number; // Total amount for the agreement
+  customer: {
+    phoneNumber: string; // E.g., "4712345678"
+  };
+  amount: number; // Amount in minor units (e.g., øre, cents)
   currency: SupportedCurrency;
-  redirectUri: string; // URL to redirect user after MobilePay interaction
+  description: string;
+  merchantRedirectUrl: string; // URL to redirect user to after they approve/reject the agreement
+  merchantAgreementUrl: string; // URL on your site where user can see/manage their agreement
 }
 
 interface CapturePaymentPayload {
   paymentId: string;
-  amount: number;
+  amount: number; // Amount in minor units (e.g., øre, cents)
   currency: SupportedCurrency;
 }
 
@@ -21,6 +23,48 @@ interface CancelAgreementPayload {
 }
 
 export const mobilepayService = {
+  async createPaymentLink(payload: {
+    externalId: string;
+    amount: number; // Amount in minor units (e.g., øre, cents)
+    currency: SupportedCurrency;
+    description?: string;
+    customerEmail?: string;
+    customerName?: string;
+    saleId: string;
+  }): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      // Generate a new externalId that is compliant with MobilePay's format requirements
+      // Format: 8-64 characters, alphanumeric and hyphens.
+      const compliantExternalId = `sale-${payload.saleId.replace(/[^a-zA-Z0-9-]/g, '')}-${Date.now().toString(36)}`;
+
+      const newPayload = {
+        ...payload,
+        externalId: compliantExternalId.slice(0, 63), // Ensure it's within the 64-char limit
+      };
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mobilepay-api-proxy`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'createPaymentLink',
+          payload: newPayload,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to create MobilePay payment link');
+      }
+      return { success: true, data: result.data };
+    } catch (error) {
+      console.error('Error creating MobilePay payment link:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
+
   async createRecurringPaymentAgreement(payload: CreateRecurringPaymentAgreementPayload): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mobilepay-api-proxy`, {
