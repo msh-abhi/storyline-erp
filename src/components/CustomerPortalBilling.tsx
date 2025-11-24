@@ -115,8 +115,8 @@ const CustomerPortalBilling: React.FC = () => {
 
   if (!customerPortalUser || !hasCustomer) {
     return (
-      <div className="p-6 bg-white rounded-lg shadow-md">
-        <h1 className="text-3xl font-bold text-gray-800 mb-4">Billing History</h1>
+      <div className="p-4 md:p-6 bg-white rounded-lg shadow-md">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">Billing History</h1>
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <p className="text-yellow-800">No customer account is found for this user.</p>
           <p className="text-sm text-yellow-600 mt-2">
@@ -137,8 +137,8 @@ const CustomerPortalBilling: React.FC = () => {
   }
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md">
-      <h1 className="text-3xl font-bold text-gray-800 mb-4">Billing History</h1>
+    <div className="p-4 md:p-6 bg-white rounded-lg shadow-md">
+      <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">Billing History</h1>
       <p className="text-gray-600 mb-6">View your past invoices and upcoming payment schedule.</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
@@ -148,7 +148,7 @@ const CustomerPortalBilling: React.FC = () => {
           {pendingInvoices.length > 0 ? (
             <ul className="space-y-3">
               {pendingInvoices.map(invoice => (
-                <li key={invoice.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 bg-yellow-50 rounded-md">
+                <li key={invoice.id} className="flex flex-col justify-between items-start p-3 md:p-4 bg-yellow-50 rounded-md gap-3">
                   <div>
                     <span className="font-medium">Invoice #{invoice.id.substring(0, 8)}...</span>
                     <span className="block sm:inline sm:ml-4 text-gray-600">
@@ -159,12 +159,12 @@ const CustomerPortalBilling: React.FC = () => {
                     <span className="font-bold mr-4">{formatCurrency(invoice.amount, invoice.currency, null)}</span>
                     
                     {/* Payment Options */}
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex flex-col gap-2">
                       {/* MobilePay Option */}
                       <button
                         onClick={() => handleMobilePayPayment(invoice)}
                         disabled={paymentInProgress === invoice.id || revolutPaymentInProgress === invoice.id}
-                        className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-all disabled:bg-gray-400 flex items-center gap-2"
+                        className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-all disabled:bg-gray-400 flex items-center justify-center gap-2"
                       >
                         <CreditCard size={16} />
                         {paymentInProgress === invoice.id ? 'Processing...' : 'MobilePay (Auto)'}
@@ -174,7 +174,7 @@ const CustomerPortalBilling: React.FC = () => {
                       <button
                         onClick={() => handleRevolutPayment(invoice)}
                         disabled={paymentInProgress === invoice.id || revolutPaymentInProgress === invoice.id}
-                        className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-all disabled:bg-gray-400 flex items-center gap-2"
+                        className="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 transition-all disabled:bg-gray-400 flex items-center justify-center gap-2"
                       >
                         <Banknote size={16} />
                         {revolutPaymentInProgress === invoice.id ? 'Creating...' : 'Revolut (Manual)'}
@@ -202,7 +202,7 @@ const CustomerPortalBilling: React.FC = () => {
                       {invoice.status}
                     </span>
                   </div>
-                  <span>{formatCurrency(invoice.amount, invoice.currency, null)} - Paid: {new Date(invoice.updatedAt || invoice.createdAt || new Date()).toLocaleDateString()}</span>
+                  <span>{formatCurrency(invoice.amount, invoice.currency, null)} - Date: {new Date(invoice.updatedAt || invoice.createdAt || new Date()).toLocaleDateString()}</span>
                 </li>
               ))}
             </ul>

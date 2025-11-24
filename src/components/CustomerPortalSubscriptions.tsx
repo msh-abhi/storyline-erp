@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthProvider';
 import { subscriptionService } from '../services/supabaseService';
-import { Subscription } from '../types';
+import { Subscription, CustomerPortalUser } from '../types';
 import {
   Calendar, Clock, AlertTriangle, CheckCircle,
   Tv, CreditCard, Shield, TrendingUp, ExternalLink
@@ -12,8 +12,7 @@ const CustomerPortalSubscriptions: React.FC = () => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Use type assertion to access the camelCase properties after keysToCamel conversion
-  const portalUser = customerPortalUser as any;
+  const portalUser = customerPortalUser as CustomerPortalUser | null;
   const hasCustomer = portalUser?.customerId && portalUser?.customerId !== null;
   const customerName = authUser?.email?.split('@')[0] || 'Customer';
 
@@ -21,7 +20,7 @@ const CustomerPortalSubscriptions: React.FC = () => {
     if (portalUser && portalUser.customerId) {
       const fetchSubscriptions = async () => {
         setLoading(true);
-        const subs = await subscriptionService.getByCustomerId(portalUser.customerId);
+        const subs = await subscriptionService.getByCustomerId(portalUser.customerId!);
         setSubscriptions(subs);
         setLoading(false);
       };
@@ -156,7 +155,7 @@ const CustomerPortalSubscriptions: React.FC = () => {
             const reminderStatus = getReminderStatus(sub);
             const IconComponent = reminderStatus.icon;
             const daysLeft = getDaysUntilExpiry(sub.endDate);
-            
+
             return (
               <div key={sub.id} className={`p-6 rounded-xl border-l-4 ${reminderStatus.borderColor} ${reminderStatus.bgColor} hover:shadow-lg transition-all duration-300`}>
                 <div className="flex justify-between items-start">
@@ -173,7 +172,7 @@ const CustomerPortalSubscriptions: React.FC = () => {
                         </span>
                       </div>
                     </div>
-                    
+
                     {/* Date Information */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                       <div className="flex items-center space-x-3 p-3 bg-white/50 rounded-lg">
@@ -199,7 +198,7 @@ const CustomerPortalSubscriptions: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Status Alerts */}
                     {daysLeft > 0 && daysLeft <= 10 && (
                       <div className={`p-4 rounded-lg border ${daysLeft <= 5 ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}`}>
@@ -216,7 +215,7 @@ const CustomerPortalSubscriptions: React.FC = () => {
                         </p>
                       </div>
                     )}
-                    
+
                     {daysLeft <= 0 && (
                       <div className="p-4 rounded-lg border bg-red-50 border-red-200">
                         <div className="flex items-center space-x-2 mb-2">
@@ -226,43 +225,16 @@ const CustomerPortalSubscriptions: React.FC = () => {
                         <p className="text-sm text-red-700">Please contact support to restore service.</p>
                       </div>
                     )}
-                  </div>
-                  
-                  {/* Price and Payment Info */}
-                  <div className="text-right ml-6">
-                    <div className="p-4 bg-white/80 rounded-xl border border-white/50 backdrop-blur-sm">
-                      <div className="text-2xl font-bold text-gray-900 mb-2">
-                        {sub.price ? `${sub.price} DKK` : 'Contact for pricing'}
+
+                    {/* Subscription Details */}
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                      <div className="flex items-center space-x-2">
+                        <CreditCard size={14} className="text-gray-400" />
+                        <span className="text-sm text-gray-600">Price: <strong className="text-gray-900">${sub.price}</strong></span>
                       </div>
-                      <div className="flex items-center space-x-2 mb-3">
-                        <CreditCard size={16} className="text-gray-500" />
-                        <span className="text-sm text-gray-600 capitalize">{sub.paymentMethod || 'manual'}</span>
-                      </div>
-                      
-                      {/* Payment Status Badge */}
-                      <div className="space-y-2">
-                        <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                          sub.status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-                            : sub.status === 'active'
-                            ? 'bg-green-100 text-green-800 border border-green-200'
-                            : sub.status === 'expired'
-                            ? 'bg-red-100 text-red-800 border border-red-200'
-                            : 'bg-gray-100 text-gray-800 border border-gray-200'
-                        }`}>
-                          {sub.status === 'pending' ? 'Payment Pending' :
-                           sub.status === 'active' ? 'Active' :
-                           sub.status === 'expired' ? 'Expired' :
-                           sub.status || 'Unknown'}
-                        </span>
-                        
-                        {sub.status === 'pending' && (
-                          <div className="p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <p className="text-xs text-yellow-700">
-                              ⚠️ Payment required to activate service
-                            </p>
-                          </div>
-                        )}
+                      <div className="flex items-center space-x-2">
+                        <Shield size={14} className="text-gray-400" />
+                        <span className="text-sm text-gray-600">Status: <strong className="text-gray-900 capitalize">{sub.status}</strong></span>
                       </div>
                     </div>
                   </div>
@@ -273,14 +245,11 @@ const CustomerPortalSubscriptions: React.FC = () => {
         </div>
       ) : (
         <div className="text-center py-12">
-          <div className="p-4 bg-gray-50 rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-            <Tv className="h-12 w-12 text-gray-400" />
-          </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Subscriptions Found</h3>
-          <p className="text-gray-500 mb-6">You don't have any active subscriptions at the moment.</p>
-          <button className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium flex items-center space-x-2 mx-auto">
-            <ExternalLink size={16} />
-            <span>Browse Services</span>
+          <Tv className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Active Subscriptions</h3>
+          <p className="text-gray-500 mb-6">You don't have any active subscriptions yet.</p>
+          <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+            Browse Services
           </button>
         </div>
       )}

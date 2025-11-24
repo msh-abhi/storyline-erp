@@ -43,7 +43,7 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
   const { authUser, signOut } = useAuth();
   const { state } = useApp();
   const navigate = useNavigate();
-  
+
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(['dashboard', 'customers', 'revenue', 'inventory', 'financial'])
   );
@@ -253,9 +253,9 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
 
   const handleLogout = async () => {
     try {
-      console.log('EnhancedNavigation: Starting logout process...');
-      await signOut();
-      console.log('EnhancedNavigation: Sign out successful, redirecting...');
+      // console.log('EnhancedNavigation: Starting logout process...');
+      await signOut(true); // Skip internal redirect
+      // console.log('EnhancedNavigation: Sign out successful, redirecting...');
       // Navigate to login page (which will be rendered by the router based on auth state)
       navigate('/', { replace: true });
     } catch (error) {
@@ -292,18 +292,16 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
                   {group.id === 'dashboard' ? (
                     <button
                       onClick={() => handleItemClick(group.items[0])}
-                      className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200 group ${
-                        isActiveItem(group.items[0])
+                      className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200 group ${isActiveItem(group.items[0])
                           ? 'bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 shadow-sm'
                           : 'hover:bg-gray-50 hover:shadow-sm'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center space-x-3">
-                        <div className={`p-2 rounded-lg transition-colors ${
-                          isActiveItem(group.items[0])
+                        <div className={`p-2 rounded-lg transition-colors ${isActiveItem(group.items[0])
                             ? 'bg-blue-100 text-blue-600'
                             : 'bg-gray-100 text-gray-600 group-hover:bg-gray-200'
-                        }`}>
+                          }`}>
                           <group.icon className="w-4 h-4" />
                         </div>
                         <div className="text-left">
@@ -347,40 +345,36 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
                     <button
                       key={item.id}
                       onClick={() => handleItemClick(item)}
-                      className={`w-full flex items-center justify-between p-2.5 rounded-lg text-left transition-all duration-200 group relative ${
-                        isActiveItem(item)
+                      className={`w-full flex items-center justify-between p-2.5 rounded-lg text-left transition-all duration-200 group relative ${isActiveItem(item)
                           ? 'bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 shadow-sm'
                           : 'hover:bg-gray-50 hover:shadow-sm'
-                      }`}
+                        }`}
                     >
                       {/* Nested Indicator Line */}
                       <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-gray-300 to-gray-400 rounded-full opacity-60" />
-                      
+
                       {!collapsed && (
                         <div className="flex items-center space-x-3 pl-2">
                           {/* Sub-menu indicator */}
                           <ChevronLeft className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                          
+
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center space-x-2">
-                              <span className={`text-sm font-medium truncate ${
-                                isActiveItem(item) ? 'text-blue-900' : 'text-gray-700'
-                              }`}>
+                              <span className={`text-sm font-medium truncate ${isActiveItem(item) ? 'text-blue-900' : 'text-gray-700'
+                                }`}>
                                 {item.label}
                               </span>
                               {item.badge && (
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  item.badge === 'core'
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${item.badge === 'core'
                                     ? 'bg-purple-100 text-purple-800'
                                     : 'bg-green-100 text-green-800'
-                                }`}>
+                                  }`}>
                                   {item.badge}
                                 </span>
                               )}
                             </div>
-                            <p className={`text-xs truncate ${
-                              isActiveItem(item) ? 'text-blue-600' : 'text-gray-500'
-                            }`}>
+                            <p className={`text-xs truncate ${isActiveItem(item) ? 'text-blue-600' : 'text-gray-500'
+                              }`}>
                               {item.description}
                             </p>
                           </div>

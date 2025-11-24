@@ -275,11 +275,11 @@ export interface UserProfile {
 
 export interface CustomerPortalUser {
   id: string;
-  auth_provider_id: string;
-  customer_id: string | null;
+  authProviderId: string;
+  customerId: string | null;
   email: string;
-  created_at?: string;
-  last_login_at?: string;
+  createdAt?: string;
+  lastLoginAt?: string;
 }
 
 export interface CustomerMessage {
@@ -488,7 +488,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_SETTINGS':
       return { ...state, settings: action.payload };
     case 'RESET_STATE':
-        return { ...initialState, loading: false }; // Reset to initial state but keep loading as false
+      return { ...initialState, loading: false }; // Reset to initial state but keep loading as false
     case 'ADD_CUSTOMER':
       return { ...state, customers: [...state.customers, action.payload] };
     case 'UPDATE_CUSTOMER':
