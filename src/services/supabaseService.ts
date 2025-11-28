@@ -753,7 +753,8 @@ export const createCustomerCredential = async (credential: Omit<CustomerCredenti
   }
 
   console.debug("supabaseService: Successfully created credential:", { id: data?.id, customer_id: data?.customer_id, server_url: data?.server_url });
-  return keysToCamel(data);
+  // Return data in snake_case format as expected by the CustomerCredential interface
+  return data as CustomerCredential;
 };
 
 export const updateCustomerCredential = async (id: string, credential: Partial<CustomerCredential>): Promise<CustomerCredential> => {

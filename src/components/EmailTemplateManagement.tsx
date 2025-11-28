@@ -26,7 +26,6 @@ export default function EmailTemplateManagement() {
   });
 
   // Welcome Email Automation State
-  const [welcomeEmailEnabled, setWelcomeEmailEnabled] = useState(false);
   const [welcomeEmailTemplateId, setWelcomeEmailTemplateId] = useState<string>('');
   const [welcomeEmailLoading, setWelcomeEmailLoading] = useState(false);
   const [testEmailLoading, setTestEmailLoading] = useState(false);
@@ -208,26 +207,27 @@ Best regards,
         // Create welcome template if it doesn't exist and no templates exist at all
         if (!hasWelcomeTemplate && state.emailTemplates.length === 0) {
           await actions.createEmailTemplate({
-            name: 'Welcome New Customer',
-            subject: 'Welcome to {{company}} - {{name}}',
+            name: 'Welcome New Customer - Danish',
+            subject: 'Velkommen til Jysk-Streaming!',
             trigger: 'new_customer',
-            content: `Dear {{name}},
+            content: `Kære {{name}},
 
-Welcome to {{company}}! We're excited to have you as our customer.
+Velkommen til Jysk-Streaming! Vi er utrolig glade for, at du har valgt os til at levere underholdning lige til din stue.
 
-Your account has been successfully created with the following details:
-- Email: {{email}}
-- Registration Date: {{date}}
+Vi tilbyder:
+• Personlig service – Du kan altid regne med, at vi står klar til at hjælpe dig
+• Ægte jysk hygge – Vi sætter pris på nærvær og gode oplevelser
+• Stort udvalg – Film, serier, sport og dokumentarer til hele familien
+• Skræddersyet til dig – Vi arbejder hver dag på at gøre din oplevelse bedre og mere personlig
 
-What's next?
-1. Explore our services
-2. Contact us if you have any questions
-3. Follow us on social media for updates
+Kontakt os:
+📧 kontakt@jysk-streaming.fun
+💬 +45 91624906
 
-If you need any assistance, our support team is here to help.
+Endnu en gang – velkommen til Jysk-Streaming! Vi glæder os til at være din streamingpartner.
 
-Best regards,
-{{company}} Team`
+Med venlig hilsen,
+Jysk-Streaming Teamet`
           });
         }
       } catch (error) {
@@ -297,26 +297,27 @@ Best regards,
 
           // Welcome template
           await actions.createEmailTemplate({
-            name: 'Welcome New Customer',
-            subject: 'Welcome to {{company}} - {{name}}',
+            name: 'Welcome New Customer - Danish',
+            subject: 'Velkommen til Jysk-Streaming!',
             trigger: 'new_customer',
-            content: `Dear {{name}},
+            content: `Kære {{name}},
 
-Welcome to {{company}}! We're excited to have you as our customer.
+Velkommen til Jysk-Streaming! Vi er utrolig glade for, at du har valgt os til at levere underholdning lige til din stue.
 
-Your account has been successfully created with the following details:
-- Email: {{email}}
-- Registration Date: {{date}}
+Vi tilbyder:
+• Personlig service – Du kan altid regne med, at vi står klar til at hjælpe dig
+• Ægte jysk hygge – Vi sætter pris på nærvær og gode oplevelser
+• Stort udvalg – Film, serier, sport og dokumentarer til hele familien
+• Skræddersyet til dig – Vi arbejder hver dag på at gøre din oplevelse bedre og mere personlig
 
-What's next?
-1. Explore our services
-2. Contact us if you have any questions
-3. Follow us on social media for updates
+Kontakt os:
+📧 kontakt@jysk-streaming.fun
+💬 +45 91624906
 
-If you need any assistance, our support team is here to help.
+Endnu en gang – velkommen til Jysk-Streaming! Vi glæder os til at være din streamingpartner.
 
-Best regards,
-{{company}} Team`
+Med venlig hilsen,
+Jysk-Streaming Teamet`
           });
         } catch (error) {
           console.error('Error creating default templates:', error);
@@ -330,181 +331,68 @@ Best regards,
     }
   }, [state.emailTemplates.length, actions]);
 
-  // Load Welcome Email Settings (but don't override during optimistic updates)
+  // Initialize welcome email template once when component mounts
   useEffect(() => {
-    const settings = state.settings;
-    if (settings) {
-      console.log('Loading welcome email settings from state:', {
-        welcome_email_enabled: settings.welcome_email_enabled,
-        welcome_email_template_id: settings.welcome_email_template_id
-      });
+    const initializeWelcomeEmail = async () => {
+      try {
+        console.log('Initializing welcome email setup...');
 
-      // Only update if we're not in a loading state (to avoid overriding optimistic updates)
-      if (!welcomeEmailLoading) {
-        setWelcomeEmailEnabled(Boolean(settings.welcome_email_enabled));
-        setWelcomeEmailTemplateId(settings.welcome_email_template_id || '');
-      }
-    } else {
-      // If no settings exist, try to create default settings
-      console.log('No settings found, attempting to create default settings');
-      const createDefaultSettings = async () => {
-        try {
-          const defaultSettings = await actions.createSettings({
-            companyName: 'StoryLine ERP',
-            currency: 'DKK',
-            language: 'en',
-            emailSettings: {
-              senderName: 'StoryLine ERP',
-              senderEmail: 'kontakt@jysk-streaming.fun',
-              brevoApiKey: ''
-            },
-            welcome_email_enabled: false,
-            welcome_email_template_id: undefined
+        // 1. Ensure welcome template exists
+        const welcomeTemplates = state.emailTemplates.filter(t => t.trigger === 'new_customer');
+        let welcomeTemplate = welcomeTemplates[0];
+
+        if (!welcomeTemplate) {
+          console.log('Creating default welcome email template...');
+          const defaultTemplate = await actions.createEmailTemplate({
+            name: 'Welcome New Customer - Danish',
+            subject: 'Velkommen til Jysk-Streaming!',
+            trigger: 'new_customer',
+            content: `Kære {{name}},
+
+Velkommen til Jysk-Streaming! Vi er utrolig glade for, at du har valgt os til at levere underholdning lige til din stue.
+
+Vi tilbyder:
+• Personlig service – Du kan altid regne med, at vi står klar til at hjælpe dig
+• Ægte jysk hygge – Vi sætter pris på nærvær og gode oplevelser
+• Stort udvalg – Film, serier, sport og dokumentarer til hele familien
+• Skræddersyet til dig – Vi arbejder hver dag på at gøre din oplevelse bedre og mere personlig
+
+Kontakt os:
+📧 kontakt@jysk-streaming.fun
+💬 +45 91624906
+
+Endnu en gang – velkommen til Jysk-Streaming! Vi glæder os til at være din streamingpartner.
+
+Med venlig hilsen,
+Jysk-Streaming Teamet`
           });
 
-          if (defaultSettings) {
-            console.log('Default settings created successfully');
-            setWelcomeEmailEnabled(false);
-            setWelcomeEmailTemplateId('');
+          if (defaultTemplate) {
+            console.log('Welcome template created:', defaultTemplate.id);
+            welcomeTemplate = defaultTemplate;
           }
-        } catch (error) {
-          console.error('Failed to create default settings:', error);
-          // Still set defaults even if creation fails
-          setWelcomeEmailEnabled(false);
-          setWelcomeEmailTemplateId('');
         }
-      };
 
-      createDefaultSettings();
-    }
-  }, [state.settings, welcomeEmailLoading, actions]);
-
-  // Create default settings if they don't exist
-  useEffect(() => {
-    const createDefaultSettings = async () => {
-      if (state.settings === null && state.emailTemplates.length > 0) {
-        try {
-          console.log('Creating default settings for welcome email automation...');
-          // Try to get existing settings first
-          const existingSettings = await settingsService.get();
-          if (existingSettings) {
-            // Settings exist, just update the state
-            dispatch({ type: 'SET_SETTINGS', payload: existingSettings });
-            console.log('Found existing settings:', existingSettings);
-          } else {
-            // No settings exist, create them
-            const defaultSettings = await actions.createSettings({
-              companyName: 'StoryLine ERP',
-              currency: 'DKK',
-              language: 'en',
-              emailSettings: {
-                senderName: 'StoryLine ERP',
-                senderEmail: 'kontakt@jysk-streaming.fun'
-              },
-              welcome_email_enabled: false,
-              welcome_email_template_id: undefined
-            });
-
-            if (defaultSettings) {
-              console.log('Default settings created successfully:', defaultSettings);
-            }
-          }
-        } catch (error) {
-          console.error('Failed to create default settings:', error);
+        // 2. Update state with template ID
+        if (welcomeTemplate?.id) {
+          setWelcomeEmailTemplateId(welcomeTemplate.id);
         }
+
+      } catch (error) {
+        console.error('Error initializing welcome email:', error);
       }
     };
 
-    // Only create default settings if we have email templates loaded
+    // Only run if we have templates loaded
     if (state.emailTemplates.length > 0) {
-      createDefaultSettings();
+      initializeWelcomeEmail();
     }
-  }, [state.settings, state.emailTemplates, actions, dispatch]);
-
-  // Handle Welcome Email Toggle
-  const handleWelcomeEmailToggle = async () => {
-    if (!state.settings?.id) {
-      console.log('Settings not found, creating default settings...');
-
-      try {
-        const defaultSettings = await actions.createSettings({
-          companyName: 'StoryLine ERP',
-          currency: 'DKK',
-          language: 'en',
-          emailSettings: {
-            senderName: 'StoryLine ERP',
-            senderEmail: 'kontakt@jysk-streaming.fun'
-          },
-          welcome_email_enabled: true, // Enable it when creating
-          welcome_email_template_id: undefined
-        });
-
-        if (!defaultSettings?.id) {
-          console.error('Failed to create default settings');
-          alert('Failed to create settings. Please try again.');
-          return;
-        }
-
-        console.log('Default settings created successfully');
-        return;
-      } catch (error) {
-        console.error('Failed to create default settings:', error);
-        alert('Failed to create settings. Please try again.');
-        return;
-      }
-    }
-
-    const originalState = welcomeEmailEnabled;
-    const newState = !originalState;
-
-    setWelcomeEmailLoading(true);
-    setWelcomeEmailEnabled(newState); // Optimistic update
-
-    try {
-      await actions.updateSettings(state.settings.id, {
-        welcome_email_enabled: newState
-      });
-
-      console.log(`Welcome email automation ${newState ? 'enabled' : 'disabled'}`);
-    } catch (error) {
-      console.error('Failed to update welcome email setting:', error);
-      alert('Failed to update welcome email setting. Please try again.');
-      setWelcomeEmailEnabled(originalState); // Revert on error
-    } finally {
-      setWelcomeEmailLoading(false);
-    }
-  };
-
-  // Handle Welcome Email Template Selection
-  const handleWelcomeEmailTemplateChange = async (templateId: string) => {
-    if (!state.settings?.id) {
-      console.error('Settings not found');
-      return;
-    }
-
-    const originalTemplateId = welcomeEmailTemplateId;
-    setWelcomeEmailLoading(true);
-    setWelcomeEmailTemplateId(templateId); // Optimistic update
-
-    try {
-      await actions.updateSettings(state.settings.id, {
-        welcome_email_template_id: templateId || undefined
-      });
-      
-      console.log('Welcome email template updated:', templateId);
-    } catch (error) {
-      console.error('Failed to update welcome email template:', error);
-      alert('Failed to update welcome email template. Please try again.');
-      setWelcomeEmailTemplateId(originalTemplateId); // Revert on error
-    } finally {
-      setWelcomeEmailLoading(false);
-    }
-  };
+  }, [state.emailTemplates]); // Remove actions from dependencies to prevent infinite loop
 
   // Test Welcome Email
   const handleTestWelcomeEmail = async () => {
-    if (!welcomeEmailEnabled || !welcomeEmailTemplateId) {
-      alert('Please enable welcome email automation and select a template first.');
+    if (!welcomeEmailTemplateId) {
+      alert('Welcome email template not available. Please refresh the page.');
       return;
     }
 
@@ -517,7 +405,7 @@ Best regards,
     try {
       const template = state.emailTemplates.find(t => t.id === welcomeEmailTemplateId);
       if (!template) {
-        alert('Selected template not found.');
+        alert('Welcome template not found. Please refresh the page.');
         return;
       }
 
@@ -530,7 +418,8 @@ Best regards,
         {
           name: testCustomer.name,
           email: testCustomer.email,
-          company: state.settings?.companyName || 'StoryLine ERP'
+          company: state.settings?.companyName || '{{company}}',
+          date: new Date().toLocaleDateString()
         }
       );
 
@@ -571,74 +460,58 @@ Best regards,
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Welcome Email Automation</h3>
-              <p className="text-sm text-gray-600">Automatically send welcome emails to new customers</p>
+              <p className="text-sm text-gray-600">Automatically send welcome emails to new customers (always enabled)</p>
             </div>
           </div>
-          <button
-            onClick={handleWelcomeEmailToggle}
-            disabled={welcomeEmailLoading}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-              welcomeEmailEnabled
-                ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-            } ${welcomeEmailLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {welcomeEmailEnabled ? (
-              <ToggleRight className="w-5 h-5" />
-            ) : (
-              <ToggleLeft className="w-5 h-5" />
-            )}
-            <span className="font-medium">
-              {welcomeEmailLoading ? 'Updating...' : (welcomeEmailEnabled ? 'Enabled' : 'Disabled')}
-            </span>
-          </button>
+          <div className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg">
+            <ToggleRight className="w-5 h-5" />
+            <span className="font-medium">Always Enabled</span>
+          </div>
         </div>
 
-        {welcomeEmailEnabled && (
-          <div className="bg-gray-50 rounded-lg p-4 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Welcome Email Template
-              </label>
-              <select
-                value={welcomeEmailTemplateId}
-                onChange={(e) => handleWelcomeEmailTemplateChange(e.target.value)}
-                disabled={welcomeEmailLoading}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
-              >
-                <option value="">Select a welcome email template</option>
-                {state.emailTemplates
-                  .filter(template => template.trigger === 'new_customer')
-                  .map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">
-                  {welcomeEmailTemplateId
-                    ? 'Welcome emails will be sent automatically when new customers are created'
-                    : 'Please select a welcome email template to enable automation'
-                  }
-                </p>
-              </div>
-              {welcomeEmailTemplateId && (
-                <button
-                  onClick={handleTestWelcomeEmail}
-                  disabled={testEmailLoading}
-                  className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  <TestTube className="w-4 h-4" />
-                  <span>{testEmailLoading ? 'Testing...' : 'Test Email'}</span>
-                </button>
-              )}
+        <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Welcome Email Template
+            </label>
+            <div className="space-y-2">
+              {state.emailTemplates
+                .filter(template => template.trigger === 'new_customer')
+                .map((template) => (
+                  <div key={template.id} className="border border-gray-300 rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-gray-900">{template.name}</h4>
+                        <p className="text-sm text-gray-600">{template.subject}</p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleEdit(template)}
+                          className="text-blue-600 hover:text-blue-700 px-2 py-1 text-sm"
+                        >
+                          <Edit2 className="h-4 w-4 inline mr-1" />
+                          Edit
+                        </button>
+                        {welcomeEmailTemplateId === template.id && (
+                          <button
+                            onClick={handleTestWelcomeEmail}
+                            disabled={testEmailLoading}
+                            className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                          >
+                            <TestTube className="w-4 h-4" />
+                            <span>{testEmailLoading ? 'Testing...' : 'Test Email'}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-600 bg-gray-100 p-2 rounded">
+                      <span className="font-medium">Currently Active:</span> Welcome emails will be sent automatically to new customers using this template
+                    </div>
+                  </div>
+                ))}
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Pending Emails Manager */}

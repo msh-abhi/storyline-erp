@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
 import { Mail, Shield, KeyRound, Sparkles, ArrowRight, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -11,7 +12,9 @@ const CustomerPortalLogin: React.FC = () => {
   const [mode, setMode] = useState<'link' | 'code'>('link');
   const [linkSent, setLinkSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const { magicLinkSignIn } = useAuth();
+  const [verificationSuccess, setVerificationSuccess] = useState(false);
+  const { magicLinkSignIn, authUser, customerPortalUser } = useAuth();
+  const navigate = useNavigate();
 
   // Cooldown timer for resend
   React.useEffect(() => {
@@ -57,10 +60,7 @@ const CustomerPortalLogin: React.FC = () => {
 
       if (data.session) {
         setMessage('Successfully verified! Redirecting...');
-        // Use window.location.href for reliable redirect after auth
-        setTimeout(() => {
-          window.location.href = '/portal/dashboard';
-        }, 1000);
+        setVerificationSuccess(true);
       }
     } catch (error: any) {
       setMessage(error.message || 'Invalid or expired code. Please try again.');
@@ -68,6 +68,13 @@ const CustomerPortalLogin: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Effect to redirect when auth is complete and customer portal user is loaded
+  useEffect(() => {
+    if (verificationSuccess && authUser && customerPortalUser) {
+      navigate('/portal/dashboard', { replace: true });
+    }
+  }, [verificationSuccess, authUser, customerPortalUser, navigate]);
 
   const handleResend = async () => {
     if (resendCooldown > 0) return;

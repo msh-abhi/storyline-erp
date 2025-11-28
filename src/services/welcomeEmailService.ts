@@ -7,47 +7,29 @@ import { EmailDeliveryService } from './emailDeliveryService';
 export const welcomeEmailService = {
   // Check if welcome emails are enabled in settings
   async isWelcomeEmailEnabled(): Promise<boolean> {
-    try {
-      // Try to get the latest settings record using a single query first
-      const { data: settings, error } = await supabase
-        .from('settings')
-        .select('welcome_email_enabled')
-        .single();
-
-      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
-        console.warn('Error fetching welcome email settings:', error);
-        return false;
-      }
-
-      const isEnabled = settings?.welcome_email_enabled ?? false;
-      console.log('Welcome email enabled check:', {
-        settings,
-        welcome_email_enabled: settings?.welcome_email_enabled,
-        isEnabled,
-        queryMethod: 'single',
-        timestamp: new Date().toISOString()
-      });
-      return isEnabled;
-    } catch (error) {
-      console.warn('Error checking welcome email settings:', error);
-      return false; // Default to disabled if settings can't be loaded
-    }
+    // Welcome emails are now always enabled by design
+    console.log('Welcome email enabled check: ALWAYS_ENABLED (by design)');
+    return true;
   },
 
   // Get the welcome email template
   async getWelcomeEmailTemplate(): Promise<EmailTemplate | null> {
     try {
+      // Get settings record - handle multiple records gracefully
       const { data: settings } = await supabase
         .from('settings')
         .select('welcome_email_template_id')
-        .single();
-      
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
       if (!settings?.welcome_email_template_id) {
+        console.log('No specific welcome template configured, using fallback');
         // Fallback to any template with 'new_customer' trigger
         const templates = await emailTemplateService.getAll();
         return templates.find(t => t.trigger === 'new_customer') || null;
       }
-      
+
       const templates = await emailTemplateService.getAll();
       return templates.find(t => t.id === settings.welcome_email_template_id) || null;
     } catch (error) {
@@ -122,7 +104,7 @@ export const welcomeEmailService = {
     }
   },
 
-  // Helper: Create professional HTML email
+  // Helper: Create professional HTML email with Danish content
   createHtmlEmail(template: EmailTemplate, templateData: Record<string, string>): string {
     const processedContent = template.content.replace(/\{\{(\w+)\}\}/g, (match, key) => {
       return templateData[key] || match;
@@ -134,28 +116,52 @@ export const welcomeEmailService = {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>${template.subject}</title>
+          <title>Velkommen til Jysk-Streaming</title>
         </head>
         <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
           <table role="presentation" style="width: 100%; background-color: #f4f4f4; padding: 20px 0;">
             <tr>
               <td align="center">
-                <table role="presentation" style="max-width: 600px; width: 100%; background-color: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <table role="presentation" style="max-width: 600px; width: 100%; background-color: white; border-radius: 10px;">
                   <!-- Header -->
                   <tr>
-                    <td style="padding: 30px 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px 10px 0 0;">
-                      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold; text-align: center;">
-                        ${templateData.company || 'StoryLine ERP'}
-                      </h1>
+                    <td style="padding: 30px 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px 10px 0 0; text-align: center;">
+                      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Jysk-Streaming</h1>
                     </td>
                   </tr>
                   
                   <!-- Content -->
                   <tr>
                     <td style="padding: 40px;">
-                      <div style="line-height: 1.6; color: #333; font-size: 16px;">
-                        ${processedContent.replace(/\n/g, '<br><br>')}
+                      <h2 style="color: #333; font-size: 24px; margin-bottom: 20px;">Velkommen ${templateData.name}!</h2>
+                      <p style="line-height: 1.6; color: #333; font-size: 16px; margin-bottom: 20px;">
+                        Vi hos Jysk-Streaming vil gerne byde dig varmt velkommen til vores fællesskab! Vi er utrolig glade for, at du har valgt os til at levere underholdning lige til din stue.
+                      </p>
+                      
+                      <!-- Service highlights -->
+                      <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="color: #667eea; margin-top: 0;">Hvad vi tilbyder:</h3>
+                        <ul style="padding-left: 20px; line-height: 1.8;">
+                          <li>Personlig service – Du kan altid regne med, at vi står klar til at hjælpe dig</li>
+                          <li>Ægte jysk hygge – Vi sætter pris på nærvær og gode oplevelser</li>
+                          <li>Stort udvalg – Film, serier, sport og dokumentarer til hele familien</li>
+                          <li>Skræddersyet til dig – Vi arbejder hver dag på at gøre din oplevelse bedre og mere personlig</li>
+                        </ul>
                       </div>
+                      
+                      <!-- Contact information -->
+                      <div style="margin: 30px 0;">
+                        <h3 style="color: #667eea;">Vi er her for dig!</h3>
+                        <p style="margin-bottom: 15px;">Har du spørgsmål eller brug for hjælp? Du er altid velkommen til at kontakte os:</p>
+                        <p style="margin: 5px 0;">📧 Skriv til os: kontakt@jysk-streaming.fun</p>
+                        <p style="margin: 5px 0;">💬 WhatsApp: +45 91624906</p>
+                        <p style="margin-top: 15px; font-style: italic;">Vi svarer hurtigt og med et smil!</p>
+                      </div>
+                      
+                      <!-- Closing -->
+                      <p style="margin-top: 30px;">
+                        Endnu en gang – velkommen til Jysk-Streaming! Vi glæder os til at være din streamingpartner og håber, du får masser af gode oplevelser hos os.
+                      </p>
                     </td>
                   </tr>
                   
@@ -163,15 +169,12 @@ export const welcomeEmailService = {
                   <tr>
                     <td style="padding: 30px 40px; background-color: #f8f9fa; border-radius: 0 0 10px 10px; text-align: center;">
                       <p style="margin: 0; color: #666; font-size: 14px;">
-                        <strong>Best regards,<br>
-                        ${templateData.company || 'StoryLine ERP'} Team</strong><br>
-                        <a href="mailto:kontakt@jysk-streaming.fun" style="color: #667eea; text-decoration: none;">
-                          kontakt@jysk-streaming.fun
-                        </a>
+                        <strong>Med venlig hilsen<br>
+                        Jysk-Streaming Teamet</strong>
                       </p>
                       <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
                       <p style="margin: 0; color: #999; font-size: 12px;">
-                        This email was sent to ${templateData.email} as part of our welcome process.
+                        Denne e-mail blev sendt til ${templateData.email} som en del af vores velkomstproces.
                       </p>
                     </td>
                   </tr>

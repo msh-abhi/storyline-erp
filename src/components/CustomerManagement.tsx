@@ -453,11 +453,26 @@ export default function CustomerManagement() {
         // Create new credential
         const newCredential = await createCustomerCredential(credentialData);
         setCustomerCredentials(prev => [newCredential, ...prev]);
-        
+
+        let emailSent = false;
         if (sendEmailNotification) {
-          await CredentialEmailService.sendCredentialEmail(selectedCustomer, newCredential, 'created');
+          try {
+            const emailResult = await CredentialEmailService.sendCredentialEmail(selectedCustomer, newCredential, 'created');
+            if (emailResult.success) {
+              toast.success('Credential created and email sent successfully! 📧✨');
+              emailSent = true;
+            } else {
+              toast.error(`Email failed: ${emailResult.error}`);
+            }
+          } catch (emailError) {
+            console.error('Email sending error:', emailError);
+            toast.error('Email failed to send');
+          }
         }
-        toast.success('Credential created and email sent successfully!');
+
+        if (!emailSent) {
+          toast.success('Credential created successfully! 🔑');
+        }
       }
 
       resetCredentialForm();
@@ -510,7 +525,7 @@ export default function CustomerManagement() {
 
     try {
       await CredentialEmailService.sendCredentialEmail(selectedCustomer, credential, 'created');
-      toast.success('Credential email sent successfully!');
+      toast.success('Credential email sent again! 📤');
     } catch (error: any) {
       toast.error(`Failed to send email: ${error.message}`);
       console.error('Failed to resend credential email:', error);
@@ -1411,7 +1426,7 @@ export default function CustomerManagement() {
                     <div className="relative">
                       <CreditCard className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <select
-                        value={formData.customFields.paymentMethod || ''}
+                        value={formData.customFields?.paymentMethod || ''}
                         onChange={(e) => updateCustomField('paymentMethod', e.target.value)}
                         className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
@@ -1541,7 +1556,7 @@ export default function CustomerManagement() {
                       {customer.whatsappNumber && (
                         <div className="text-sm text-gray-500 flex items-center">
                           <Phone className="h-3 w-3 mr-1" />
-                          {customer.whatsappNumber}
+                          {String(customer.whatsappNumber)}
                         </div>
                       )}
                     </div>
@@ -1567,7 +1582,7 @@ export default function CustomerManagement() {
                       {customer.customFields?.userId && (
                         <div className="flex items-center">
                           <User className="h-3 w-3 mr-1 text-gray-400" />
-                          <span className="font-medium">ID:</span> {customer.customFields.userId}
+                          <span className="font-medium">ID:</span> {String(customer.customFields.userId)}
                         </div>
                       )}
                       {customer.customFields?.paymentMethod && (
@@ -1575,21 +1590,21 @@ export default function CustomerManagement() {
                           <CreditCard className="h-3 w-3 mr-1 text-gray-400" />
                           <span className="font-medium">Payment:</span>
                           <span className="ml-1 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
-                            {customer.customFields.paymentMethod}
+                            {String(customer.customFields.paymentMethod)}
                           </span>
                         </div>
                       )}
                       {customer.notes && (
                         <div className="flex items-start">
                           <FileText className="h-3 w-3 mr-1 text-gray-400 mt-0.5" />
-                          <span className="text-xs text-gray-500 line-clamp-2">{customer.notes}</span>
+                          <span className="text-xs text-gray-500 line-clamp-2">{String(customer.notes)}</span>
                         </div>
                       )}
                       {customer.customFields && Object.entries(customer.customFields)
                         .filter(([key]) => !['userId', 'paymentMethod', 'note'].includes(key))
                         .map(([key, val]) => (
                           <div key={key} className="text-xs">
-                            <span className="font-medium">{key}:</span> {val as string}
+                            <span className="font-medium">{key}:</span> {String(val)}
                           </div>
                         ))}
                     </div>
