@@ -104,10 +104,16 @@ CREATE POLICY "Customers can view their own credentials."
 ON customer_credentials FOR SELECT
 USING (customer_id IN (SELECT customer_id FROM customer_portal_users WHERE auth_provider_id = auth.uid()));
 
--- Admins can manage credentials (assuming admin role check)
+-- Allow authenticated users to insert credentials for any customer
+DROP POLICY IF EXISTS "Authenticated users can create credentials." ON customer_credentials;
+CREATE POLICY "Authenticated users can create credentials."
+ON customer_credentials FOR INSERT
+WITH CHECK (auth.role() = 'authenticated');
+
+-- Admins can manage all credentials (assuming admin role check)
 DROP POLICY IF EXISTS "Admins can manage all credentials." ON customer_credentials;
 CREATE POLICY "Admins can manage all credentials."
-ON customer_credentials FOR ALL
+ON customer_credentials FOR UPDATE, DELETE
 USING (auth.role() = 'authenticated' AND EXISTS (SELECT 1 FROM public.users WHERE public.users.id = auth.uid() AND public.users.is_admin = TRUE));
 
 

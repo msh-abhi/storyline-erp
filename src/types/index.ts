@@ -299,8 +299,7 @@ export interface CustomerCredential {
   customer_id: string;
   server_url: string;
   server_id: string;
-  username?: string | null;
-  password?: string | null;
+  password: string; // Required in database
   mac_address?: string | null;
   expires_at?: string | null;
   notes?: string | null;

@@ -658,7 +658,7 @@ export const getCustomerCredentials = async (customerId: string): Promise<Custom
     console.error("supabaseService: Error fetching customer credentials:", error);
     throw error;
   }
-  return keysToCamel(data);
+  return data as CustomerCredential[]; // Don't convert keys - interface uses snake_case
   };
   // --- Dashboard Services ---
 
@@ -706,5 +706,97 @@ export const getCustomerPaymentTransactions = async (customerId: string): Promis
     .limit(10);
   if (error) throw error;
   return data.map(convertPaymentTransactionFromDb);
+};
 
+// --- NEW: Customer Credentials Management Services ---
+
+export const createCustomerCredential = async (credential: Omit<CustomerCredential, 'id' | 'created_at' | 'updated_at'>): Promise<CustomerCredential> => {
+  console.debug("supabaseService: Creating customer credential:", {
+    ...credential,
+    password: credential.password ? '[REDACTED]' : undefined // Don't log sensitive data
+  });
+
+  // Convert to snake_case for database
+  const snakeCaseData = keysToSnake(credential);
+  console.debug("supabaseService: Snake case data prepared for insert");
+
+  const { data, error } = await supabase
+    .from('customer_credentials')
+    .insert(snakeCaseData)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Supabase insert error:", error);
+    console.error("Error details:", JSON.stringify(error, null, 2));
+    console.error("Error code:", error.code);
+    console.error("Error message:", error.message);
+    console.error("Error hint:", error.hint);
+    console.error("Data attempted to insert:", JSON.stringify({
+      ...snakeCaseData,
+      password: snakeCaseData.password ? '[REDACTED]' : undefined
+    }, null, 2));
+
+    // Provide specific error messages for common issues
+    let userFriendlyMessage = "Failed to create credential";
+    if (error.code === '42501') {
+      userFriendlyMessage = "Permission denied: You don't have permission to create credentials. Please contact an administrator.";
+    } else if (error.code === '23505') {
+      userFriendlyMessage = "Credential already exists with this server configuration.";
+    } else if (error.code === '23503') {
+      userFriendlyMessage = "Invalid customer ID: The customer does not exist.";
+    } else if (error.message) {
+      userFriendlyMessage = `Failed to create credential: ${error.message}`;
+    }
+
+    throw new Error(userFriendlyMessage);
+  }
+
+  console.debug("supabaseService: Successfully created credential:", { id: data?.id, customer_id: data?.customer_id, server_url: data?.server_url });
+  return keysToCamel(data);
+};
+
+export const updateCustomerCredential = async (id: string, credential: Partial<CustomerCredential>): Promise<CustomerCredential> => {
+  console.debug("supabaseService: Updating customer credential:", id, credential);
+  const { data, error } = await supabase
+    .from('customer_credentials')
+    .update(keysToSnake(credential))
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Supabase update error:", error);
+    throw error;
+  }
+
+  return keysToCamel(data);
+};
+
+export const deleteCustomerCredential = async (id: string): Promise<void> => {
+  console.debug("supabaseService: Deleting customer credential:", id);
+  const { error } = await supabase
+    .from('customer_credentials')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error("Supabase delete error:", error);
+    throw error;
+  }
+};
+
+export const getCustomerCredentialsByCustomerId = async (customerId: string): Promise<CustomerCredential[]> => {
+  console.debug("supabaseService: Fetching credentials for customer_id:", customerId);
+  const { data, error } = await supabase
+    .from('customer_credentials')
+    .select('*')
+    .eq('customer_id', customerId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error("supabaseService: Error fetching customer credentials:", error);
+    throw error;
+  }
+  return data as CustomerCredential[]; // Don't convert keys - interface uses snake_case
 };

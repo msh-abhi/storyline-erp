@@ -1,10 +1,17 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, Search, User, Phone, Wifi, Upload, Download, X, Check, FileText, Calendar, CreditCard, Eye } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, User, Phone, Wifi, Upload, Download, X, Check, FileText, Calendar, CreditCard, Eye, Tv, Copy, Send, Shield, Mail } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../components/AuthProvider';
-import { Customer, Invoice } from '../types'; // Import Invoice type
+import { Customer, Invoice, CustomerCredential } from '../types'; // Import Invoice and CustomerCredential types
 import { toast } from 'react-toastify';
 import DataTable from './common/DataTable';
+import {
+  getCustomerCredentialsByCustomerId,
+  createCustomerCredential,
+  updateCustomerCredential,
+  deleteCustomerCredential
+} from '../services/supabaseService';
+import CredentialEmailService from '../services/credentialEmailService';
 
 export default function CustomerManagement() {
   const { state, actions } = useApp();
@@ -15,6 +22,22 @@ export default function CustomerManagement() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Credentials management state
+  const [customerCredentials, setCustomerCredentials] = useState<CustomerCredential[]>([]);
+  const [credentialsLoading, setCredentialsLoading] = useState(false);
+  const [showCredentialForm, setShowCredentialForm] = useState(false);
+  const [editingCredential, setEditingCredential] = useState<CustomerCredential | null>(null);
+  const [credentialFormData, setCredentialFormData] = useState<Omit<CustomerCredential, 'id' | 'created_at' | 'updated_at' | 'customer_id'>>({
+    server_url: '',
+    server_id: '',
+    password: '',
+    mac_address: '',
+    expires_at: '',
+    notes: ''
+  });
+  const [sendEmailNotification, setSendEmailNotification] = useState(true);
+  const [activeTab, setActiveTab] = useState<'details' | 'credentials'>('details');
   const [formData, setFormData] = useState<Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>>({
     name: '',
     email: '',
@@ -146,14 +169,17 @@ export default function CustomerManagement() {
     }
   };
 
-  const handleCustomerClick = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setShowCustomerModal(true);
-  };
+
 
   const handleCustomerModalClose = () => {
     setShowCustomerModal(false);
     setSelectedCustomer(null);
+    // Reset credentials state
+    setCustomerCredentials([]);
+    setShowCredentialForm(false);
+    setEditingCredential(null);
+    setCredentialsLoading(false);
+    setActiveTab('details');
   };
 
   const addCustomField = () => {
@@ -352,10 +378,143 @@ export default function CustomerManagement() {
     window.URL.revokeObjectURL(url);
   };
 
+  // Credentials Management Functions
+  const fetchCustomerCredentials = async (customerId: string) => {
+    try {
+      setCredentialsLoading(true);
+      const credentials = await getCustomerCredentialsByCustomerId(customerId);
+      setCustomerCredentials(credentials);
+    } catch (error: any) {
+      toast.error(`Failed to load credentials: ${error.message}`);
+    } finally {
+      setCredentialsLoading(false);
+    }
+  };
+
+  const handleCustomerClick = async (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setShowCustomerModal(true);
+    await fetchCustomerCredentials(customer.id);
+  };
+
+  const resetCredentialForm = () => {
+    setCredentialFormData({
+      server_url: '',
+      server_id: '',
+      password: '',
+      mac_address: '',
+      expires_at: '',
+      notes: ''
+    });
+    setShowCredentialForm(false);
+    setEditingCredential(null);
+  };
+
+  const handleAddCredential = () => {
+    if (!selectedCustomer) return;
+    resetCredentialForm();
+    setShowCredentialForm(true);
+  };
+
+  const handleEditCredential = (credential: CustomerCredential) => {
+    setCredentialFormData({
+      server_url: credential.server_url,
+      server_id: credential.server_id,
+      password: credential.password || '',
+      mac_address: credential.mac_address || '',
+      expires_at: credential.expires_at || '',
+      notes: credential.notes || ''
+    });
+    setEditingCredential(credential);
+    setShowCredentialForm(true);
+  };
+
+  const handleSaveCredential = async () => {
+    if (!selectedCustomer) return;
+
+    try {
+      const credentialData = {
+        ...credentialFormData,
+        customer_id: selectedCustomer.id
+      };
+
+      if (editingCredential) {
+        // Update existing credential
+        const updatedCredential = await updateCustomerCredential(editingCredential.id, credentialData);
+        setCustomerCredentials(prev => 
+          prev.map(c => c.id === editingCredential.id ? updatedCredential : c)
+        );
+        
+        if (sendEmailNotification) {
+          await CredentialEmailService.sendCredentialEmail(selectedCustomer, updatedCredential, 'updated');
+        }
+        toast.success('Credential updated successfully!');
+      } else {
+        // Create new credential
+        const newCredential = await createCustomerCredential(credentialData);
+        setCustomerCredentials(prev => [newCredential, ...prev]);
+        
+        if (sendEmailNotification) {
+          await CredentialEmailService.sendCredentialEmail(selectedCustomer, newCredential, 'created');
+        }
+        toast.success('Credential created and email sent successfully!');
+      }
+
+      resetCredentialForm();
+    } catch (error: any) {
+      toast.error(`Failed to save credential: ${error.message}`);
+    }
+  };
+
+  const handleDeleteCredential = async (credentialId: string) => {
+    if (!selectedCustomer) return;
+    
+    if (!confirm('Are you sure you want to delete this credential? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await deleteCustomerCredential(credentialId);
+      setCustomerCredentials(prev => prev.filter(c => c.id !== credentialId));
+      
+      const credential = customerCredentials.find(c => c.id === credentialId);
+      if (credential && sendEmailNotification) {
+        await CredentialEmailService.sendCredentialEmail(selectedCustomer, credential, 'deleted');
+      }
+      
+      toast.success('Credential deleted successfully!');
+    } catch (error: any) {
+      toast.error(`Failed to delete credential: ${error.message}`);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Copied to clipboard!');
+    });
+  };
+
+  const isCredentialExpired = (expiresAt: string | null) => {
+    if (!expiresAt) return false;
+    return new Date(expiresAt) < new Date();
+  };
+
   const calculateTotalSpent = (customerId: string): number => { // Explicitly type return as number
     return state.invoices
       .filter((inv: Invoice) => inv.customerId === customerId && inv.status === 'paid') // Explicitly type inv
       .reduce((acc: number, inv: Invoice) => acc + inv.amount, 0); // Explicitly type acc and inv
+  };
+
+  const handleResendCredentialEmail = async (credential: CustomerCredential) => {
+    if (!selectedCustomer) return;
+
+    try {
+      await CredentialEmailService.sendCredentialEmail(selectedCustomer, credential, 'created');
+      toast.success('Credential email sent successfully!');
+    } catch (error: any) {
+      toast.error(`Failed to send email: ${error.message}`);
+      console.error('Failed to resend credential email:', error);
+    }
   };
 
   return (
@@ -621,10 +780,10 @@ export default function CustomerManagement() {
         </div>
       )}
 
-      {/* Customer Details Modal */}
+      {/* Customer Details Modal with Tabs */}
       {showCustomerModal && selectedCustomer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+          <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-semibold text-gray-900">Customer Details</h3>
               <button
@@ -635,115 +794,448 @@ export default function CustomerManagement() {
               </button>
             </div>
 
-            <div className="space-y-6">
-              <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-                  <User className="h-8 w-8 text-blue-600" />
+            {/* Tab Navigation */}
+            <div className="border-b border-gray-200 mb-6">
+              <nav className="-mb-px flex space-x-8">
+                <button
+                  onClick={() => setActiveTab('details')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'details'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Customer Details
+                </button>
+                <button
+                  onClick={() => setActiveTab('credentials')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                    activeTab === 'credentials'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Tv className="h-4 w-4" />
+                  <span>IPTV Credentials ({customerCredentials.length})</span>
+                </button>
+              </nav>
+            </div>
+
+            {/* Tab Content */}
+            {activeTab === 'details' && (
+              <div className="space-y-6">
+                <div className="flex items-center space-x-4">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                    <User className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-2xl font-bold text-gray-900">{selectedCustomer.name}</h4>
+                    <p className="text-gray-600">{selectedCustomer.email}</p>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-2 ${
+                      selectedCustomer.status === 'active' ? 'bg-green-100 text-green-800' :
+                      selectedCustomer.status === 'inactive' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {selectedCustomer.status}
+                    </span>
+                  </div>
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Contact Information</h5>
+                    <div className="space-y-3">
+                      {selectedCustomer.phone && (
+                        <div className="flex items-center">
+                          <Phone className="h-4 w-4 text-gray-400 mr-3" />
+                          <span className="text-sm text-gray-900">{selectedCustomer.phone}</span>
+                        </div>
+                      )}
+                      {selectedCustomer.whatsappNumber && (
+                        <div className="flex items-center">
+                          <Phone className="h-4 w-4 text-gray-400 mr-3" />
+                          <span className="text-sm text-gray-900">WhatsApp: {selectedCustomer.whatsappNumber}</span>
+                        </div>
+                      )}
+                      {selectedCustomer.address && (
+                        <div className="text-sm text-gray-900">
+                          <p>{selectedCustomer.address}</p>
+                          {selectedCustomer.city && <p>{selectedCustomer.city}, {selectedCustomer.country} {selectedCustomer.postalCode}</p>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Device Information</h5>
+                    <div className="space-y-3">
+                      {selectedCustomer.macAddress && (
+                        <div className="flex items-center">
+                          <Wifi className="h-4 w-4 text-gray-400 mr-3" />
+                          <span className="text-sm text-gray-900">{selectedCustomer.macAddress}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {selectedCustomer.customFields && Object.keys(selectedCustomer.customFields).length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Additional Information</h5>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {Object.entries(selectedCustomer.customFields).map(([key, value]) => (
+                          <div key={key} className="text-sm">
+                            <span className="font-medium text-gray-700">{key}:</span>
+                            <span className="ml-2 text-gray-900">{value as string}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedCustomer.notes && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Notes</h5>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-start">
+                        <FileText className="h-4 w-4 text-gray-400 mr-3 mt-0.5" />
+                        <p className="text-sm text-gray-900">{selectedCustomer.notes}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="border-t pt-6">
+                  <div className="flex justify-between items-center text-sm text-gray-600">
+                    <span>Created: {selectedCustomer.createdAt ? new Date(selectedCustomer.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                    <span>Updated: {selectedCustomer.updatedAt ? new Date(selectedCustomer.updatedAt).toLocaleDateString() : 'Unknown'}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'credentials' && (
+              <div className="space-y-6">
+                {/* Credentials Header */}
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h5 className="text-lg font-medium text-gray-900">IPTV Credentials</h5>
+                    <p className="text-sm text-gray-600">Manage server credentials for {selectedCustomer.name}</p>
+                  </div>
+                  <button
+                    onClick={handleAddCredential}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Add Credential</span>
+                  </button>
+                </div>
+
+                {/* Email Notification Option */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="sendEmailNotification"
+                      checked={sendEmailNotification}
+                      onChange={(e) => setSendEmailNotification(e.target.checked)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="sendEmailNotification" className="ml-3 text-sm text-blue-800">
+                      Send email notification to customer when credentials are created, updated, or deleted
+                    </label>
+                  </div>
+                </div>
+
+                {/* Credentials List */}
+                {credentialsLoading ? (
+                  <div className="text-center p-8">
+                    <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading credentials...</p>
+                  </div>
+                ) : customerCredentials.length > 0 ? (
+                  <div className="space-y-4">
+                    {customerCredentials.map((credential) => (
+                      <div key={credential.id} className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h6 className="text-lg font-semibold text-blue-900">{credential.server_url}</h6>
+                              {credential.expires_at && isCredentialExpired(credential.expires_at) && (
+                                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                  Expired
+                                </span>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                              <div>
+                                <span className="font-medium text-blue-700">Server ID:</span>
+                                <div className="flex items-center mt-1">
+                                  <span className="font-mono text-blue-900 bg-blue-100 px-2 py-1 rounded flex-1">{credential.server_id}</span>
+                                  <button
+                                    onClick={() => copyToClipboard(credential.server_id || '')}
+                                    className="ml-2 text-blue-600 hover:text-blue-800"
+                                  >
+                                    <Copy className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
+                              
+
+                              
+                              {credential.password && (
+                                <div>
+                                  <span className="font-medium text-blue-700">Password:</span>
+                                  <div className="flex items-center mt-1">
+                                    <span className="font-mono text-blue-900 bg-blue-100 px-2 py-1 rounded flex-1">{credential.password}</span>
+                                    <button
+                                      onClick={() => copyToClipboard(credential.password || '')}
+                                      className="ml-2 text-blue-600 hover:text-blue-800"
+                                    >
+                                      <Copy className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {credential.mac_address && (
+                                <div>
+                                  <span className="font-medium text-blue-700">MAC Address:</span>
+                                  <div className="flex items-center mt-1">
+                                    <span className="font-mono text-blue-900 bg-blue-100 px-2 py-1 rounded flex-1">{credential.mac_address}</span>
+                                    <button
+                                      onClick={() => copyToClipboard(credential.mac_address || '')}
+                                      className="ml-2 text-blue-600 hover:text-blue-800"
+                                    >
+                                      <Copy className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {credential.expires_at && (
+                                <div>
+                                  <span className="font-medium text-blue-700">Expires:</span>
+                                  <span className="ml-2 text-blue-900">{new Date(credential.expires_at).toLocaleDateString()}</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {credential.notes && (
+                              <div className="mt-4 p-3 bg-blue-100 border border-blue-200 rounded-lg">
+                                <span className="text-sm font-medium text-blue-800">Notes: </span>
+                                <span className="text-sm text-blue-700">{credential.notes}</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex space-x-2 ml-4">
+                            <button
+                              onClick={() => handleResendCredentialEmail(credential)}
+                              className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-lg transition-colors"
+                              title="Send email again"
+                            >
+                              <Mail className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEditCredential(credential)}
+                              className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
+                              title="Edit credential"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCredential(credential.id)}
+                              className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-lg transition-colors"
+                              title="Delete credential"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="text-xs text-gray-500 border-t border-blue-200 pt-3">
+                          Created: {credential.created_at ? new Date(credential.created_at).toLocaleDateString() : 'Unknown'}
+                          {credential.updated_at && credential.updated_at !== credential.created_at && (
+                            <span className="ml-4">Updated: {new Date(credential.updated_at).toLocaleDateString()}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center p-8 bg-gray-50 rounded-lg border border-gray-200">
+                    <Tv className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h6 className="text-lg font-medium text-gray-900 mb-2">No credentials found</h6>
+                    <p className="text-gray-600">This customer doesn't have any IPTV credentials yet.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Modal Footer */}
+            <div className="flex justify-end space-x-4 pt-6 border-t mt-6">
+              <button
+                onClick={handleCustomerModalClose}
+                className="px-6 py-3 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  handleCustomerModalClose();
+                  handleEdit(selectedCustomer);
+                }}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Edit Customer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Credential Form Modal */}
+      {showCredentialForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">
+                {editingCredential ? 'Edit IPTV Credential' : 'Add New IPTV Credential'}
+              </h3>
+              <button
+                onClick={resetCredentialForm}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveCredential(); }} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h4 className="text-2xl font-bold text-gray-900">{selectedCustomer.name}</h4>
-                  <p className="text-gray-600">{selectedCustomer.email}</p>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-2 ${
-                    selectedCustomer.status === 'active' ? 'bg-green-100 text-green-800' :
-                    selectedCustomer.status === 'inactive' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {selectedCustomer.status}
-                  </span>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Server URL *
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    value={credentialFormData.server_url}
+                    onChange={(e) => setCredentialFormData(prev => ({ ...prev, server_url: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="http://example.com:8000"
+                  />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Server ID *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={credentialFormData.server_id}
+                    onChange={(e) => setCredentialFormData(prev => ({ ...prev, server_id: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="SERVER001"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Password *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={credentialFormData.password}
+                  onChange={(e) => setCredentialFormData(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter password"
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Contact Information</h5>
-                  <div className="space-y-3">
-                    {selectedCustomer.phone && (
-                      <div className="flex items-center">
-                        <Phone className="h-4 w-4 text-gray-400 mr-3" />
-                        <span className="text-sm text-gray-900">{selectedCustomer.phone}</span>
-                      </div>
-                    )}
-                    {selectedCustomer.whatsappNumber && (
-                      <div className="flex items-center">
-                        <Phone className="h-4 w-4 text-gray-400 mr-3" />
-                        <span className="text-sm text-gray-900">WhatsApp: {selectedCustomer.whatsappNumber}</span>
-                      </div>
-                    )}
-                    {selectedCustomer.address && (
-                      <div className="text-sm text-gray-900">
-                        <p>{selectedCustomer.address}</p>
-                        {selectedCustomer.city && <p>{selectedCustomer.city}, {selectedCustomer.country} {selectedCustomer.postalCode}</p>}
-                      </div>
-                    )}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    MAC Address
+                  </label>
+                  <div className="relative">
+                    <Wifi className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={credentialFormData.mac_address}
+                      onChange={(e) => setCredentialFormData(prev => ({ ...prev, mac_address: e.target.value }))}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="00:00:00:00:00:00"
+                    />
                   </div>
                 </div>
 
                 <div>
-                  <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Device Information</h5>
-                  <div className="space-y-3">
-                    {selectedCustomer.macAddress && (
-                      <div className="flex items-center">
-                        <Wifi className="h-4 w-4 text-gray-400 mr-3" />
-                        <span className="text-sm text-gray-900">{selectedCustomer.macAddress}</span>
-                      </div>
-                    )}
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Expires At
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={credentialFormData.expires_at}
+                    onChange={(e) => setCredentialFormData(prev => ({ ...prev, expires_at: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
                 </div>
               </div>
 
-              {selectedCustomer.customFields && Object.keys(selectedCustomer.customFields).length > 0 && (
-                <div>
-                  <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Additional Information</h5>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {Object.entries(selectedCustomer.customFields).map(([key, value]) => (
-                        <div key={key} className="text-sm">
-                          <span className="font-medium text-gray-700">{key}:</span>
-                          <span className="ml-2 text-gray-900">{value as string}</span>
-                        </div>
-                      ))}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  rows={3}
+                  value={credentialFormData.notes}
+                  onChange={(e) => setCredentialFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Any additional notes about this credential..."
+                />
+              </div>
+
+              {/* Email Notification Display */}
+              {sendEmailNotification && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <Send className="h-5 w-5 text-blue-600 mr-2" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">Email Notification</p>
+                      <p className="text-sm text-blue-600">
+                        {editingCredential 
+                          ? 'Customer will receive an email with the updated credentials.'
+                          : 'Customer will receive an email with the new credentials.'
+                        }
+                      </p>
                     </div>
                   </div>
                 </div>
               )}
 
-              {selectedCustomer.notes && (
-                <div>
-                  <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Notes</h5>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-start">
-                      <FileText className="h-4 w-4 text-gray-400 mr-3 mt-0.5" />
-                      <p className="text-sm text-gray-900">{selectedCustomer.notes}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="border-t pt-6">
-                <div className="flex justify-between items-center text-sm text-gray-600">
-                  <span>Created: {selectedCustomer.createdAt ? new Date(selectedCustomer.createdAt).toLocaleDateString() : 'Unknown'}</span>
-                  <span>Updated: {selectedCustomer.updatedAt ? new Date(selectedCustomer.updatedAt).toLocaleDateString() : 'Unknown'}</span>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-4 pt-6 border-t">
+              <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
                 <button
-                  onClick={handleCustomerModalClose}
+                  type="button"
+                  onClick={resetCredentialForm}
                   className="px-6 py-3 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  Close
+                  Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    handleCustomerModalClose();
-                    handleEdit(selectedCustomer);
-                  }}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  type="submit"
+                  disabled={!credentialFormData.server_url || !credentialFormData.server_id}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Edit Customer
+                  {editingCredential ? 'Update' : 'Create'} Credential
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
