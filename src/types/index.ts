@@ -298,7 +298,7 @@ export interface CustomerCredential {
   id: string;
   customer_id: string;
   server_url: string;
-  server_id: string;
+  server_id: string; // This will be renamed to username in the database
   password: string; // Required in database
   mac_address?: string | null;
   expires_at?: string | null;

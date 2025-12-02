@@ -15,7 +15,7 @@ const CredentialCard = ({ credential }: { credential: CustomerCredential }) => {
       
       <div className="space-y-3 pt-2">
         <p className="text-blue-900 flex justify-between">
-          <strong className="font-medium">Server ID:</strong>
+          <strong className="font-medium">User Name:</strong>
           <span className="font-mono text-blue-900 bg-blue-200 px-2 py-1 rounded-md">{credential.server_id}</span>
         </p>
 

@@ -112,7 +112,7 @@ export class CredentialEmailService {
                       </div>
                       
                       <div style="margin: 15px 0;">
-                        <strong>Server ID:</strong><br>
+                        <strong>User Name:</strong><br>
                         <span style="font-family: monospace; background-color: #e9ecef; padding: 5px; border-radius: 3px;">${credential.server_id}</span>
                       </div>
                       

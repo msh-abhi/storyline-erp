@@ -986,7 +986,7 @@ export default function CustomerManagement() {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                               <div>
-                                <span className="font-medium text-blue-700">Server ID:</span>
+                                <span className="font-medium text-blue-700">User Name:</span>
                                 <div className="flex items-center mt-1">
                                   <span className="font-mono text-blue-900 bg-blue-100 px-2 py-1 rounded flex-1">{credential.server_id}</span>
                                   <button
@@ -1146,7 +1146,7 @@ export default function CustomerManagement() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Server ID *
+                    User Name *
                   </label>
                   <input
                     type="text"
@@ -1154,7 +1154,6 @@ export default function CustomerManagement() {
                     value={credentialFormData.server_id}
                     onChange={(e) => setCredentialFormData(prev => ({ ...prev, server_id: e.target.value }))}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="SERVER001"
                   />
                 </div>
               </div>

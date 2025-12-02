@@ -173,7 +173,7 @@ const CustomerPortalDashboard: React.FC = () => {
           id: `cred-${cred.id}`,
           type: 'device',
           title: 'Device Credentials',
-          description: `Server: ${cred.server_id}`,
+          description: `User Name: ${cred.server_id}`,
           timestamp: timestamp || new Date().toISOString(),
           status: 'completed'
         });

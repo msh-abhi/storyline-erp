@@ -38,7 +38,7 @@ SELECT
 Her er dine IPTV-oplysninger. Gem disse oplysninger sikkert.
 
 Server URL: {{serverUrl}}
-Server ID: {{serverId}}
+User Name: {{serverId}}
 Password: {{password}}
 MAC Address: {{macAddress}}
 Expires: {{expiresAt}}
@@ -67,7 +67,7 @@ SELECT
 Dine IPTV-oplysninger er blevet opdateret. Her er de nye oplysninger:
 
 Server URL: {{serverUrl}}
-Server ID: {{serverId}}
+User Name: {{serverId}}
 Password: {{password}}
 MAC Address: {{macAddress}}
 Expires: {{expiresAt}}
