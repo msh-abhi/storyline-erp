@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, Search, User, Phone, Wifi, Upload, Download, X, Check, FileText, Calendar, CreditCard, Eye, Tv, Copy, Send, Shield, Mail } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, User, Phone, Wifi, Upload, Download, X, Check, FileText, Calendar, CreditCard, Eye, Tv, Copy, Send, Mail } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../components/AuthProvider';
-import { Customer, Invoice, CustomerCredential } from '../types'; // Import Invoice and CustomerCredential types
+import { Customer, CustomerCredential } from '../types'; // Import CustomerCredential type
 import { toast } from 'react-toastify';
 import DataTable from './common/DataTable';
 import {
@@ -55,7 +55,6 @@ export default function CustomerManagement() {
   });
 
   // CSV Import state
-  const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvData, setCsvData] = useState<any[]>([]);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [fieldMapping, setFieldMapping] = useState<Record<string, string>>({});
@@ -211,7 +210,6 @@ export default function CustomerManagement() {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.type === 'text/csv') {
-      setCsvFile(file);
       parseCSV(file);
     } else {
       alert('Please select a valid CSV file');
@@ -357,7 +355,6 @@ export default function CustomerManagement() {
   };
 
   const resetImportState = () => {
-    setCsvFile(null);
     setCsvData([]);
     setCsvHeaders([]);
     setFieldMapping({});
@@ -514,11 +511,6 @@ export default function CustomerManagement() {
     return new Date(expiresAt) < new Date();
   };
 
-  const calculateTotalSpent = (customerId: string): number => { // Explicitly type return as number
-    return state.invoices
-      .filter((inv: Invoice) => inv.customerId === customerId && inv.status === 'paid') // Explicitly type inv
-      .reduce((acc: number, inv: Invoice) => acc + inv.amount, 0); // Explicitly type acc and inv
-  };
 
   const handleResendCredentialEmail = async (credential: CustomerCredential) => {
     if (!selectedCustomer) return;
@@ -1181,7 +1173,7 @@ export default function CustomerManagement() {
                     <Wifi className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <input
                       type="text"
-                      value={credentialFormData.mac_address}
+                      value={credentialFormData.mac_address || ''}
                       onChange={(e) => setCredentialFormData(prev => ({ ...prev, mac_address: e.target.value }))}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="00:00:00:00:00:00"
@@ -1195,7 +1187,7 @@ export default function CustomerManagement() {
                   </label>
                   <input
                     type="datetime-local"
-                    value={credentialFormData.expires_at}
+                    value={credentialFormData.expires_at || ''}
                     onChange={(e) => setCredentialFormData(prev => ({ ...prev, expires_at: e.target.value }))}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -1208,7 +1200,7 @@ export default function CustomerManagement() {
                 </label>
                 <textarea
                   rows={3}
-                  value={credentialFormData.notes}
+                  value={credentialFormData.notes || ''}
                   onChange={(e) => setCredentialFormData(prev => ({ ...prev, notes: e.target.value }))}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Any additional notes about this credential..."
@@ -1527,7 +1519,7 @@ export default function CustomerManagement() {
                 {
                   key: 'name',
                   label: 'Customer',
-                  render: (value, customer) => (
+                  render: (_, customer) => (
                     <div 
                       className="flex items-center cursor-pointer hover:bg-blue-50 rounded-lg p-2 transition-colors"
                       onClick={() => handleCustomerClick(customer)}
@@ -1549,7 +1541,7 @@ export default function CustomerManagement() {
                 {
                   key: 'email',
                   label: 'Contact Info',
-                  render: (value, customer) => (
+                  render: (_, customer) => (
                     <div>
                       <div className="text-sm text-gray-900">{customer.email}</div>
                       {customer.whatsappNumber && (
@@ -1564,7 +1556,7 @@ export default function CustomerManagement() {
                 {
                   key: 'macAddress',
                   label: 'Device Info',
-                  render: (value, customer) => customer.macAddress ? (
+                  render: (_, customer) => customer.macAddress ? (
                     <div className="text-sm text-gray-900 flex items-center">
                       <Wifi className="h-3 w-3 mr-1" />
                       {customer.macAddress}
@@ -1576,7 +1568,7 @@ export default function CustomerManagement() {
                 {
                   key: 'customFields',
                   label: 'User Details',
-                  render: (value, customer) => (
+                  render: (_, customer) => (
                     <div className="text-sm text-gray-600 space-y-1">
                       {customer.customFields?.userId && (
                         <div className="flex items-center">
@@ -1623,7 +1615,7 @@ export default function CustomerManagement() {
                 {
                   key: 'actions',
                   label: 'Actions',
-                  render: (value, customer) => (
+                  render: (_, customer) => (
                     <div className="flex justify-end space-x-2">
                       <button
                         onClick={() => handleEdit(customer)}

@@ -53,8 +53,6 @@ const CustomerPortalDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const customerName = userProfile?.email?.split('@')[0] || authUser?.email?.split('@')[0] || 'Customer';
-  const customerEmail = authUser?.email || 'customer@example.com';
-  // customerEmail is used for email-related displays throughout the component
 
   // Use type assertion to access the camelCase properties after keysToCamel conversion
   const portalUser = customerPortalUser as any;
