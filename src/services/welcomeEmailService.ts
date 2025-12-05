@@ -99,86 +99,9 @@ export const welcomeEmailService = {
   },
 
   // Helper: Create professional HTML email with Danish content
-  createHtmlEmail(template: EmailTemplate, templateData: Record<string, string>): string {
-    const processedContent = template.content.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-      return templateData[key] || match;
-    });
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Velkommen til Jysk-Streaming</title>
-        </head>
-        <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-          <table role="presentation" style="width: 100%; background-color: #f4f4f4; padding: 20px 0;">
-            <tr>
-              <td align="center">
-                <table role="presentation" style="max-width: 600px; width: 100%; background-color: white; border-radius: 10px;">
-                  <!-- Header -->
-                  <tr>
-                    <td style="padding: 30px 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px 10px 0 0; text-align: center;">
-                      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Jysk-Streaming</h1>
-                    </td>
-                  </tr>
-                  
-                  <!-- Content -->
-                  <tr>
-                    <td style="padding: 40px;">
-                      <h2 style="color: #333; font-size: 24px; margin-bottom: 20px;">Velkommen ${templateData.name}!</h2>
-                      <p style="line-height: 1.6; color: #333; font-size: 16px; margin-bottom: 20px;">
-                        Vi hos Jysk-Streaming vil gerne byde dig varmt velkommen til vores fællesskab! Vi er utrolig glade for, at du har valgt os til at levere underholdning lige til din stue.
-                      </p>
-                      
-                      <!-- Service highlights -->
-                      <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                        <h3 style="color: #667eea; margin-top: 0;">Hvad vi tilbyder:</h3>
-                        <ul style="padding-left: 20px; line-height: 1.8;">
-                          <li>Personlig service – Du kan altid regne med, at vi står klar til at hjælpe dig</li>
-                          <li>Ægte jysk hygge – Vi sætter pris på nærvær og gode oplevelser</li>
-                          <li>Stort udvalg – Film, serier, sport og dokumentarer til hele familien</li>
-                          <li>Skræddersyet til dig – Vi arbejder hver dag på at gøre din oplevelse bedre og mere personlig</li>
-                        </ul>
-                      </div>
-                      
-                      <!-- Contact information -->
-                      <div style="margin: 30px 0;">
-                        <h3 style="color: #667eea;">Vi er her for dig!</h3>
-                        <p style="margin-bottom: 15px;">Har du spørgsmål eller brug for hjælp? Du er altid velkommen til at kontakte os:</p>
-                        <p style="margin: 5px 0;">📧 Skriv til os: kontakt@jysk-streaming.fun</p>
-                        <p style="margin: 5px 0;">💬 WhatsApp: +45 91624906</p>
-                        <p style="margin-top: 15px; font-style: italic;">Vi svarer hurtigt og med et smil!</p>
-                      </div>
-                      
-                      <!-- Closing -->
-                      <p style="margin-top: 30px;">
-                        Endnu en gang – velkommen til Jysk-Streaming! Vi glæder os til at være din streamingpartner og håber, du får masser af gode oplevelser hos os.
-                      </p>
-                    </td>
-                  </tr>
-                  
-                  <!-- Footer -->
-                  <tr>
-                    <td style="padding: 30px 40px; background-color: #f8f9fa; border-radius: 0 0 10px 10px; text-align: center;">
-                      <p style="margin: 0; color: #666; font-size: 14px;">
-                        <strong>Med venlig hilsen<br>
-                        Jysk-Streaming Teamet</strong>
-                      </p>
-                      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                      <p style="margin: 0; color: #999; font-size: 12px;">
-                        Denne e-mail blev sendt til ${templateData.email} som en del af vores velkomstproces.
-                      </p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-      </html>
-    `;
+  createHtmlEmail(_template: EmailTemplate, templateData: Record<string, string>): string {
+    // NOTE: HTML must NOT have indentation/whitespace in template literals - email clients render it as gaps
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Velkommen til Jysk-Streaming</title></head><body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;"><table role="presentation" style="width: 100%; background-color: #f4f4f4; padding: 20px 0;"><tr><td align="center"><table role="presentation" style="max-width: 600px; width: 100%; background-color: white; border-radius: 10px;"><tr><td style="padding: 30px 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px 10px 0 0; text-align: center;"><h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Jysk-Streaming</h1></td></tr><tr><td style="padding: 40px;"><h2 style="color: #333; font-size: 24px; margin-bottom: 20px;">Velkommen ${templateData.name}!</h2><p style="line-height: 1.6; color: #333; font-size: 16px; margin-bottom: 20px;">Vi hos Jysk-Streaming vil gerne byde dig varmt velkommen til vores fællesskab! Vi er utrolig glade for, at du har valgt os til at levere underholdning lige til din stue.</p><div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;"><h3 style="color: #667eea; margin-top: 0;">Hvad vi tilbyder:</h3><ul style="padding-left: 20px; line-height: 1.8;"><li>Personlig service – Du kan altid regne med, at vi står klar til at hjælpe dig</li><li>Ægte jysk hygge – Vi sætter pris på nærvær og gode oplevelser</li><li>Stort udvalg – Film, serier, sport og dokumentarer til hele familien</li><li>Skræddersyet til dig – Vi arbejder hver dag på at gøre din oplevelse bedre og mere personlig</li></ul></div><div style="margin: 30px 0;"><h3 style="color: #667eea;">Vi er her for dig!</h3><p style="margin-bottom: 15px;">Har du spørgsmål eller brug for hjælp? Du er altid velkommen til at kontakte os:</p><p style="margin: 5px 0;">📧 Skriv til os: kontakt@jysk-streaming.fun</p><p style="margin: 5px 0;">💬 WhatsApp: +45 91624906</p><p style="margin-top: 15px; font-style: italic;">Vi svarer hurtigt og med et smil!</p></div><p style="margin-top: 30px;">Endnu en gang – velkommen til Jysk-Streaming! Vi glæder os til at være din streamingpartner og håber, du får masser af gode oplevelser hos os.</p></td></tr><tr><td style="padding: 30px 40px; background-color: #f8f9fa; border-radius: 0 0 10px 10px; text-align: center;"><p style="margin: 0; color: #666; font-size: 14px;"><strong>Med venlig hilsen<br>Jysk-Streaming Teamet</strong></p><hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;"><p style="margin: 0; color: #999; font-size: 12px;">Denne e-mail blev sendt til ${templateData.email} som en del af vores velkomstproces.</p></td></tr></table></td></tr></table></body></html>`;
   },
 
   // Log welcome email sending for tracking and analytics
