@@ -438,10 +438,10 @@ export default function CustomerManagement() {
       if (editingCredential) {
         // Update existing credential
         const updatedCredential = await updateCustomerCredential(editingCredential.id, credentialData);
-        setCustomerCredentials(prev => 
+        setCustomerCredentials(prev =>
           prev.map(c => c.id === editingCredential.id ? updatedCredential : c)
         );
-        
+
         if (sendEmailNotification) {
           await CredentialEmailService.sendCredentialEmail(selectedCustomer, updatedCredential, 'updated');
         }
@@ -480,7 +480,7 @@ export default function CustomerManagement() {
 
   const handleDeleteCredential = async (credentialId: string) => {
     if (!selectedCustomer) return;
-    
+
     if (!confirm('Are you sure you want to delete this credential? This action cannot be undone.')) {
       return;
     }
@@ -488,12 +488,12 @@ export default function CustomerManagement() {
     try {
       await deleteCustomerCredential(credentialId);
       setCustomerCredentials(prev => prev.filter(c => c.id !== credentialId));
-      
+
       const credential = customerCredentials.find(c => c.id === credentialId);
       if (credential && sendEmailNotification) {
         await CredentialEmailService.sendCredentialEmail(selectedCustomer, credential, 'deleted');
       }
-      
+
       toast.success('Credential deleted successfully!');
     } catch (error: any) {
       toast.error(`Failed to delete credential: ${error.message}`);
@@ -806,21 +806,19 @@ export default function CustomerManagement() {
               <nav className="-mb-px flex space-x-8">
                 <button
                   onClick={() => setActiveTab('details')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'details'
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'details'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   Customer Details
                 </button>
                 <button
                   onClick={() => setActiveTab('credentials')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
-                    activeTab === 'credentials'
+                  className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${activeTab === 'credentials'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <Tv className="h-4 w-4" />
                   <span>IPTV Credentials ({customerCredentials.length})</span>
@@ -838,11 +836,10 @@ export default function CustomerManagement() {
                   <div>
                     <h4 className="text-2xl font-bold text-gray-900">{selectedCustomer.name}</h4>
                     <p className="text-gray-600">{selectedCustomer.email}</p>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-2 ${
-                      selectedCustomer.status === 'active' ? 'bg-green-100 text-green-800' :
-                      selectedCustomer.status === 'inactive' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-2 ${selectedCustomer.status === 'active' ? 'bg-green-100 text-green-800' :
+                        selectedCustomer.status === 'inactive' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                      }`}>
                       {selectedCustomer.status}
                     </span>
                   </div>
@@ -989,9 +986,9 @@ export default function CustomerManagement() {
                                   </button>
                                 </div>
                               </div>
-                              
 
-                              
+
+
                               {credential.password && (
                                 <div>
                                   <span className="font-medium text-blue-700">Password:</span>
@@ -1021,7 +1018,7 @@ export default function CustomerManagement() {
                                   </div>
                                 </div>
                               )}
-                              
+
                               {credential.expires_at && (
                                 <div>
                                   <span className="font-medium text-blue-700">Expires:</span>
@@ -1029,7 +1026,7 @@ export default function CustomerManagement() {
                                 </div>
                               )}
                             </div>
-                            
+
                             {credential.notes && (
                               <div className="mt-4 p-3 bg-blue-100 border border-blue-200 rounded-lg">
                                 <span className="text-sm font-medium text-blue-800">Notes: </span>
@@ -1037,7 +1034,7 @@ export default function CustomerManagement() {
                               </div>
                             )}
                           </div>
-                          
+
                           <div className="flex space-x-2 ml-4">
                             <button
                               onClick={() => handleResendCredentialEmail(credential)}
@@ -1062,7 +1059,7 @@ export default function CustomerManagement() {
                             </button>
                           </div>
                         </div>
-                        
+
                         <div className="text-xs text-gray-500 border-t border-blue-200 pt-3">
                           Created: {credential.created_at ? new Date(credential.created_at).toLocaleDateString() : 'Unknown'}
                           {credential.updated_at && credential.updated_at !== credential.created_at && (
@@ -1127,12 +1124,12 @@ export default function CustomerManagement() {
                     Server URL *
                   </label>
                   <input
-                    type="url"
+                    type="text"
                     required
                     value={credentialFormData.server_url}
                     onChange={(e) => setCredentialFormData(prev => ({ ...prev, server_url: e.target.value }))}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="http://example.com:8000"
+                    placeholder="http://example.com or http://example.com:8000"
                   />
                 </div>
 
@@ -1215,7 +1212,7 @@ export default function CustomerManagement() {
                     <div>
                       <p className="text-sm font-medium text-blue-800">Email Notification</p>
                       <p className="text-sm text-blue-600">
-                        {editingCredential 
+                        {editingCredential
                           ? 'Customer will receive an email with the updated credentials.'
                           : 'Customer will receive an email with the new credentials.'
                         }
@@ -1511,135 +1508,135 @@ export default function CustomerManagement() {
       {/* Customer List */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         {state.loading ? (
-            <div className="p-12 text-center">Loading customers...</div>
-          ) : (
-            <DataTable
-              data={sortedCustomers}
-              columns={[
-                {
-                  key: 'name',
-                  label: 'Customer',
-                  render: (_, customer) => (
-                    <div 
-                      className="flex items-center cursor-pointer hover:bg-blue-50 rounded-lg p-2 transition-colors"
-                      onClick={() => handleCustomerClick(customer)}
+          <div className="p-12 text-center">Loading customers...</div>
+        ) : (
+          <DataTable
+            data={sortedCustomers}
+            columns={[
+              {
+                key: 'name',
+                label: 'Customer',
+                render: (_, customer) => (
+                  <div
+                    className="flex items-center cursor-pointer hover:bg-blue-50 rounded-lg p-2 transition-colors"
+                    onClick={() => handleCustomerClick(customer)}
+                  >
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <User className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <div className="font-medium text-blue-600 hover:text-blue-800">{customer.name}</div>
+                      <div className="text-sm text-gray-500">{customer.email}</div>
+                      <div className="text-xs text-gray-400 mt-1 flex items-center">
+                        <Eye className="h-3 w-3 mr-1" />
+                        Click to view details
+                      </div>
+                    </div>
+                  </div>
+                )
+              },
+              {
+                key: 'email',
+                label: 'Contact Info',
+                render: (_, customer) => (
+                  <div>
+                    <div className="text-sm text-gray-900">{customer.email}</div>
+                    {customer.whatsappNumber && (
+                      <div className="text-sm text-gray-500 flex items-center">
+                        <Phone className="h-3 w-3 mr-1" />
+                        {String(customer.whatsappNumber)}
+                      </div>
+                    )}
+                  </div>
+                )
+              },
+              {
+                key: 'macAddress',
+                label: 'Device Info',
+                render: (_, customer) => customer.macAddress ? (
+                  <div className="text-sm text-gray-900 flex items-center">
+                    <Wifi className="h-3 w-3 mr-1" />
+                    {customer.macAddress}
+                  </div>
+                ) : (
+                  <span className="text-gray-400">-</span>
+                )
+              },
+              {
+                key: 'customFields',
+                label: 'User Details',
+                render: (_, customer) => (
+                  <div className="text-sm text-gray-600 space-y-1">
+                    {customer.customFields?.userId && (
+                      <div className="flex items-center">
+                        <User className="h-3 w-3 mr-1 text-gray-400" />
+                        <span className="font-medium">ID:</span> {String(customer.customFields.userId)}
+                      </div>
+                    )}
+                    {customer.customFields?.paymentMethod && (
+                      <div className="flex items-center">
+                        <CreditCard className="h-3 w-3 mr-1 text-gray-400" />
+                        <span className="font-medium">Payment:</span>
+                        <span className="ml-1 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                          {String(customer.customFields.paymentMethod)}
+                        </span>
+                      </div>
+                    )}
+                    {customer.notes && (
+                      <div className="flex items-start">
+                        <FileText className="h-3 w-3 mr-1 text-gray-400 mt-0.5" />
+                        <span className="text-xs text-gray-500 line-clamp-2">{String(customer.notes)}</span>
+                      </div>
+                    )}
+                    {customer.customFields && Object.entries(customer.customFields)
+                      .filter(([key]) => !['userId', 'paymentMethod', 'note'].includes(key))
+                      .map(([key, val]) => (
+                        <div key={key} className="text-xs">
+                          <span className="font-medium">{key}:</span> {String(val)}
+                        </div>
+                      ))}
+                  </div>
+                )
+              },
+              {
+                key: 'createdAt',
+                label: 'Created',
+                sortable: true,
+                render: (value) => (
+                  <div className="text-sm text-gray-600 flex items-center">
+                    <Calendar className="h-3 w-3 mr-1" />
+                    {value ? new Date(value).toLocaleDateString() : '-'}
+                  </div>
+                )
+              },
+              {
+                key: 'actions',
+                label: 'Actions',
+                render: (_, customer) => (
+                  <div className="flex justify-end space-x-2">
+                    <button
+                      onClick={() => handleEdit(customer)}
+                      className="text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-50 rounded-lg transition-colors"
                     >
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <User className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div className="ml-4">
-                        <div className="font-medium text-blue-600 hover:text-blue-800">{customer.name}</div>
-                        <div className="text-sm text-gray-500">{customer.email}</div>
-                        <div className="text-xs text-gray-400 mt-1 flex items-center">
-                          <Eye className="h-3 w-3 mr-1" />
-                          Click to view details
-                        </div>
-                      </div>
-                    </div>
-                  )
-                },
-                {
-                  key: 'email',
-                  label: 'Contact Info',
-                  render: (_, customer) => (
-                    <div>
-                      <div className="text-sm text-gray-900">{customer.email}</div>
-                      {customer.whatsappNumber && (
-                        <div className="text-sm text-gray-500 flex items-center">
-                          <Phone className="h-3 w-3 mr-1" />
-                          {String(customer.whatsappNumber)}
-                        </div>
-                      )}
-                    </div>
-                  )
-                },
-                {
-                  key: 'macAddress',
-                  label: 'Device Info',
-                  render: (_, customer) => customer.macAddress ? (
-                    <div className="text-sm text-gray-900 flex items-center">
-                      <Wifi className="h-3 w-3 mr-1" />
-                      {customer.macAddress}
-                    </div>
-                  ) : (
-                    <span className="text-gray-400">-</span>
-                  )
-                },
-                {
-                  key: 'customFields',
-                  label: 'User Details',
-                  render: (_, customer) => (
-                    <div className="text-sm text-gray-600 space-y-1">
-                      {customer.customFields?.userId && (
-                        <div className="flex items-center">
-                          <User className="h-3 w-3 mr-1 text-gray-400" />
-                          <span className="font-medium">ID:</span> {String(customer.customFields.userId)}
-                        </div>
-                      )}
-                      {customer.customFields?.paymentMethod && (
-                        <div className="flex items-center">
-                          <CreditCard className="h-3 w-3 mr-1 text-gray-400" />
-                          <span className="font-medium">Payment:</span>
-                          <span className="ml-1 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
-                            {String(customer.customFields.paymentMethod)}
-                          </span>
-                        </div>
-                      )}
-                      {customer.notes && (
-                        <div className="flex items-start">
-                          <FileText className="h-3 w-3 mr-1 text-gray-400 mt-0.5" />
-                          <span className="text-xs text-gray-500 line-clamp-2">{String(customer.notes)}</span>
-                        </div>
-                      )}
-                      {customer.customFields && Object.entries(customer.customFields)
-                        .filter(([key]) => !['userId', 'paymentMethod', 'note'].includes(key))
-                        .map(([key, val]) => (
-                          <div key={key} className="text-xs">
-                            <span className="font-medium">{key}:</span> {String(val)}
-                          </div>
-                        ))}
-                    </div>
-                  )
-                },
-                {
-                  key: 'createdAt',
-                  label: 'Created',
-                  sortable: true,
-                  render: (value) => (
-                    <div className="text-sm text-gray-600 flex items-center">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {value ? new Date(value).toLocaleDateString() : '-'}
-                    </div>
-                  )
-                },
-                {
-                  key: 'actions',
-                  label: 'Actions',
-                  render: (_, customer) => (
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={() => handleEdit(customer)}
-                        className="text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(customer.id)}
-                        className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )
-                }
-              ]}
-              searchKeys={['name', 'email', 'macAddress', 'whatsappNumber'] as (keyof Customer)[]}
-              pageSize={25}
-              emptyMessage="No customers found"
-              className="shadow-lg border border-gray-200"
-            />
-          )}
-        </div>
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(customer.id)}
+                      className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )
+              }
+            ]}
+            searchKeys={['name', 'email', 'macAddress', 'whatsappNumber'] as (keyof Customer)[]}
+            pageSize={25}
+            emptyMessage="No customers found"
+            className="shadow-lg border border-gray-200"
+          />
+        )}
       </div>
-    );
-  }
+    </div>
+  );
+}
