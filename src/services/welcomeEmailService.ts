@@ -65,24 +65,18 @@ export const welcomeEmailService = {
         phone: customer.phone || '',
         address: customer.address || '',
       };
-      
+
       const emailHtml = this.createHtmlEmail(template, templateData);
       const subject = template.subject.replace(/\{\{(\w+)\}\}/g, (match, key) => (templateData as any)[key] || match);
 
-      // Get sender info from settings
-      const { data: settings } = await supabase
-        .from('settings')
-        .select('emailSettings')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-        
-      const senderEmail = settings?.emailSettings?.senderEmail || 'kontakt@jysk-streaming.fun';
-      const senderName = settings?.emailSettings?.senderName || 'StoryLine ERP';
+      // Sender info - using defaults since the Edge Function handles this
+      // The Edge Function will use SENDINBLUE_API_KEY from environment variables
+      const senderEmail = 'kontakt@jysk-streaming.fun';
+      const senderName = 'Jysk Streaming';
 
       console.log(`🚀 Calling EmailDeliveryService for ${customer.email}`);
 
-      // Use the centralized EmailDeliveryService
+      // Use the centralized EmailDeliveryService (which calls the Edge Function)
       const emailResult = await EmailDeliveryService.sendEmail({
         to: customer.email,
         subject: subject,
@@ -225,15 +219,15 @@ export const welcomeEmailService = {
           )
         `)
         .order('sent_at', { ascending: false });
-      
+
       if (error) throw error;
-      
+
       const totalSent = data.length;
       const thisMonth = data.filter(log => {
         const sentDate = new Date(log.sent_at);
         const now = new Date();
-        return sentDate.getMonth() === now.getMonth() && 
-               sentDate.getFullYear() === now.getFullYear();
+        return sentDate.getMonth() === now.getMonth() &&
+          sentDate.getFullYear() === now.getFullYear();
       }).length;
 
       return {
