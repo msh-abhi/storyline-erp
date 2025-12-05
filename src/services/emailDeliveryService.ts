@@ -1,9 +1,8 @@
-import { supabase } from '../lib/supabase';
-
-// Centralized email delivery service using Brevo API directly
+// Centralized email delivery service using Supabase Edge Function
 export class EmailDeliveryService {
 
-  // Main email sending function using Brevo API directly
+  // Main email sending function using the send-email Edge Function
+  // The Edge Function has the Brevo API key securely configured via environment variables
   static async sendEmail(emailData: {
     to: string;
     subject: string;
@@ -14,73 +13,56 @@ export class EmailDeliveryService {
   }): Promise<{ success: boolean; messageId?: string; error?: string }> {
 
     try {
-      console.log('🚀 Sending email via Brevo API for:', emailData.to);
+      console.log('🚀 Sending email via Edge Function for:', emailData.to);
 
-      // Get Brevo API key from settings or environment variables
-      const { data: settings } = await supabase
-        .from('settings')
-        .select('emailSettings')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Get Supabase URL and anon key from environment
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-      let brevoApiKey = settings?.emailSettings?.brevoApiKey;
-
-      // Fallback to environment variables if not in settings
-      if (!brevoApiKey) {
-        brevoApiKey = import.meta.env.VITE_BREVO_API_KEY || import.meta.env.VITE_SENDINBLUE_API_KEY;
-      }
-
-      if (!brevoApiKey) {
-        throw new Error('Brevo API key not configured. Please add it to Settings > Email Settings or environment variables.');
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Supabase configuration missing. Please check your environment variables.');
       }
 
       // Use provided sender details or fallback to defaults
-      const finalSenderName = emailData.fromName || 'StoryLine ERP';
+      const finalSenderName = emailData.fromName || 'Jysk Streaming';
       const finalSenderEmail = emailData.fromEmail || 'kontakt@jysk-streaming.fun';
 
-      // Prepare email data for Brevo API
-      const emailPayload = {
-        sender: {
-          name: finalSenderName,
-          email: finalSenderEmail
-        },
-        to: [
-          {
-            email: emailData.to,
-            name: emailData.templateData?.name || emailData.to
-          }
-        ],
+      // Prepare request payload for the Edge Function
+      const requestPayload = {
+        to: emailData.to,
         subject: emailData.subject,
-        htmlContent: emailData.html
+        content: emailData.html,
+        templateData: emailData.templateData || {},
+        senderName: finalSenderName,
+        senderEmail: finalSenderEmail
       };
 
-      // Send email via Brevo API
-      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      // Send email via the Edge Function (Brevo API key is securely stored as Deno env variable)
+      const response = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'api-key': brevoApiKey
+          'Authorization': `Bearer ${supabaseAnonKey}`
         },
-        body: JSON.stringify(emailPayload)
+        body: JSON.stringify(requestPayload)
       });
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`Brevo API error: ${response.status} - ${errorData}`);
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || `Edge Function error: ${response.status}`);
       }
 
-      const result = await response.json();
-      console.log('✅ Email sent successfully via Brevo API:', result);
+      console.log('✅ Email sent successfully via Edge Function:', result);
 
       return {
         success: true,
-        messageId: result.messageId || `brevo-${Date.now()}`
+        messageId: result.messageId || `edge-${Date.now()}`
       };
 
     } catch (error) {
-      console.error('💥 Failed to send email via Brevo API:', error);
+      console.error('💥 Failed to send email via Edge Function:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'An unknown error occurred while sending the email.'
