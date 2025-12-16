@@ -255,7 +255,8 @@ export interface Settings {
   displayCurrency?: SupportedCurrency;
   logoUrl?: string; // Add missing property
   welcome_email_enabled?: boolean; // Welcome email automation setting
-  welcome_email_template_id?: string; // ID of the welcome email template
+  welcome_email_template_id?: string; // ID of welcome email template
+  last_heartbeat_at?: string; // Timestamp of last successful heartbeat from Netlify function
   createdAt: string;
   updatedAt: string;
 }
@@ -329,6 +330,7 @@ export type ActiveSection =
   | 'integrations';
 
 // --- App State and Actions ---
+
 export interface AppState {
   loading: boolean;
   error: string | null;
@@ -395,64 +397,6 @@ export type AppAction =
   | { type: 'ADD_SUBSCRIPTION_PRODUCT'; payload: SubscriptionProduct }
   | { type: 'UPDATE_SUBSCRIPTION_PRODUCT'; payload: SubscriptionProduct }
   | { type: 'DELETE_SUBSCRIPTION_PRODUCT'; payload: string };
-
-
-export interface WooCommerceOrder {
-  id: string;
-  orderNumber: string;
-  customerEmail: string;
-  status: string;
-  totalAmount: number;
-  currency: string;
-  products: WooCommerceProduct[];
-  createdAt: string;
-  updatedAt: string;
-  customerName?: string;
-  orderStatus?: string;
-  wooOrderId?: string;
-  paymentMethodTitle?: string;
-  orderDate?: string;
-  billingInfo?: any;
-  shippingInfo?: any;
-  customerNote?: string;
-  transactionId?: string;
-  completedDate?: string;
-}
-
-export interface WooCommerceProduct {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  sku: string;
-}
-
-export interface WooCommerceSubscription {
-  id: string;
-  customerId: string;
-  productId: string;
-  status: string;
-  amount: number;
-  startDate: string;
-  endDate: string;
-  wooSubscriptionId?: string;
-  orderId?: string;
-  nextPaymentDate?: string;
-  trialEndDate?: string;
-  billingPeriod?: string;
-  billingInterval?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface WooCommerceSyncLog {
-  id: string;
-  type: 'order' | 'product' | 'customer';
-  action: 'create' | 'update' | 'delete';
-  status: 'success' | 'failed';
-  message: string;
-  createdAt: string;
-}
 
 export const initialState: AppState = {
   loading: true,
@@ -569,4 +513,61 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     default:
       return state;
   }
+}
+
+export interface WooCommerceOrder {
+  id: string;
+  orderNumber: string;
+  customerEmail: string;
+  status: string;
+  totalAmount: number;
+  currency: string;
+  products: WooCommerceProduct[];
+  createdAt: string;
+  updatedAt: string;
+  customerName?: string;
+  orderStatus?: string;
+  wooOrderId?: string;
+  paymentMethodTitle?: string;
+  orderDate?: string;
+  billingInfo?: any;
+  shippingInfo?: any;
+  customerNote?: string;
+  transactionId?: string;
+  completedDate?: string;
+}
+
+export interface WooCommerceProduct {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  sku: string;
+}
+
+export interface WooCommerceSubscription {
+  id: string;
+  customerId: string;
+  productId: string;
+  status: string;
+  amount: number;
+  startDate: string;
+  endDate: string;
+  wooSubscriptionId?: string;
+  orderId?: string;
+  nextPaymentDate?: string;
+  trialEndDate?: string;
+  billingPeriod?: string;
+  billingInterval?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface WooCommerceSyncLog {
+  id: string;
+  type: 'order' | 'product' | 'customer';
+  action: 'create' | 'update' | 'delete';
+  status: 'success' | 'failed';
+  message: string;
+  createdAt: string;
 }

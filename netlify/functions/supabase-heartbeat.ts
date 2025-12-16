@@ -1,7 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+// Netlify Functions environment variables
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+
+// Type declarations for Netlify Functions
+declare const process: {
+  env: {
+    SUPABASE_URL: string;
+    SUPABASE_ANON_KEY: string;
+  };
+};
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
@@ -13,21 +22,26 @@ export const handler = async (event: any, context: any) => {
   try {
     console.log('Starting Supabase heartbeat at:', new Date().toISOString());
     
-    // Perform a lightweight query to generate activity
+    const currentTimestamp = new Date().toISOString();
+    
+    // Update the heartbeat timestamp in settings table
     const { data, error } = await supabase
       .from('settings')
-      .select('updated_at')
-      .limit(1)
+      .update({
+        last_heartbeat_at: currentTimestamp
+      })
+      .eq('id', 1) // Assuming there's a single settings record with id=1
+      .select('updated_at, last_heartbeat_at')
       .single();
     
     if (error && error.code !== 'PGRST116') { // Ignore "not found" errors
-      console.error('Heartbeat query failed:', error);
+      console.error('Heartbeat update failed:', error);
       return {
         statusCode: 500,
-        body: JSON.stringify({ 
-          success: false, 
+        body: JSON.stringify({
+          success: false,
           error: error.message,
-          timestamp: new Date().toISOString()
+          timestamp: currentTimestamp
         })
       };
     }
@@ -37,7 +51,7 @@ export const handler = async (event: any, context: any) => {
       await supabase
         .from('heartbeat_logs')
         .insert({
-          executed_at: new Date().toISOString(),
+          executed_at: currentTimestamp,
           status: 'success'
         });
     } catch (logError) {
@@ -49,11 +63,12 @@ export const handler = async (event: any, context: any) => {
     
     return {
       statusCode: 200,
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         success: true,
         message: 'Supabase heartbeat executed successfully',
-        timestamp: new Date().toISOString(),
-        lastActivity: data?.updated_at
+        timestamp: currentTimestamp,
+        lastActivity: data?.updated_at,
+        lastHeartbeat: data?.last_heartbeat_at
       })
     };
     

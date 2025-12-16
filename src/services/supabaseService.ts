@@ -449,6 +449,26 @@ export const settingsService = {
     }
     return keysToCamel(data);
   },
+
+  // New function to update heartbeat timestamp
+  updateHeartbeat: async (): Promise<void> => {
+    const currentTimestamp = new Date().toISOString();
+    console.debug("supabaseService: Updating heartbeat timestamp to:", currentTimestamp);
+    
+    const { error } = await supabase
+      .from('settings')
+      .update({ last_heartbeat_at: currentTimestamp })
+      .eq('id', 1) // Assuming there's a single settings record with id=1
+      .select('last_heartbeat_at')
+      .single();
+    
+    if (error) {
+      console.error("supabaseService: Error updating heartbeat timestamp:", error);
+      throw error;
+    }
+    
+    console.debug("supabaseService: Heartbeat timestamp updated successfully");
+  },
   create: async (settings: Omit<Settings, 'id' | 'createdAt' | 'updatedAt'>): Promise<Settings> => {
     // First check if settings already exist
     const existingSettings = await settingsService.get();
