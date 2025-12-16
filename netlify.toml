@@ -18,3 +18,8 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Supabase heartbeat scheduled function
+[[scheduled_functions]]
+  function = "supabase-heartbeat"
+  schedule = "0 9 * * *"  # Daily at 9:00 AM UTC
