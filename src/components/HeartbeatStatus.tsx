@@ -5,7 +5,7 @@ import { Settings } from '../types';
 const HeartbeatStatus: React.FC = () => {
   const [settings, setSettings] = React.useState<Settings | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<Error | string | null>(null);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -15,7 +15,7 @@ const HeartbeatStatus: React.FC = () => {
         const settingsData = await settingsService.get();
         setSettings(settingsData);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        setError(err instanceof Error ? err : 'Unknown error');
       } finally {
         setIsLoading(false);
       }
@@ -83,7 +83,7 @@ const HeartbeatStatus: React.FC = () => {
           <div className="text-red-600 text-lg">❌</div>
           <div>
             <h3 className="text-lg font-semibold text-red-800">Error Loading Heartbeat</h3>
-            <p className="text-red-600">{error.message}</p>
+            <p className="text-red-600">{error instanceof Error ? error.message : error}</p>
           </div>
         </div>
       </div>

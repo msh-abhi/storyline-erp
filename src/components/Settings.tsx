@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Settings as SettingsIcon, RefreshCw, Mail, CreditCard, Globe, Database } from 'lucide-react';
+import { Save, Settings as SettingsIcon, RefreshCw, Mail, CreditCard, Globe, Database, Activity } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SupportedCurrency } from '../types';
 import { getSupportedCurrencies } from '../utils/calculations';
 import { validateReminderTemplates } from '../utils/subscriptionUtils';
 import DataExport from './DataExport';
+import HeartbeatStatus from './HeartbeatStatus';
 
 export default function SettingsComponent() {
   const { state, actions } = useApp();
@@ -95,6 +96,17 @@ export default function SettingsComponent() {
       </div>
 
       <div className="space-y-8">
+        {/* Heartbeat Status */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+              <Activity className="h-5 w-5" />
+              <span>System Heartbeat Status</span>
+            </h3>
+            <HeartbeatStatus />
+          </div>
+        </div>
+
         {/* Data Export & Backup */}
         <DataExport />
 
