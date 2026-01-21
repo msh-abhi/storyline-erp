@@ -14,16 +14,23 @@ export default function CustomerPortalAuthCallback() {
       isLoading: authLoading
     });
 
-    // Don't do anything until AuthProvider has finished initializing and loading data
+    // Don't do anything until AuthProvider has finished initializing
     if (!authInitialized) {
       console.log('[AuthCallback] Waiting for AuthProvider to initialize...');
       return;
     }
 
-    // If still loading user data, wait for it to complete
+    // If still loading user data, wait a bit but not forever
     if (authLoading) {
       console.log('[AuthCallback] Waiting for user data to load...');
-      return;
+      // Set a timeout to redirect anyway after 3 seconds if still loading
+      const timeout = setTimeout(() => {
+        if (authUser) {
+          console.log('[AuthCallback] Timeout reached, redirecting anyway...');
+          navigate('/portal/dashboard', { replace: true });
+        }
+      }, 3000);
+      return () => clearTimeout(timeout);
     }
 
     console.log('[AuthCallback] Auth is initialized. Checking user status...', {

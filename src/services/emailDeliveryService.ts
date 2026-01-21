@@ -1,4 +1,6 @@
 // Centralized email delivery service using Supabase Edge Function
+import { getEmailSender } from '../utils/emailConfig';
+
 export class EmailDeliveryService {
 
   // Main email sending function using the send-email Edge Function
@@ -23,9 +25,10 @@ export class EmailDeliveryService {
         throw new Error('Supabase configuration missing. Please check your environment variables.');
       }
 
-      // Use provided sender details or fallback to defaults
-      const finalSenderName = emailData.fromName || 'Jysk Streaming';
-      const finalSenderEmail = emailData.fromEmail || 'kontakt@jysk-streaming.fun';
+      // Use provided sender details or fallback to system defaults
+      const systemSender = getEmailSender('system');
+      const finalSenderName = emailData.fromName || systemSender.fromName;
+      const finalSenderEmail = emailData.fromEmail || systemSender.fromEmail;
 
       // Prepare request payload for the Edge Function
       const requestPayload = {
