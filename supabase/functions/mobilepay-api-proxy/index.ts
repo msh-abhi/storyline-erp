@@ -75,6 +75,11 @@ Deno.serve(async (req: Request) => {
     }
 
     const { action, payload } = await req.json();
+    console.log(`Proxy received action: ${action}`);
+    if (payload.merchantRedirectUrl) {
+      console.log(`Proxy received Redirect URL: ${payload.merchantRedirectUrl}`);
+      console.log(`Proxy received Agreement URL: ${payload.merchantAgreementUrl}`);
+    }
 
     let mobilePayResponse;
 

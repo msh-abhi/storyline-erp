@@ -58,7 +58,9 @@ const MobilePaySettings: React.FC = () => {
     const merchantRedirectUrl = `${appBaseUrl}/mobilepay-callback`;
     const merchantAgreementUrl = `${appBaseUrl}/user/subscriptions`;
 
-    console.log('MobilePay URLs:', { merchantRedirectUrl, merchantAgreementUrl, appBaseUrl });
+    console.log(`MobilePay Debug - Sending Redirect URL: ${merchantRedirectUrl}`);
+    console.log(`MobilePay Debug - Sending Agreement URL: ${merchantAgreementUrl}`);
+    console.log(`MobilePay Debug - appBaseUrl: ${appBaseUrl}`);
 
     const payload = {
       customer: {
