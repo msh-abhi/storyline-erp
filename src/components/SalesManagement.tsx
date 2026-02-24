@@ -126,7 +126,7 @@ export default function SalesManagement() {
       const newSale = await actions.createSale(saleData);
       if (!newSale) throw new Error('Failed to create sale.');
 
-      // Send email notification
+      // Send order confirmation email
       try {
         await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
           method: 'POST',
@@ -142,7 +142,6 @@ export default function SalesManagement() {
         });
       } catch (emailError) {
         console.error('Failed to send email notification:', emailError);
-        // Do not block the UI for email errors
       }
 
       const invoiceResult = await generateInvoice({
@@ -177,66 +176,45 @@ export default function SalesManagement() {
         }
       }
 
-      // Handle MobilePay payment links
-      if (formData.paymentMethod === 'mobilepay') {
+      // Handle MobilePay payment links from invoice generator
+      if (formData.paymentMethod === 'mobilepay' && invoiceResult.paymentLink) {
         try {
-          // Create MobilePay payment link
-          const mobilepayResult = await mobilepayService.createPaymentLink({
-            externalId: newSale.id,
-            amount: totalPrice,
-            currency: state.settings?.currency || 'DKK',
-            description: `Payment for ${productName}`,
-            customerEmail: buyer.email,
-            customerName: buyer.name,
-            saleId: newSale.id,
+          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              to: buyer.email,
+              subject: `Your MobilePay payment link for ${productName}`,
+              content: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                      <h2>Payment Link</h2>
+                      <p>Dear ${buyer.name},</p>
+                      <p>Thank you for your purchase of <strong>${productName}</strong>.</p>
+                      <p><strong>Amount:</strong> ${totalPrice} ${state.settings?.currency || 'DKK'}</p>
+                      <p><strong>Quantity:</strong> ${formData.quantity}</p>
+                      <p>Please click the link below to complete your payment via MobilePay:</p>
+                      <div style="text-align: center; margin: 20px 0;">
+                        <a href="${invoiceResult.paymentLink}"
+                           style="background-color: #5a31f4; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                          Pay with MobilePay
+                        </a>
+                      </div>
+                      <p><small>This link will expire in 24 hours.</small></p>
+                      <p>Best regards,<br>Jysk Streaming Team</p>
+                    </div>
+                  `,
+            }),
           });
-
-          if (mobilepayResult.success && mobilepayResult.data?.paymentLink) {
-            // Send email with payment link
-            try {
-              await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                },
-                body: JSON.stringify({
-                  to: buyer.email,
-                  subject: `Your MobilePay payment link for ${productName}`,
-                  content: `
-                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                          <h2>Payment Link</h2>
-                          <p>Dear ${buyer.name},</p>
-                          <p>Thank you for your purchase of <strong>${productName}</strong>.</p>
-                          <p><strong>Amount:</strong> ${totalPrice} ${state.settings?.currency || 'DKK'}</p>
-                          <p><strong>Quantity:</strong> ${formData.quantity}</p>
-                          <p>Please click the link below to complete your payment via MobilePay:</p>
-                          <div style="text-align: center; margin: 20px 0;">
-                            <a href="${mobilepayResult.data.paymentLink}"
-                               style="background-color: #4CAF50; color: white; padding: 14px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                              Pay with MobilePay
-                            </a>
-                          </div>
-                          <p><small>This link will expire in 24 hours.</small></p>
-                          <p>Best regards,<br>StoryLine ERP Team</p>
-                        </div>
-                      `,
-                }),
-              });
-              toast.success('Sale recorded successfully! Payment link sent to customer email.');
-            } catch (emailError) {
-              console.error('Failed to send MobilePay email:', emailError);
-              toast.info(`Sale recorded! Payment link: ${mobilepayResult.data.paymentLink}`);
-            }
-          } else {
-            throw new Error(mobilepayResult.error || 'Failed to create MobilePay payment link');
-          }
-        } catch (mobilepayError) {
-          console.error('MobilePay error:', mobilepayError);
-          toast.error(`Sale recorded, but failed to create MobilePay payment link: ${mobilepayError instanceof Error ? mobilepayError.message : 'Unknown error'}`);
+          toast.success('Sale recorded successfully! Payment link sent.');
+        } catch (emailError) {
+          console.error('Failed to send MobilePay email:', emailError);
+          toast.info(`Sale recorded! Link: ${invoiceResult.paymentLink}`);
         }
       } else if (invoiceResult.paymentLink && formData.paymentMethod === 'revolut') {
-        toast.info(`Revolut payment link generated: ${invoiceResult.paymentLink}. Please send this to the customer.`);
+        toast.info(`Revolut payment link generated: ${invoiceResult.paymentLink}`);
       } else {
         toast.success('Sale recorded successfully!');
       }
@@ -661,8 +639,8 @@ export default function SalesManagement() {
 
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${sale.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          sale.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
+                        sale.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
                         }`}>
                         {sale.status}
                       </span>

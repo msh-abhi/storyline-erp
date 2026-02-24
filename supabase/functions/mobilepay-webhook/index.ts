@@ -57,7 +57,7 @@ Deno.serve(async (req: Request) => {
     // Try to find by externalPaymentId (which could be paymentId or agreementId)
     const { data: invoiceData, error: invoiceError } = await supabase
       .from('invoices')
-      .select('id, customer_id, subscription_id')
+      .select('*, customers(*), subscriptions(*)')
       .or(`external_payment_id.eq.${paymentId},external_payment_id.eq.${agreementId}`)
       .maybeSingle();
 
@@ -72,7 +72,24 @@ Deno.serve(async (req: Request) => {
       subscriptionId = invoiceData.subscription_id;
     }
 
-    // Try to find the sale record by payment reference or externalId
+    // Fallback: If no invoice found, try to find subscription by agreementId
+    if (!subscriptionId && agreementId) {
+      console.log(`No invoice found for agreement ${agreementId}, searching subscriptions directly...`);
+      const { data: subData } = await supabase
+        .from('subscriptions')
+        .select('id, customer_id')
+        .eq('mobilepay_agreement_id', agreementId)
+        .maybeSingle();
+
+      if (subData) {
+        subscriptionId = subData.id;
+        customerId = subData.customer_id;
+        console.log(`Found subscription ${subscriptionId} for agreement ${agreementId}`);
+      }
+    }
+
+    // Try to find the sale record by payment reference or externalId (orderId)
+    // In ePayment v1, reference is what we sent as externalId.
     const { data: saleData, error: saleError } = await supabase
       .from('sales')
       .select('id, payment_status, status, buyer_id')
@@ -85,9 +102,18 @@ Deno.serve(async (req: Request) => {
 
     if (saleData) {
       saleId = saleData.id;
-    } else {
-      console.warn(`Sale not found for orderId: ${orderId} or reference: ${payload.reference}`);
-      // If no invoice found, we might still want to log the transaction
+      // Fallback for customerId if not found via invoice
+      if (!customerId && saleData.buyer_id) {
+        customerId = saleData.buyer_id;
+        console.log(`Found customerId ${customerId} from sale record ${saleId}`);
+      }
+    }
+
+    // If we have customerId but no customerFullData, fetch the customer for the email trigger fallback
+    let customerFullData = invoiceData?.customers;
+    if (!customerFullData && customerId) {
+      const { data: cData } = await supabase.from('customers').select('*').eq('id', customerId).single();
+      customerFullData = cData;
     }
 
     let transactionStatus: 'pending' | 'paid' | 'failed' | 'refunded' = 'pending';
@@ -180,7 +206,7 @@ Deno.serve(async (req: Request) => {
     // Update the sale record if sale was found and payment was successful
     if (saleId && transactionStatus === 'paid') {
       console.log(`Updating sale ${saleId} status to completed due to successful payment`);
-      
+
       await supabase
         .from('sales')
         .update({
@@ -191,12 +217,60 @@ Deno.serve(async (req: Request) => {
         .eq('id', saleId);
     }
 
-    // Update the subscription status if a subscription was found and payment was captured
+    // Update the subscription status and EXTEND END DATE if payment was captured
     if (subscriptionId && (eventType === 'Payment.Captured' || eventType === 'Agreement.PaymentCaptured')) {
-      await supabase
-        .from('subscriptions')
-        .update({ status: subscriptionStatus })
-        .eq('id', subscriptionId);
+      const { data: sub } = await supabase.from('subscriptions').select('*').eq('id', subscriptionId).single();
+
+      if (sub && transactionStatus === 'paid') {
+        const monthsToAdd = sub.duration_months || 1;
+        const currentEndDate = sub.end_date ? new Date(sub.end_date) : new Date();
+        const newEndDate = new Date(currentEndDate);
+        newEndDate.setMonth(newEndDate.getMonth() + monthsToAdd);
+
+        await supabase
+          .from('subscriptions')
+          .update({
+            status: 'active',
+            end_date: newEndDate.toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', subscriptionId);
+
+        console.log(`Subscription ${subscriptionId} extended until ${newEndDate.toISOString()}`);
+      }
+    }
+
+    // --- TRIGGER EMAIL ---
+    if (transactionStatus === 'paid' && customerFullData?.email) {
+      try {
+        const customer = customerFullData;
+        const amount = payload.amount / 100;
+        const subject = subscriptionId ? 'Subscription Payment Successful' : 'Payment Received';
+        const content = subscriptionId
+          ? `Hello ${customer.name},\n\nYour subscription payment of ${amount} ${payload.currency} was successful. Your subscription has been extended.\n\nThank you!`
+          : `Hello ${customer.name}, \n\nWe have received your payment of ${amount} ${payload.currency} for your recent purchase.\n\nOrder Reference: ${payload.reference || saleId}\n\nThank you for your business!`;
+
+        await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: customer.email,
+            subject: subject,
+            content: content,
+            templateData: {
+              name: customer.name,
+              amount: amount.toString(),
+              currency: payload.currency
+            }
+          })
+        });
+        console.log(`Confirmation email sent to ${customer.email}`);
+      } catch (emailErr) {
+        console.error('Failed to trigger confirmation email:', emailErr);
+      }
     }
 
     return new Response(

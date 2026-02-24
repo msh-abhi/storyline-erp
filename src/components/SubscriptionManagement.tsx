@@ -37,10 +37,10 @@ export default function SubscriptionManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const customer = state.customers.find(c => c.id === formData.customerId);
     const subscriptionProduct = state.subscriptionProducts?.find(p => p.id === formData.subscriptionProductId);
-    
+
     if (!customer || !subscriptionProduct) {
       alert('Please select valid customer and subscription product');
       return;
@@ -112,12 +112,44 @@ export default function SubscriptionManagement() {
         status: formData.paymentMethod === 'manual' ? 'active' : 'pending', // Manual is active immediately, others pending payment
       });
 
-      // If MobilePay, redirect user to payment link
+      // If MobilePay, send email to customer and optionally redirect
       if (formData.paymentMethod === 'mobilepay' && paymentLink) {
-        window.location.href = paymentLink; // Redirect to MobilePay for user approval
+        try {
+          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              to: customer.email,
+              subject: `Subscription Payment Agreement for ${subscriptionProduct.name}`,
+              content: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2>Setup Your Subscription</h2>
+                  <p>Dear ${customer.name},</p>
+                  <p>To activate your subscription for <strong>${subscriptionProduct.name}</strong>, please click the button below to approve the recurring payment agreement via MobilePay:</p>
+                  <div style="text-align: center; margin: 20px 0;">
+                    <a href="${paymentLink}" 
+                       style="background-color: #5a31f4; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                      Activate MobilePay Subscription
+                    </a>
+                  </div>
+                  <p><strong>Amount:</strong> ${subscriptionProduct.price} DKK</p>
+                  <p><strong>Frequency:</strong> Every ${subscriptionProduct.durationMonths} months</p>
+                  <p>Best regards,<br>Jysk Streaming Team</p>
+                </div>
+              `,
+            }),
+          });
+          alert('Subscription created! A MobilePay agreement link has been sent to the customer.');
+        } catch (emailError) {
+          console.error('Failed to send subscription email:', emailError);
+          // Fallback: Show link to admin
+          alert(`Subscription created, but email failed. Link: ${paymentLink}`);
+        }
       } else if (formData.paymentMethod === 'revolut' && paymentLink) {
         alert(`Revolut payment link generated: ${paymentLink}. Please send this to the customer.`);
-        // Optionally, open in new tab: window.open(paymentLink, '_blank');
       } else if (formData.paymentMethod === 'manual') {
         alert('Subscription created and marked as active (manual payment).');
       }
@@ -132,7 +164,7 @@ export default function SubscriptionManagement() {
 
   const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       const productData = {
         name: productFormData.name,
@@ -252,7 +284,7 @@ export default function SubscriptionManagement() {
       ).join('\n');
 
       const confirmMessage = `Found ${duplicates.length} duplicate product groups:\n\n${duplicateNames}\n\nThis will remove all but the most recent product in each group. Continue?`;
-      
+
       if (!confirm(confirmMessage)) {
         return;
       }
@@ -263,7 +295,7 @@ export default function SubscriptionManagement() {
           new Date(b.updatedAt || b.createdAt || 0).getTime() -
           new Date(a.updatedAt || a.createdAt || 0).getTime()
         );
-        
+
         const toKeep = sortedGroup[0];
         const toRemove = sortedGroup.slice(1);
 
@@ -416,11 +448,10 @@ export default function SubscriptionManagement() {
                 p.id !== product.id
               );
               const isDuplicate = duplicates.length > 0;
-              
+
               return (
-                <div key={product.id} className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${
-                  isDuplicate ? 'border-orange-300 bg-orange-50' : 'border-gray-200'
-                }`}>
+                <div key={product.id} className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${isDuplicate ? 'border-orange-300 bg-orange-50' : 'border-gray-200'
+                  }`}>
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-medium text-gray-900">{product.name}</h4>
                     <div className="flex space-x-1">
@@ -470,7 +501,7 @@ export default function SubscriptionManagement() {
             <h3 className="text-xl font-semibold text-gray-900 mb-6">
               {editingSubscription ? 'Edit Subscription' : 'Add New Subscription'}
             </h3>
-            
+
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -570,7 +601,7 @@ export default function SubscriptionManagement() {
             <h3 className="text-xl font-semibold text-gray-900 mb-6">
               {editingProduct ? 'Edit Product' : 'Add New Subscription Product'}
             </h3>
-            
+
             <form onSubmit={handleProductSubmit} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -645,7 +676,7 @@ export default function SubscriptionManagement() {
                     + Add Feature
                   </button>
                 </div>
-                
+
                 {productFormData.features.map((feature, index) => (
                   <div key={index} className="flex space-x-3 mb-3">
                     <input
@@ -760,22 +791,20 @@ export default function SubscriptionManagement() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${ 
-                          subscription.status === 'active' ? 'bg-green-100 text-green-800' :
-                          subscription.status === 'expired' ? 'bg-red-100 text-red-800' :
-                          subscription.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
+                        <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${subscription.status === 'active' ? 'bg-green-100 text-green-800' :
+                            subscription.status === 'expired' ? 'bg-red-100 text-red-800' :
+                              subscription.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                          }`}>
                           {subscription.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-1">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${ 
-                            subscription.paymentMethod === 'mobilepay' ? 'bg-blue-100 text-blue-800' :
-                            subscription.paymentMethod === 'revolut' ? 'bg-purple-100 text-purple-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${subscription.paymentMethod === 'mobilepay' ? 'bg-blue-100 text-blue-800' :
+                              subscription.paymentMethod === 'revolut' ? 'bg-purple-100 text-purple-800' :
+                                'bg-gray-100 text-gray-800'
+                            }`}>
                             {subscription.paymentMethod}
                           </span>
                           {invoice && (
@@ -792,18 +821,16 @@ export default function SubscriptionManagement() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex space-x-1">
-                          <span 
-                            className={`inline-flex px-2 py-1 text-xs rounded ${ 
-                              subscription.reminder10Sent ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-                            }`}
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs rounded ${subscription.reminder10Sent ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                              }`}
                             title={subscription.reminder10Sent ? '10-day reminder sent' : '10-day reminder not sent'}
                           >
                             10d
                           </span>
                           <span
-                            className={`inline-flex px-2 py-1 text-xs rounded ${ 
-                              subscription.reminder5Sent ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-                            }`}
+                            className={`inline-flex px-2 py-1 text-xs rounded ${subscription.reminder5Sent ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                              }`}
                             title={subscription.reminder5Sent ? '5-day reminder sent' : '5-day reminder not sent'}
                           >
                             5d
@@ -812,11 +839,10 @@ export default function SubscriptionManagement() {
                             const reminderStatus = getSubscriptionReminderStatus(subscription);
                             if (reminderStatus.needsReminder) {
                               return (
-                                <span className={`inline-flex px-2 py-1 text-xs rounded font-medium ${ 
-                                  reminderStatus.isUrgent 
-                                    ? 'bg-red-100 text-red-800' 
+                                <span className={`inline-flex px-2 py-1 text-xs rounded font-medium ${reminderStatus.isUrgent
+                                    ? 'bg-red-100 text-red-800'
                                     : 'bg-yellow-100 text-yellow-800'
-                                }`}>
+                                  }`}>
                                   {reminderStatus.isUrgent ? '!' : '?'}
                                 </span>
                               );
