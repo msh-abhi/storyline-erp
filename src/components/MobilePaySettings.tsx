@@ -52,7 +52,13 @@ const MobilePaySettings: React.FC = () => {
     setIsLoading(true);
     setFeedback(null);
 
-    const appBaseUrl = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, '');
+    // MobilePay REQUIRES HTTPS. Never use window.location.origin as it may be http://localhost.
+    const appBaseUrl = (import.meta.env.VITE_APP_URL || '').replace(/\/$/, '');
+    if (!appBaseUrl || !appBaseUrl.startsWith('https://')) {
+      setFeedback({ type: 'error', message: 'VITE_APP_URL must be set to an HTTPS production URL in .env. MobilePay does not accept localhost or HTTP URLs.' });
+      setIsLoading(false);
+      return;
+    }
     const merchantRedirectUrl = `${appBaseUrl}/mobilepay-callback`;
     const merchantAgreementUrl = `${appBaseUrl}/user/subscriptions`;
 
