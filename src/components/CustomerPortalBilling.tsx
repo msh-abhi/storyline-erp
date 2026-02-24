@@ -57,25 +57,50 @@ const CustomerPortalBilling: React.FC = () => {
   }, [customerPortalUser]);
 
   const handleMobilePayPayment = async (invoice: Invoice) => {
+    if (invoice.paymentLink) {
+      window.location.href = invoice.paymentLink;
+      return;
+    }
+
     setPaymentInProgress(invoice.id);
     setError(null);
 
-    const redirectUri = `${window.location.origin}/mobilepay-callback`; // Or could be window.location.href to return to the same page
+    const redirectUri = `${window.location.origin}/portal/billing?status=mobilepay_return`;
 
     try {
-      const result = await mobilepayService.createRecurringPaymentAgreement({
-        externalId: invoice.externalPaymentId || `inv_${invoice.id}`,
-        customerId: invoice.customerId,
-        subscriptionId: invoice.metadata?.productId || 'N/A',
-        amount: invoice.amount,
-        currency: invoice.currency as SupportedCurrency,
-        redirectUri: redirectUri,
-      });
+      let result;
 
-      if (result.success && result.data?.redirectUri) {
-        window.location.href = result.data.redirectUri;
+      if (invoice.subscriptionId) {
+        result = await mobilepayService.createRecurringPaymentAgreement({
+          customer: { phoneNumber: '4500000000' }, // Fallback testing number
+          amount: invoice.amount,
+          currency: invoice.currency as SupportedCurrency,
+          description: `Subscription Invoice #${invoice.id.substring(0, 8)}`,
+          merchantRedirectUrl: redirectUri,
+          merchantAgreementUrl: `${window.location.origin}/portal/billing`,
+        });
+
+        if (result.success && result.data?.vippsConfirmationUrl) {
+          window.location.href = result.data.vippsConfirmationUrl;
+        } else {
+          throw new Error(result.error || 'Could not initiate MobilePay agreement.');
+        }
       } else {
-        throw new Error(result.error || 'Could not initiate MobilePay payment.');
+        result = await mobilepayService.createPaymentLink({
+          externalId: invoice.externalPaymentId || `inv-${invoice.id.substring(0, 8)}-${Date.now()}`,
+          amount: invoice.amount,
+          currency: invoice.currency as SupportedCurrency,
+          description: `Payment for Invoice #${invoice.id.substring(0, 8)}`,
+          customerEmail: customerPortalUser?.email || '',
+          customerName: customerPortalUser?.email?.split('@')[0] || 'Customer',
+          saleId: invoice.id,
+        });
+
+        if (result.success && result.data?.paymentLink) {
+          window.location.href = result.data.paymentLink;
+        } else {
+          throw new Error(result.error || 'Could not initiate MobilePay payment.');
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
@@ -157,7 +182,7 @@ const CustomerPortalBilling: React.FC = () => {
                   </div>
                   <div className="flex items-center mt-2 sm:mt-0">
                     <span className="font-bold mr-4">{formatCurrency(invoice.amount, invoice.currency, null)}</span>
-                    
+
                     {/* Payment Options */}
                     <div className="flex flex-col gap-2">
                       {/* MobilePay Option */}
@@ -169,7 +194,7 @@ const CustomerPortalBilling: React.FC = () => {
                         <CreditCard size={16} />
                         {paymentInProgress === invoice.id ? 'Processing...' : 'MobilePay (Auto)'}
                       </button>
-                      
+
                       {/* Revolut Manual Option */}
                       <button
                         onClick={() => handleRevolutPayment(invoice)}
@@ -221,26 +246,26 @@ const CustomerPortalBilling: React.FC = () => {
                 <Banknote className="text-green-600" size={24} />
                 Revolut Payment Instructions
               </h3>
-              <button 
+              <button
                 onClick={() => setShowRevolutInstructions(null)}
                 className="text-gray-500 hover:text-gray-700"
               >
                 ✕
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <p className="text-sm text-green-800 font-medium">Payment Request Created Successfully!</p>
                 <p className="text-xs text-green-600 mt-1">Check your Revolut app for the payment request.</p>
               </div>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <QrCode size={16} className="text-gray-500" />
                   <span className="text-sm font-medium">How to Pay:</span>
                 </div>
-                
+
                 <ol className="text-sm text-gray-600 space-y-2 ml-6">
                   <li className="list-decimal">Open your Revolut app</li>
                   <li className="list-decimal">Go to "Payments" section</li>
@@ -248,7 +273,7 @@ const CustomerPortalBilling: React.FC = () => {
                   <li className="list-decimal">Look for payment request from StoryLine</li>
                   <li className="list-decimal">Review the amount and confirm payment</li>
                 </ol>
-                
+
                 <div className="bg-gray-50 rounded-lg p-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Invoice:</span>
@@ -265,13 +290,13 @@ const CustomerPortalBilling: React.FC = () => {
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <Clock size={14} />
                   <span>Payment requests typically expire within 24 hours</span>
                 </div>
               </div>
-              
+
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={() => {
@@ -304,7 +329,7 @@ const CustomerPortalBilling: React.FC = () => {
               <p className="text-sm font-medium text-red-800">Payment Error</p>
               <p className="text-xs text-red-600 mt-1">{error}</p>
             </div>
-            <button 
+            <button
               onClick={() => setError(null)}
               className="text-red-500 hover:text-red-700"
             >

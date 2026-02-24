@@ -25,12 +25,13 @@ const EnhancedUnifiedSalesModule: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const formatCurrencyWithState = (amount: number) => {
     return formatCurrency(
-      amount, 
-      state.settings?.currency || 'DKK', 
-      state.exchangeRates, 
+      amount,
+      state.settings?.currency || 'DKK',
+      state.exchangeRates,
       state.settings?.displayCurrency
     );
   };
@@ -71,11 +72,11 @@ const EnhancedUnifiedSalesModule: React.FC = () => {
   const getAvailableProducts = (): (DigitalCode | TVBox | SubscriptionProduct)[] => {
     switch (formData.productType) {
       case 'digital_code':
-        return state.digitalCodes.filter(code => 
+        return state.digitalCodes.filter(code =>
           code.quantity > 0 && code.quantity > (code.soldQuantity || 0)
         );
       case 'tv_box':
-        return state.tvBoxes.filter(box => 
+        return state.tvBoxes.filter(box =>
           box.quantity > 0 && box.quantity > (box.soldQuantity || 0)
         );
       case 'subscription':
@@ -93,7 +94,7 @@ const EnhancedUnifiedSalesModule: React.FC = () => {
     const stockInfo = formData.productType !== 'subscription'
       ? ` (Stock: ${(product as any).quantity - (product as any).soldQuantity})`
       : '';
-    
+
     let productDisplayName = '';
     if ('name' in product) {
       productDisplayName = product.name;
@@ -125,14 +126,14 @@ const EnhancedUnifiedSalesModule: React.FC = () => {
 
     const stockProduct = product as DigitalCode | TVBox;
     const availableStock = stockProduct.quantity - (stockProduct.soldQuantity || 0);
-    
+
     if (availableStock < formData.quantity) {
       return {
         valid: false,
         message: `Insufficient stock. Available: ${availableStock}, Requested: ${formData.quantity}`
       };
     }
-    
+
     if (availableStock <= 0) {
       return { valid: false, message: 'Product is out of stock' };
     }
@@ -210,11 +211,12 @@ const EnhancedUnifiedSalesModule: React.FC = () => {
       const newSale = await actions.createSale(saleData);
       if (!newSale) throw new Error('Failed to create sale.');
 
-      // Update inventory for physical products
-      if (formData.productType === 'digital_code' || formData.productType === 'tv_box') {
+      // Update inventory ONLY for completed (cash/manual/paypal) sales.
+      // For MobilePay/Revolut, stock is reserved when admin marks sale as complete after payment.
+      const isCompletedOnCreation = isOfflinePayment && formData.status === 'completed';
+      if (isCompletedOnCreation && (formData.productType === 'digital_code' || formData.productType === 'tv_box')) {
         const stockProduct = product as DigitalCode | TVBox;
         const updatedSoldQuantity = (stockProduct.soldQuantity || 0) + formData.quantity;
-        
         if (formData.productType === 'digital_code') {
           await actions.updateDigitalCode(product.id, { soldQuantity: updatedSoldQuantity });
         } else {
@@ -248,36 +250,41 @@ const EnhancedUnifiedSalesModule: React.FC = () => {
         // Don't fail the sale creation for invoice errors
       }
 
-      // Send email notification (non-blocking)
-      try {
-        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
+      // Handle MobilePay: email the payment link to the CUSTOMER, never redirect the admin
+      if (invoiceResult?.paymentLink && formData.paymentMethod === 'mobilepay') {
+        try {
+          const emailPayload = {
             to: buyer.email,
-            subject: `Order Confirmation - ${productName}`,
-            content: `Dear ${buyer.name},<br><br>Thank you for your purchase of ${productName}.<br><br>Quantity: ${formData.quantity}<br>Total Price: ${totalPrice}<br><br>Best regards,<br>Jysk Streaming Team`,
-          }),
-        });
-      } catch (emailError) {
-        console.error('Email notification failed:', emailError);
-        // Don't fail for email errors
-      }
+            subject: `Din MobilePay betalingslink for ${productName}`,
+            content: `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif"><table role="presentation" style="width:100%;background:#f5f5f5;padding:20px 0"><tr><td align="center"><table role="presentation" style="max-width:560px;width:100%;background:#fff;border-radius:10px"><tr><td style="padding:30px 40px;background:linear-gradient(135deg,#5a31f4,#7c3aed);border-radius:10px 10px 0 0;text-align:center"><h1 style="margin:0;color:#fff;font-size:22px">Jysk Streaming</h1></td></tr><tr><td style="padding:36px 40px"><h2 style="margin:0 0 16px;color:#1a1a1a;font-size:20px">Betalingslink</h2><p style="margin:0 0 8px;color:#333">Kære ${buyer.name},</p><p style="margin:0 0 20px;color:#333">Tak for dit køb af <strong>${productName}</strong>.</p><table style="width:100%;border-collapse:collapse;margin:0 0 24px"><tr><td style="padding:8px 12px;background:#f8f8f8;border-radius:6px 6px 0 0;color:#555;width:50%">Antal</td><td style="padding:8px 12px;background:#f8f8f8;border-radius:6px 6px 0 0;font-weight:bold;color:#1a1a1a">${formData.quantity}</td></tr><tr><td style="padding:8px 12px;border-top:1px solid #eee;color:#555">Beløb</td><td style="padding:8px 12px;border-top:1px solid #eee;font-weight:bold;color:#1a1a1a">${totalPrice} ${state.settings?.currency || 'DKK'}</td></tr></table><p style="margin:0 0 24px;color:#333">Klik på knappen nedenfor for at betale via MobilePay:</p><div style="text-align:center;margin:0 0 28px"><a href="${invoiceResult.paymentLink}" style="background:#5a31f4;color:#fff;padding:14px 40px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;display:inline-block">Betal med MobilePay</a></div><p style="margin:0 0 4px;color:#999;font-size:13px">Linket udløber om 24 timer.</p></td></tr><tr><td style="padding:20px 40px;background:#f8f8f8;border-radius:0 0 10px 10px;text-align:center"><p style="margin:0;color:#666;font-size:14px"><strong>Med venlig hilsen<br>Jysk Streaming</strong></p></td></tr></table></td></tr></table></body></html>`,
+          };
 
-      // Handle payment redirects
-      if (invoiceResult?.paymentLink) {
-        if (formData.paymentMethod === 'mobilepay') {
-          window.location.href = invoiceResult.paymentLink;
-          return;
-        } else if (formData.paymentMethod === 'revolut') {
-          alert(`Revolut payment link: ${invoiceResult.paymentLink}`);
+          const emailResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify(emailPayload),
+          });
+
+          if (emailResponse.ok) {
+            alert(`✅ Salg registreret!\n\nBetalingslink sendt til kundens e-mail: ${buyer.email}\n\nLink (til reference): ${invoiceResult.paymentLink}`);
+          } else {
+            // Email failed — show admin the link so they can share it manually
+            alert(`✅ Salg registreret, men e-mail fejlede.\n\nGiv kunden dette MobilePay-link manuelt:\n${invoiceResult.paymentLink}`);
+          }
+        } catch (emailError) {
+          console.error('Failed to send MobilePay email to customer:', emailError);
+          alert(`✅ Salg registreret, men e-mail fejlede.\n\nGiv kunden dette MobilePay-link manuelt:\n${invoiceResult.paymentLink}`);
         }
+      } else if (invoiceResult?.paymentLink && formData.paymentMethod === 'revolut') {
+        alert(`Revolut payment link generated. Send this to the customer:\n${invoiceResult.paymentLink}`);
+      } else {
+
+        alert('Sale recorded successfully!');
       }
 
-      alert('Sale recorded successfully!');
       resetForm();
 
     } catch (error) {
@@ -309,12 +316,53 @@ const EnhancedUnifiedSalesModule: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this sale?')) {
-      try {
-        await actions.deleteSale(id);
-      } catch (error) {
-        console.error("Error deleting sale:", error);
+    if (deletingId) return; // prevent double-click
+
+    const saleToDelete = state.sales.find(sale => sale.id === id);
+    if (!saleToDelete) return;
+
+    const isPending = saleToDelete.status === 'pending';
+    const confirmMsg = isPending
+      ? 'Delete this pending sale? (No stock changes — payment was never completed.) Any related invoices will also be removed.'
+      : 'Delete this completed sale? Stock will be restored and related invoices will be removed.';
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setDeletingId(id);
+    try {
+      // Only restore stock if the sale was completed (stock was previously reduced)
+      if (saleToDelete.status === 'completed' &&
+        (saleToDelete.productType === 'digital_code' || saleToDelete.productType === 'tv_box')) {
+        const currentStock = saleToDelete.productType === 'digital_code'
+          ? state.digitalCodes.find(code => code.id === saleToDelete.productId)
+          : state.tvBoxes.find(box => box.id === saleToDelete.productId);
+
+        if (currentStock) {
+          const restoredSoldQuantity = Math.max(0, (currentStock.soldQuantity || 0) - saleToDelete.quantity);
+          if (saleToDelete.productType === 'digital_code') {
+            await actions.updateDigitalCode(saleToDelete.productId, { soldQuantity: restoredSoldQuantity });
+          } else {
+            await actions.updateTVBox(saleToDelete.productId, { soldQuantity: restoredSoldQuantity });
+          }
+        }
       }
+
+      // If this sale has an associated invoice, delete it so it vanishes from the customer portal
+      if (saleToDelete.invoiceId) {
+        try {
+          await actions.deleteInvoice(saleToDelete.invoiceId);
+        } catch (invoiceErr) {
+          console.error('Failed to delete associated invoice:', invoiceErr);
+          // Optionally continue if invoice deletion fails, or handle it
+        }
+      }
+
+      await actions.deleteSale(id);
+      setTimeout(() => setDeletingId(null), 300);
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+      alert(`Failed to delete sale: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setDeletingId(null);
     }
   };
 
@@ -361,7 +409,7 @@ const EnhancedUnifiedSalesModule: React.FC = () => {
             Centralized revenue management with real-time inventory validation and comprehensive transaction tracking
           </p>
         </div>
-        
+
         <div className="flex space-x-3">
           <button
             onClick={() => window.print()}
@@ -566,21 +614,29 @@ const EnhancedUnifiedSalesModule: React.FC = () => {
             {
               key: 'actions',
               label: 'Actions',
+              sortable: false,
               render: (_, sale) => (
                 <div className="flex items-center justify-end space-x-2">
                   <button
-                    onClick={() => handleEdit(sale)}
+                    onClick={(e) => { e.stopPropagation(); handleEdit(sale); }}
                     className="text-gray-600 hover:text-gray-700 p-1 rounded"
                     title="Edit"
+                    disabled={!!deletingId}
                   >
                     <Edit2 size={16} />
                   </button>
                   <button
-                    onClick={() => handleDelete(sale.id)}
-                    className="text-red-600 hover:text-red-700 p-1 rounded"
-                    title="Delete"
+                    onClick={(e) => { e.stopPropagation(); handleDelete(sale.id); }}
+                    className={`p-1 rounded transition-colors ${deletingId === sale.id
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : 'text-red-600 hover:text-red-700'
+                      }`}
+                    title={deletingId === sale.id ? 'Deleting...' : 'Delete'}
+                    disabled={!!deletingId}
                   >
-                    <Trash2 size={16} />
+                    {deletingId === sale.id
+                      ? <span className="text-xs">...</span>
+                      : <Trash2 size={16} />}
                   </button>
                 </div>
               )
@@ -730,7 +786,7 @@ const EnhancedUnifiedSalesModule: React.FC = () => {
 
               {/* Inventory Check Warning */}
               {formData.productId && (
-                <InventoryWarning 
+                <InventoryWarning
                   productId={formData.productId}
                   quantity={formData.quantity}
                   productType={formData.productType}
@@ -775,7 +831,7 @@ const InventoryWarning: React.FC<{
   if (!product) return null;
 
   const availableStock = product.quantity - (product.soldQuantity || 0);
-  
+
   if (availableStock < quantity) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4">

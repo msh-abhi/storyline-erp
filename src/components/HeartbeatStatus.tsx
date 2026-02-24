@@ -22,20 +22,20 @@ const HeartbeatStatus: React.FC = () => {
     };
 
     loadSettings();
-    
+
     // Set up interval to refresh every 5 minutes
     const interval = setInterval(loadSettings, 5 * 60 * 1000);
-    
+
     return () => clearInterval(interval);
   }, []);
 
   const getStatusColor = (lastHeartbeat: string | null | undefined) => {
     if (!lastHeartbeat) return 'text-gray-500';
-    
+
     const now = new Date();
     const lastHeartbeatDate = new Date(lastHeartbeat);
     const hoursSince = (now.getTime() - lastHeartbeatDate.getTime()) / (1000 * 60 * 60);
-    
+
     if (hoursSince < 24) return 'text-green-600';
     if (hoursSince < 48) return 'text-yellow-600';
     return 'text-red-600';
@@ -43,26 +43,14 @@ const HeartbeatStatus: React.FC = () => {
 
   const getStatusText = (lastHeartbeat: string | null | undefined) => {
     if (!lastHeartbeat) return 'No heartbeat recorded';
-    
+
     const now = new Date();
     const lastHeartbeatDate = new Date(lastHeartbeat);
     const hoursSince = (now.getTime() - lastHeartbeatDate.getTime()) / (1000 * 60 * 60);
-    
+
     if (hoursSince < 24) return 'Healthy';
     if (hoursSince < 48) return 'Warning';
     return 'Critical';
-  };
-
-  const getStatusIcon = (lastHeartbeat: string | null | undefined) => {
-    if (!lastHeartbeat) return '⚠️';
-    
-    const now = new Date();
-    const lastHeartbeatDate = new Date(lastHeartbeat);
-    const hoursSince = (now.getTime() - lastHeartbeatDate.getTime()) / (1000 * 60 * 60);
-    
-    if (hoursSince < 24) return '✅';
-    if (hoursSince < 48) return '⚠️';
-    return '❌';
   };
 
   if (isLoading) {
@@ -104,32 +92,28 @@ const HeartbeatStatus: React.FC = () => {
     );
   }
 
-  const lastHeartbeat = settings?.last_heartbeat_at;
+  const lastHeartbeat = settings?.lastHeartbeatAt;
   const statusColor = getStatusColor(lastHeartbeat);
   const statusText = getStatusText(lastHeartbeat);
-  const statusIcon = getStatusIcon(lastHeartbeat);
 
   return (
     <div className="p-4 border rounded-lg bg-white shadow">
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-gray-800 mb-2">Supabase Heartbeat Status</h3>
-        
-        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
-          statusColor === 'text-green-600' ? 'bg-green-100' : 
+
+        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${statusColor === 'text-green-600' ? 'bg-green-100' :
           statusColor === 'text-yellow-600' ? 'bg-yellow-100' : 'bg-red-100'
-        }`}>
-          <div className={`w-2 h-2 rounded-full mr-2 ${
-            statusColor === 'text-green-600' ? 'bg-green-500' : 
-            statusColor === 'text-yellow-600' ? 'bg-yellow-500' : 'bg-red-500'
-          }`} />
-          <span className={`font-medium ${
-            statusColor === 'text-green-600' ? 'text-green-800' : 
-            statusColor === 'text-yellow-600' ? 'text-yellow-800' : 'text-red-800'
           }`}>
+          <div className={`w-2 h-2 rounded-full mr-2 ${statusColor === 'text-green-600' ? 'bg-green-500' :
+            statusColor === 'text-yellow-600' ? 'bg-yellow-500' : 'bg-red-500'
+            }`} />
+          <span className={`font-medium ${statusColor === 'text-green-600' ? 'text-green-800' :
+            statusColor === 'text-yellow-600' ? 'text-yellow-800' : 'text-red-800'
+            }`}>
             {statusText}
           </span>
         </div>
-        
+
         <div className="mt-2 text-sm text-gray-600">
           <p>Last heartbeat: {lastHeartbeat ? new Date(lastHeartbeat).toLocaleString() : 'Never'}</p>
           {lastHeartbeat && (
@@ -184,7 +168,7 @@ const HeartbeatStatus: React.FC = () => {
 
       <div className="mt-4 text-xs text-gray-500">
         <p>
-          <strong>Note:</strong> This status shows the last successful heartbeat from the Netlify function. 
+          <strong>Note:</strong> This status shows the last successful heartbeat from the Netlify function.
           The heartbeat runs daily at 9:00 AM UTC to keep your Supabase project active.
         </p>
       </div>

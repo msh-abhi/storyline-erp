@@ -253,10 +253,10 @@ export interface Settings {
   emailSettings: EmailSettings;
   businessSettings?: BusinessSettings;
   displayCurrency?: SupportedCurrency;
-  logoUrl?: string; // Add missing property
-  welcome_email_enabled?: boolean; // Welcome email automation setting
-  welcome_email_template_id?: string; // ID of welcome email template
-  last_heartbeat_at?: string; // Timestamp of last successful heartbeat from Netlify function
+  logoUrl?: string;
+  welcomeEmailEnabled?: boolean;
+  welcomeEmailTemplateId?: string;
+  lastHeartbeatAt?: string;
   createdAt: string;
   updatedAt: string;
 }

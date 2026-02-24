@@ -39,6 +39,7 @@ export const mobilepayService = {
 
       const newPayload = {
         ...payload,
+        amount: Math.round(payload.amount * 100), // MobilePay expects minor units (cents/øre)
         externalId: compliantExternalId.slice(0, 63), // Ensure it's within the 64-char limit
         returnUrl: `${import.meta.env.VITE_APP_URL.replace(/\/$/, '')}/sales?status=mobilepay_return`,
       };

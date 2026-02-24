@@ -58,31 +58,31 @@ const convertPurchaseFromDb = (row: any): Purchase => ({
 });
 
 const convertSubscriptionFromDb = (row: any): Subscription => ({
-    ...keysToCamel(row),
-    price: ensureNumber(row.price),
-    reminder10Sent: row.reminder10_sent || false,
-    reminder5Sent: row.reminder5_sent || false,
+  ...keysToCamel(row),
+  price: ensureNumber(row.price),
+  reminder10Sent: row.reminder10_sent || false,
+  reminder5Sent: row.reminder5_sent || false,
 });
 
 const convertSubscriptionProductFromDb = (row: any): SubscriptionProduct => ({
-    ...keysToCamel(row),
-    price: ensureNumber(row.price),
-    durationMonths: ensureNumber(row.duration_months),
+  ...keysToCamel(row),
+  price: ensureNumber(row.price),
+  durationMonths: ensureNumber(row.duration_months),
 });
 
 const convertInvoiceFromDb = (row: any): Invoice => ({
-    ...keysToCamel(row),
-    amount: ensureNumber(row.amount),
+  ...keysToCamel(row),
+  amount: ensureNumber(row.amount),
 });
 
 const convertPaymentFromDb = (row: any): Payment => ({
-    ...keysToCamel(row),
-    amount: ensureNumber(row.amount),
+  ...keysToCamel(row),
+  amount: ensureNumber(row.amount),
 });
 
 const convertPaymentTransactionFromDb = (row: any): PaymentTransaction => ({
-    ...keysToCamel(row),
-    amount: ensureNumber(row.amount),
+  ...keysToCamel(row),
+  amount: ensureNumber(row.amount),
 });
 
 
@@ -135,30 +135,30 @@ export const customerService = {
   create: async (customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> => {
     console.log("customerService.create - BEFORE keysToSnake:", customer);
     console.log("user_id value:", customer.user_id);
-    
+
     // Convert to snake_case
     const snakeCaseData = keysToSnake(customer);
     console.log("customerService.create - AFTER keysToSnake:", snakeCaseData);
     console.log("user_id after conversion:", snakeCaseData.user_id);
-    
+
     // CRITICAL: If user_id is missing, throw error
     if (!snakeCaseData.user_id) {
       throw new Error("CRITICAL ERROR: user_id is missing after keysToSnake conversion!");
     }
-    
+
     const { data, error } = await supabase
       .from('customers')
       .insert(snakeCaseData)
       .select()
       .single();
-      
+
     if (error) {
       console.error("Supabase insert error:", error);
       throw error;
     }
-    
+
     const newCustomer = convertCustomerFromDb(data);
-    
+
     // Trigger welcome email automatically
     try {
       console.log("Triggering welcome email for new customer:", newCustomer.email);
@@ -167,7 +167,7 @@ export const customerService = {
       console.warn("Welcome email failed to send, but customer was created successfully:", welcomeEmailError);
       // Don't throw error here - customer creation was successful
     }
-    
+
     return newCustomer;
   },
   update: async (id: string, customer: Partial<Customer>): Promise<Customer> => {
@@ -356,18 +356,18 @@ export const subscriptionService = {
     console.log("subscriptionService.create - BEFORE keysToSnake:", subscription);
     const snakeCaseData = keysToSnake(subscription);
     console.log("subscriptionService.create - AFTER keysToSnake:", snakeCaseData);
-    
+
     const { data, error } = await supabase
       .from('subscriptions')
       .insert(snakeCaseData)
       .select()
       .single();
-      
+
     if (error) {
       console.error("Supabase insert error:", error);
       throw error;
     }
-    
+
     return convertSubscriptionFromDb(data);
   },
   update: async (id: string, subscription: Partial<Subscription>): Promise<Subscription> => {
@@ -454,19 +454,29 @@ export const settingsService = {
   updateHeartbeat: async (): Promise<void> => {
     const currentTimestamp = new Date().toISOString();
     console.debug("supabaseService: Updating heartbeat timestamp to:", currentTimestamp);
-    
+
+    // First find any settings record ID
+    const { data: settingsRow } = await supabase
+      .from('settings')
+      .select('id')
+      .limit(1)
+      .maybeSingle();
+
+    if (!settingsRow) {
+      console.warn("supabaseService: No settings record found to update heartbeat");
+      return;
+    }
+
     const { error } = await supabase
       .from('settings')
       .update({ last_heartbeat_at: currentTimestamp })
-      .eq('id', 1) // Assuming there's a single settings record with id=1
-      .select('last_heartbeat_at')
-      .single();
-    
+      .eq('id', settingsRow.id);
+
     if (error) {
       console.error("supabaseService: Error updating heartbeat timestamp:", error);
       throw error;
     }
-    
+
     console.debug("supabaseService: Heartbeat timestamp updated successfully");
   },
   create: async (settings: Omit<Settings, 'id' | 'createdAt' | 'updatedAt'>): Promise<Settings> => {
@@ -519,22 +529,22 @@ export const exchangeRateService = {
       return null;
     }
   },
-   create: async (rates: Omit<ExchangeRates, 'lastUpdated' | 'success'>): Promise<ExchangeRates> => {
-     const { data, error } = await supabase.from('exchange_rates').insert(keysToSnake(rates)).select().single();
-     if (error) {
-       console.error("supabaseService: Error creating exchange rates:", error);
-       throw error;
-     }
-     return keysToCamel(data);
-   },
-   update: async (id: string, rates: Partial<ExchangeRates>): Promise<ExchangeRates> => {
-     const { data, error } = await supabase.from('exchange_rates').update(keysToSnake(rates)).eq('id', id).select().single();
-     if (error) {
-       console.error("supabaseService: Error updating exchange rates:", error);
-       throw error;
-     }
-     return keysToCamel(data);
-   }
+  create: async (rates: Omit<ExchangeRates, 'lastUpdated' | 'success'>): Promise<ExchangeRates> => {
+    const { data, error } = await supabase.from('exchange_rates').insert(keysToSnake(rates)).select().single();
+    if (error) {
+      console.error("supabaseService: Error creating exchange rates:", error);
+      throw error;
+    }
+    return keysToCamel(data);
+  },
+  update: async (id: string, rates: Partial<ExchangeRates>): Promise<ExchangeRates> => {
+    const { data, error } = await supabase.from('exchange_rates').update(keysToSnake(rates)).eq('id', id).select().single();
+    if (error) {
+      console.error("supabaseService: Error updating exchange rates:", error);
+      throw error;
+    }
+    return keysToCamel(data);
+  }
 };
 
 export const paymentTransactionService = {
@@ -679,8 +689,8 @@ export const getCustomerCredentials = async (customerId: string): Promise<Custom
     throw error;
   }
   return data as CustomerCredential[]; // Don't convert keys - interface uses snake_case
-  };
-  // --- Dashboard Services ---
+};
+// --- Dashboard Services ---
 
 export const getCustomerInvoicesByCustomerId = async (customerId: string): Promise<Invoice[]> => {
   console.debug("supabaseService: Fetching customer invoices for customer_id:", customerId);
@@ -700,7 +710,7 @@ export const getCustomerDashboardData = async (customerId: string): Promise<{
   credentials: CustomerCredential[];
 }> => {
   console.debug("supabaseService: Fetching complete dashboard data for customer_id:", customerId);
-  
+
   const [subscriptions, invoices, messages, credentials] = await Promise.all([
     subscriptionService.getByCustomerId(customerId),
     getCustomerInvoicesByCustomerId(customerId),
