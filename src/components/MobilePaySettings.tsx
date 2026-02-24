@@ -76,10 +76,11 @@ const MobilePaySettings: React.FC = () => {
     try {
       const result = await mobilepayService.createRecurringPaymentAgreement(payload);
 
-      if (result.success && result.data?.redirectUrl) {
+      if (result.success && (result.data?.vippsConfirmationUrl || result.data?.redirectUrl)) {
+        const redirectUrl = result.data.vippsConfirmationUrl || result.data.redirectUrl;
         setFeedback({ type: 'success', message: 'Redirecting to MobilePay...' });
         // Redirect the user to the MobilePay approval page
-        window.location.href = result.data.redirectUrl;
+        window.location.href = redirectUrl;
       } else {
         throw new Error(result.error || 'Failed to get redirect URI from MobilePay.');
       }
