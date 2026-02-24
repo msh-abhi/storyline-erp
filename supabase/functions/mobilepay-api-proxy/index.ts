@@ -49,8 +49,6 @@ async function getAccessToken(): Promise<string> {
 }
 
 const MOBILEPAY_MERCHANT_SERIAL_NUMBER = Deno.env.get('MOBILEPAY_MERCHANT_SERIAL_NUMBER');
-
-const MOBILEPAY_MERCHANT_SERIAL_NUMBER = Deno.env.get('MOBILEPAY_MERCHANT_SERIAL_NUMBER');
 const MOBILEPAY_RECURRING_SUBSCRIPTION_KEY = Deno.env.get('MOBILEPAY_RECURRING_SUBSCRIPTION_KEY');
 
 Deno.serve(async (req: Request) => {
@@ -96,7 +94,7 @@ Deno.serve(async (req: Request) => {
       ...ePaymentHeaders,
       'Ocp-Apim-Subscription-Key': MOBILEPAY_RECURRING_SUBSCRIPTION_KEY || MOBILEPAY_SUBSCRIPTION_KEY,
     };
-    
+
     console.log(`Using subscription key for action '${action}': ${recurringHeaders['Ocp-Apim-Subscription-Key'] === MOBILEPAY_RECURRING_SUBSCRIPTION_KEY ? 'Recurring' : 'Default'}`);
 
 
@@ -149,36 +147,66 @@ Deno.serve(async (req: Request) => {
       }
       case 'createRecurringPaymentAgreement': {
         const { customer, amount, currency, description, merchantRedirectUrl, merchantAgreementUrl } = payload;
+        console.log(`MobilePay Debug - Action: createRecurringPaymentAgreement (v3)`);
+        console.log(`MobilePay Debug - Environment: ${MOBILEPAY_ENVIRONMENT}`);
+        console.log(`MobilePay Debug - URL: ${MOBILEPAY_API_BASE_URL}/recurring/v3/agreements`);
+        console.log(`MobilePay Debug - Phone: ${customer?.phoneNumber}`);
 
-        mobilePayResponse = await fetch(`${MOBILEPAY_API_BASE_URL}/recurring/v1/agreements`, {
-            method: 'POST',
-            headers: {
-                ...recurringHeaders,
-                'Idempotency-Key': crypto.randomUUID(),
+        // v3 API: phoneNumber is a top-level field (not nested in customer)
+        mobilePayResponse = await fetch(`${MOBILEPAY_API_BASE_URL}/recurring/v3/agreements`, {
+          method: 'POST',
+          headers: {
+            ...recurringHeaders,
+            'Idempotency-Key': crypto.randomUUID(),
+          },
+          body: JSON.stringify({
+            phoneNumber: customer.phoneNumber, // v3: top-level, not nested
+            merchantAgreementUrl: merchantAgreementUrl,
+            merchantRedirectUrl: merchantRedirectUrl,
+            pricing: {
+              type: 'LEGACY',
+              amount: amount,
+              currency: currency,
             },
-            body: JSON.stringify({
-                customer: {
-                    phoneNumber: customer.phoneNumber,
-                },
-                merchantAgreementUrl: merchantAgreementUrl,
-                merchantRedirectUrl: merchantRedirectUrl,
-                pricing: {
-                    type: 'LEGACY',
-                    amount: amount, // Amount is now expected in minor units
-                    currency: currency,
-                    suggestedMaxAmount: Math.round(amount * 1.2), // Allow 20% flexibility
-                },
-                interval: {
-                    unit: 'MONTH',
-                    count: 1,
-                },
-                productName: description,
-                initialCharge: {
-                    amount: amount, // Amount is now expected in minor units
-                    description: `Initial charge for ${description}`,
-                    transactionType: 'RESERVE_CAPTURE',
-                },
-            }),
+            interval: {
+              unit: 'MONTH',
+              count: 1,
+            },
+            productName: description,
+            initialCharge: {
+              amount: amount,
+              description: `Initial charge for ${description}`,
+              transactionType: 'RESERVE_CAPTURE',
+            },
+          }),
+        });
+        break;
+      }
+      case 'createCharge': {
+        const { agreementId, amount, currency, description, externalId } = payload;
+        console.log(`Creating v3 charge for agreement ${agreementId}: ${amount} ${currency}`);
+
+        mobilePayResponse = await fetch(`${MOBILEPAY_API_BASE_URL}/recurring/v3/agreements/${agreementId}/charges`, {
+          method: 'POST',
+          headers: {
+            ...recurringHeaders,
+            'Idempotency-Key': crypto.randomUUID(),
+          },
+          body: JSON.stringify({
+            amount: amount,
+            currency: currency,
+            description: description,
+            due: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            externalId: externalId || crypto.randomUUID(),
+          }),
+        });
+        break;
+      }
+      case 'getAgreement': {
+        const { agreementId } = payload;
+        mobilePayResponse = await fetch(`${MOBILEPAY_API_BASE_URL}/recurring/v3/agreements/${agreementId}`, {
+          method: 'GET',
+          headers: recurringHeaders,
         });
         break;
       }
@@ -201,7 +229,7 @@ Deno.serve(async (req: Request) => {
       }
       case 'cancelAgreement': {
         const { agreementId } = payload;
-        mobilePayResponse = await fetch(`${MOBILEPAY_API_BASE_URL}/recurring/v1/agreements/${agreementId}`, {
+        mobilePayResponse = await fetch(`${MOBILEPAY_API_BASE_URL}/recurring/v3/agreements/${agreementId}`, {
           method: 'PATCH',
           headers: {
             ...recurringHeaders,

@@ -24,24 +24,46 @@ export async function generateInvoice(options: GenerateInvoiceOptions): Promise<
 
   try {
     if (paymentMethod === 'mobilepay') {
-      // For MobilePay, we need to create a recurring payment agreement
-      // The redirectUri should point back to your app after MobilePay flow
-      const redirectUri = `${window.location.origin}/subscriptions?status=mobilepay_return&invoiceId=${subscription?.id || 'new'}`; // Example redirect
-      
-      const mobilePayResult = await mobilepayService.createRecurringPaymentAgreement({
-        externalId: subscription?.id || `invoice-${Date.now()}`, // Unique ID for MobilePay
-        customerId: customerId,
-        subscriptionId: subscription?.id || '',
-        amount: amount,
-        currency: currency,
-        redirectUri: redirectUri,
-      });
+      if (subscription) {
+        // For subscriptions, create a recurring payment agreement
+        const redirectUri = `${window.location.origin}/subscriptions?status=mobilepay_return&subscriptionId=${subscription.id}`;
+        const agreementUri = `${window.location.origin}/profile/subscriptions`;
+        const customerPhone = metadata?.phone || '';
 
-      if (!mobilePayResult.success || !mobilePayResult.data?.paymentUrl) {
-        throw new Error(mobilePayResult.error || 'Failed to get MobilePay payment URL');
+        const mobilePayResult = await mobilepayService.createRecurringPaymentAgreement({
+          customer: {
+            phoneNumber: customerPhone || '4500000000',
+          },
+          amount: amount,
+          currency: currency,
+          description: `Subscription for ${subscription.productName}`,
+          merchantRedirectUrl: redirectUri,
+          merchantAgreementUrl: agreementUri,
+        });
+
+        if (!mobilePayResult.success || !mobilePayResult.data?.vippsConfirmationUrl) {
+          throw new Error(mobilePayResult.error || 'Failed to get MobilePay confirmation URL');
+        }
+        paymentLink = mobilePayResult.data.vippsConfirmationUrl;
+        externalPaymentId = mobilePayResult.data.agreementId;
+      } else {
+        // For one-time sales, create a single payment link
+        const mobilePayResult = await mobilepayService.createPaymentLink({
+          externalId: metadata?.saleId || `inv-${Date.now()}`,
+          amount: amount,
+          currency: currency,
+          description: metadata?.productName ? `Payment for ${metadata.productName}` : `Payment for Invoice`,
+          customerEmail: customerEmail,
+          customerName: customerName,
+          saleId: metadata?.saleId || '',
+        });
+
+        if (!mobilePayResult.success || !mobilePayResult.data?.paymentLink) {
+          throw new Error(mobilePayResult.error || 'Failed to create MobilePay payment link');
+        }
+        paymentLink = mobilePayResult.data.paymentLink;
+        externalPaymentId = mobilePayResult.data.paymentId;
       }
-      paymentLink = mobilePayResult.data.paymentUrl;
-      externalPaymentId = mobilePayResult.data.agreementId; // MobilePay agreement ID
     } else if (paymentMethod === 'revolut') {
       try {
         // For Revolut, create a payment request

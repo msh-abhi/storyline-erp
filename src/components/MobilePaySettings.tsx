@@ -26,10 +26,10 @@ const MobilePaySettings: React.FC = () => {
       const result = await mobilepayService.createPaymentLink(payload);
 
       if (result.success && result.data?.paymentLink) {
-        setSinglePaymentFeedback({ 
-          type: 'success', 
+        setSinglePaymentFeedback({
+          type: 'success',
           message: 'Successfully created payment link:',
-          link: result.data.paymentLink 
+          link: result.data.paymentLink
         });
       } else {
         throw new Error(result.error || 'Failed to get payment link from MobilePay.');
@@ -52,6 +52,14 @@ const MobilePaySettings: React.FC = () => {
     setIsLoading(true);
     setFeedback(null);
 
+    // MobilePay requires HTTPS URLs - use VITE_APP_URL if set (production domain),
+    // otherwise fall back to window.location.origin (works automatically in production/HTTPS)
+    const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const merchantRedirectUrl = `${appBaseUrl}/mobilepay-callback`;
+    const merchantAgreementUrl = `${appBaseUrl}/user/subscriptions`;
+
+    console.log('MobilePay URLs:', { merchantRedirectUrl, merchantAgreementUrl, appBaseUrl });
+
     const payload = {
       customer: {
         phoneNumber: phoneNumber,
@@ -59,8 +67,8 @@ const MobilePaySettings: React.FC = () => {
       amount: 9999, // 99.99 DKK in minor units (øre)
       currency: 'DKK' as SupportedCurrency,
       description: 'Monthly Subscription',
-      merchantRedirectUrl: `${window.location.origin}/mobilepay-callback`, // Page to handle callback
-      merchantAgreementUrl: `${window.location.origin}/user/subscriptions`, // Page to manage subscription
+      merchantRedirectUrl,
+      merchantAgreementUrl,
     };
 
     try {

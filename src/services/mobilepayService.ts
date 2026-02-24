@@ -65,8 +65,18 @@ export const mobilepayService = {
     }
   },
 
-  async createRecurringPaymentAgreement(payload: CreateRecurringPaymentAgreementPayload): Promise<{ success: boolean; data?: any; error?: string }> {
+  async createRecurringPaymentAgreement(payload: {
+    customer: { phoneNumber: string };
+    amount: number;
+    currency: SupportedCurrency;
+    description: string;
+    merchantRedirectUrl: string;
+    merchantAgreementUrl: string;
+  }): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
+      // Convert amount to minor units (cents/øre) if it's not already
+      const amountInMinorUnits = Math.round(payload.amount * 100);
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mobilepay-api-proxy`, {
         method: 'POST',
         headers: {
@@ -75,7 +85,10 @@ export const mobilepayService = {
         },
         body: JSON.stringify({
           action: 'createRecurringPaymentAgreement',
-          payload: payload,
+          payload: {
+            ...payload,
+            amount: amountInMinorUnits,
+          },
         }),
       });
 
@@ -90,6 +103,67 @@ export const mobilepayService = {
     }
   },
 
+  async createCharge(payload: {
+    agreementId: string;
+    amount: number;
+    currency: SupportedCurrency;
+    description: string;
+    externalId?: string;
+  }): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const amountInMinorUnits = Math.round(payload.amount * 100);
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mobilepay-api-proxy`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'createCharge',
+          payload: {
+            ...payload,
+            amount: amountInMinorUnits,
+          },
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to create MobilePay charge');
+      }
+      return { success: true, data: result.data };
+    } catch (error) {
+      console.error('Error creating MobilePay charge:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
+
+  async getAgreement(agreementId: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mobilepay-api-proxy`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'getAgreement',
+          payload: { agreementId },
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to get MobilePay agreement details');
+      }
+      return { success: true, data: result.data };
+    } catch (error) {
+      console.error('Error getting MobilePay agreement:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
+
   async capturePayment(payload: CapturePaymentPayload): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mobilepay-api-proxy`, {
@@ -100,7 +174,10 @@ export const mobilepayService = {
         },
         body: JSON.stringify({
           action: 'capturePayment',
-          payload: payload,
+          payload: {
+            ...payload,
+            amount: Math.round(payload.amount * 100), // Ensure minor units
+          },
         }),
       });
 
