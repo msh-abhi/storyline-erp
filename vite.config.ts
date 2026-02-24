@@ -15,6 +15,8 @@ export default defineConfig({
     assetsDir: 'assets',
   },
   server: {
-    port: 3001
+    port: 5173,
+    host: true,
+    allowedHosts: ['appdemo.tecnomaxx.com', 'app.storyline.help']
   }
 });

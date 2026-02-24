@@ -12,39 +12,31 @@ const MOBILEPAY_API_BASE_URL = MOBILEPAY_ENVIRONMENT === 'production'
 const MOBILEPAY_WEBHOOK_URL = Deno.env.get('MOBILEPAY_WEBHOOK_URL') || 'https://your-app.supabase.co/functions/v1/mobilepay-webhook';
 
 // Get OAuth2 access token for Vipps MobilePay
-async function getAccessToken(): Promise<string> {
+async function getAccessToken(subscriptionKey: string): Promise<string> {
   const tokenUrl = `${MOBILEPAY_API_BASE_URL}/accesstoken/get`;
 
   console.log('MobilePay Debug - OAuth Request:');
   console.log('URL:', tokenUrl);
-  // Note: Not logging credential lengths for security
 
   const headers = {
     'Content-Type': 'application/json',
-    'client_id': MOBILEPAY_CLIENT_ID,
-    'client_secret': MOBILEPAY_CLIENT_SECRET,
-    'Ocp-Apim-Subscription-Key': MOBILEPAY_SUBSCRIPTION_KEY,
+    'client_id': MOBILEPAY_CLIENT_ID || '',
+    'client_secret': MOBILEPAY_CLIENT_SECRET || '',
+    'Ocp-Apim-Subscription-Key': subscriptionKey,
   };
-
-  console.log('MobilePay Debug - Request Headers:', Object.keys(headers).join(', '));
 
   const response = await fetch(tokenUrl, {
     method: 'POST',
     headers,
   });
 
-  console.log('MobilePay Debug - OAuth Response:');
-  console.log('Status:', response.status);
-  console.log('Status Text:', response.statusText);
-
   if (!response.ok) {
     const errorData = await response.text();
-    console.log('Error response body:', errorData);
+    console.error('MobilePay OAuth error:', response.status, errorData);
     throw new Error(`Failed to get access token: ${response.status} - ${errorData}`);
   }
 
   const data = await response.json();
-  console.log('Success response:', JSON.stringify(data, null, 2));
   return data.access_token;
 }
 
@@ -75,104 +67,73 @@ Deno.serve(async (req: Request) => {
     }
 
     const { action, payload } = await req.json();
-    console.log(`MobilePay Proxy: Executing ${action}`);
+    console.log(`MobilePay Proxy received action: ${action}`);
 
     let mobilePayResponse;
 
-    // Get access token for all API calls
-    const accessToken = await getAccessToken();
+    // Determine which key to use based on the action
+    const isRecurringAction = ['createRecurringPaymentAgreement', 'createCharge', 'getAgreement', 'cancelAgreement'].includes(action);
+    const apiSubscriptionKey = isRecurringAction
+      ? (MOBILEPAY_RECURRING_SUBSCRIPTION_KEY || MOBILEPAY_SUBSCRIPTION_KEY)
+      : (MOBILEPAY_SUBSCRIPTION_KEY || '');
 
-    const ePaymentHeaders = {
+    if (!apiSubscriptionKey) {
+      throw new Error(`Missing subscription key for action: ${action}`);
+    }
+
+    console.log(`Getting access token for ${isRecurringAction ? 'Recurring' : 'ePayment'} key...`);
+    const accessToken = await getAccessToken(apiSubscriptionKey);
+
+    const commonHeaders = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${accessToken}`,
-      'Ocp-Apim-Subscription-Key': MOBILEPAY_SUBSCRIPTION_KEY,
-      'Merchant-Serial-Number': MOBILEPAY_MERCHANT_SERIAL_NUMBER,
+      'Ocp-Apim-Subscription-Key': apiSubscriptionKey,
+      'Merchant-Serial-Number': MOBILEPAY_MERCHANT_SERIAL_NUMBER || '',
       'Vipps-System-Name': 'storyline-erp',
       'Vipps-System-Version': '1.0.0',
     };
 
-    const recurringHeaders = {
-      ...ePaymentHeaders,
-      'Ocp-Apim-Subscription-Key': MOBILEPAY_RECURRING_SUBSCRIPTION_KEY || MOBILEPAY_SUBSCRIPTION_KEY,
-    };
-
-    console.log(`Using subscription key for action '${action}': ${recurringHeaders['Ocp-Apim-Subscription-Key'] === MOBILEPAY_RECURRING_SUBSCRIPTION_KEY ? 'Recurring' : 'Default'}`);
-
 
     switch (action) {
       case 'createPaymentLink': {
-        const { externalId, amount, currency, description, saleId } = payload;
-        console.log('Creating payment link for sale:', { externalId, amount, currency, saleId });
+        const { externalId, amount, currency, description, saleId, returnUrl: customReturnUrl } = payload;
+        const returnUrl = customReturnUrl || MOBILEPAY_WEBHOOK_URL; // Default fallback
 
-        const referenceRegex = /^[a-zA-Z0-9-]{8,64}$/;
-        if (!referenceRegex.test(externalId)) {
-          throw new Error(`Invalid reference format: '${externalId}'. Must be 8-64 alphanumeric characters or hyphens.`);
-        }
+        console.log('Creating ePayment link for:', { externalId, amount, currency, saleId, returnUrl });
 
         mobilePayResponse = await fetch(`${MOBILEPAY_API_BASE_URL}/epayment/v1/payments`, {
           method: 'POST',
           headers: {
-            ...ePaymentHeaders,
+            ...commonHeaders,
             'Idempotency-Key': crypto.randomUUID(),
           },
           body: JSON.stringify({
-            amount: {
-              value: amount, // Amount is now expected in minor units (e.g., øre)
-              currency: currency,
-            },
+            amount: { value: amount, currency },
             reference: externalId,
             description: description || `Payment for Sale #${externalId}`,
-            returnUrl: MOBILEPAY_WEBHOOK_URL,
+            returnUrl: returnUrl,
             userFlow: 'WEB_REDIRECT',
             paymentMethod: { type: 'WALLET' }
           }),
         });
-
-        if (mobilePayResponse.ok) {
-          const paymentData = await mobilePayResponse.json();
-          console.log('Payment created successfully:', paymentData);
-          return new Response(
-            JSON.stringify({
-              success: true,
-              data: {
-                paymentId: paymentData.id,
-                paymentLink: paymentData.redirectUrl || paymentData.paymentLink,
-                externalId: externalId,
-                saleId: saleId
-              }
-            }),
-            { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 200 }
-          );
-        }
         break;
       }
       case 'createRecurringPaymentAgreement': {
         const { customer, amount, currency, description, merchantRedirectUrl, merchantAgreementUrl } = payload;
-        console.log(`MobilePay Debug - Action: createRecurringPaymentAgreement (v3)`);
-        console.log(`MobilePay Debug - Environment: ${MOBILEPAY_ENVIRONMENT}`);
-        console.log(`MobilePay Debug - URL: ${MOBILEPAY_API_BASE_URL}/recurring/v3/agreements`);
-        console.log(`MobilePay Debug - Phone: ${customer?.phoneNumber}`);
+        console.log(`Creating Recurring Agreement (v3) for: ${customer?.phoneNumber}`);
 
-        // v3 API: phoneNumber is a top-level field (not nested in customer)
         mobilePayResponse = await fetch(`${MOBILEPAY_API_BASE_URL}/recurring/v3/agreements`, {
           method: 'POST',
           headers: {
-            ...recurringHeaders,
+            ...commonHeaders,
             'Idempotency-Key': crypto.randomUUID(),
           },
           body: JSON.stringify({
-            phoneNumber: customer.phoneNumber, // v3: top-level, not nested
+            phoneNumber: customer.phoneNumber,
             merchantAgreementUrl: merchantAgreementUrl,
             merchantRedirectUrl: merchantRedirectUrl,
-            pricing: {
-              type: 'LEGACY',
-              amount: amount,
-              currency: currency,
-            },
-            interval: {
-              unit: 'MONTH',
-              count: 1,
-            },
+            pricing: { type: 'LEGACY', amount: amount, currency: currency },
+            interval: { unit: 'MONTH', count: 1 },
             productName: description,
             initialCharge: {
               amount: amount,
@@ -185,18 +146,14 @@ Deno.serve(async (req: Request) => {
       }
       case 'createCharge': {
         const { agreementId, amount, currency, description, externalId } = payload;
-        console.log(`Creating v3 charge for agreement ${agreementId}: ${amount} ${currency}`);
-
         mobilePayResponse = await fetch(`${MOBILEPAY_API_BASE_URL}/recurring/v3/agreements/${agreementId}/charges`, {
           method: 'POST',
           headers: {
-            ...recurringHeaders,
+            ...commonHeaders,
             'Idempotency-Key': crypto.randomUUID(),
           },
           body: JSON.stringify({
-            amount: amount,
-            currency: currency,
-            description: description,
+            amount, currency, description,
             due: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             externalId: externalId || crypto.randomUUID(),
           }),
@@ -207,7 +164,7 @@ Deno.serve(async (req: Request) => {
         const { agreementId } = payload;
         mobilePayResponse = await fetch(`${MOBILEPAY_API_BASE_URL}/recurring/v3/agreements/${agreementId}`, {
           method: 'GET',
-          headers: recurringHeaders,
+          headers: commonHeaders,
         });
         break;
       }
@@ -216,14 +173,11 @@ Deno.serve(async (req: Request) => {
         mobilePayResponse = await fetch(`${MOBILEPAY_API_BASE_URL}/epayment/v1/payments/${paymentId}/capture`, {
           method: 'POST',
           headers: {
-            ...ePaymentHeaders,
+            ...commonHeaders,
             'Idempotency-Key': crypto.randomUUID(),
           },
           body: JSON.stringify({
-            modificationAmount: {
-              value: amount, // Amount is now expected in minor units
-              currency: currency,
-            }
+            modificationAmount: { value: amount, currency }
           }),
         });
         break;
@@ -233,12 +187,10 @@ Deno.serve(async (req: Request) => {
         mobilePayResponse = await fetch(`${MOBILEPAY_API_BASE_URL}/recurring/v3/agreements/${agreementId}`, {
           method: 'PATCH',
           headers: {
-            ...recurringHeaders,
+            ...commonHeaders,
             'Idempotency-Key': crypto.randomUUID(),
           },
-          body: JSON.stringify({
-            status: 'STOPPED'
-          }),
+          body: JSON.stringify({ status: 'STOPPED' }),
         });
         break;
       }
@@ -253,8 +205,25 @@ Deno.serve(async (req: Request) => {
 
     const responseData = await mobilePayResponse.json();
 
+    // Mapping for frontend consistency
+    let finalData = responseData;
+    if (action === 'createPaymentLink') {
+      finalData = {
+        paymentId: responseData.id,
+        paymentLink: responseData.redirectUrl || responseData.paymentLink,
+        status: responseData.status,
+        ...responseData
+      };
+    } else if (action === 'createRecurringPaymentAgreement') {
+      finalData = {
+        agreementId: responseData.agreementId,
+        vippsConfirmationUrl: responseData.vippsConfirmationUrl,
+        ...responseData
+      };
+    }
+
     return new Response(
-      JSON.stringify({ success: true, data: responseData }),
+      JSON.stringify({ success: true, data: finalData }),
       {
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
         status: 200,

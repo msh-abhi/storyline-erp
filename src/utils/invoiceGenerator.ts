@@ -26,8 +26,9 @@ export async function generateInvoice(options: GenerateInvoiceOptions): Promise<
     if (paymentMethod === 'mobilepay') {
       if (subscription) {
         // For subscriptions, create a recurring payment agreement
-        const redirectUri = `${window.location.origin}/subscriptions?status=mobilepay_return&subscriptionId=${subscription.id}`;
-        const agreementUri = `${window.location.origin}/profile/subscriptions`;
+        const appBaseUrl = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, '');
+        const redirectUri = `${appBaseUrl}/subscriptions?status=mobilepay_return&subscriptionId=${subscription.id}`;
+        const agreementUri = `${appBaseUrl}/profile/subscriptions`;
         const customerPhone = metadata?.phone || '';
 
         const mobilePayResult = await mobilepayService.createRecurringPaymentAgreement({

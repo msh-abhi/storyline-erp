@@ -40,6 +40,7 @@ export const mobilepayService = {
       const newPayload = {
         ...payload,
         externalId: compliantExternalId.slice(0, 63), // Ensure it's within the 64-char limit
+        returnUrl: `${import.meta.env.VITE_APP_URL.replace(/\/$/, '')}/sales?status=mobilepay_return`,
       };
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mobilepay-api-proxy`, {

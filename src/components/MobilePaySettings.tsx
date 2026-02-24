@@ -52,9 +52,7 @@ const MobilePaySettings: React.FC = () => {
     setIsLoading(true);
     setFeedback(null);
 
-    // MobilePay requires HTTPS URLs - use VITE_APP_URL if set (production domain),
-    // otherwise fall back to window.location.origin (works automatically in production/HTTPS)
-    const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const appBaseUrl = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, '');
     const merchantRedirectUrl = `${appBaseUrl}/mobilepay-callback`;
     const merchantAgreementUrl = `${appBaseUrl}/user/subscriptions`;
 
