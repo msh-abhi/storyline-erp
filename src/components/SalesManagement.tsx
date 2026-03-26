@@ -5,8 +5,6 @@ import { useApp } from '../context/AppContext';
 import { Sale, DigitalCode, TVBox, SubscriptionProduct, Customer, Reseller } from '../types';
 import { formatCurrency, calculateTotalRevenue, calculateInventoryProfit, calculateOutstandingAmount } from '../utils/calculations';
 import SearchableSelect from './common/SearchableSelect';
-import { mobilepayService } from '../services/mobilepayService';
-
 import { generateInvoice } from '../utils/invoiceGenerator';
 
 export default function SalesManagement() {
@@ -144,6 +142,10 @@ export default function SalesManagement() {
         console.error('Failed to send email notification:', emailError);
       }
 
+      // For offline payments (cash, manual, paypal), the payment is already received.
+      // Create invoice as 'paid' immediately to prevent inflating outstanding receivables.
+      const isOfflinePaymentForInvoice = isOfflinePayment && formData.status === 'completed';
+
       const invoiceResult = await generateInvoice({
         customerId: buyer.id,
         customerName: buyer.name,
@@ -157,11 +159,18 @@ export default function SalesManagement() {
           productName,
           quantity: formData.quantity,
           phone: 'phone' in buyer ? buyer.phone : '',
+          // Signal to mark invoice as paid immediately for offline payments
+          markAsPaid: isOfflinePaymentForInvoice,
         },
       });
 
       if (!invoiceResult.success || !invoiceResult.invoice) {
         throw new Error(invoiceResult.error || 'Failed to generate invoice.');
+      }
+
+      // If payment is already received (offline: cash/manual/paypal), mark invoice as paid immediately
+      if (isOfflinePaymentForInvoice) {
+        await actions.updateInvoice(invoiceResult.invoice.id, { status: 'paid' });
       }
 
       await actions.updateSale(newSale.id, { invoiceId: invoiceResult.invoice.id });
@@ -243,10 +252,15 @@ export default function SalesManagement() {
 
   const handleMarkAsComplete = async (id: string) => {
     try {
+      const sale = state.sales.find(s => s.id === id);
       await actions.updateSale(id, {
         status: 'completed',
         paymentStatus: 'received'
       });
+      // Also mark the linked invoice as paid to keep data consistent
+      if (sale?.invoiceId) {
+        await actions.updateInvoice(sale.invoiceId, { status: 'paid' });
+      }
       toast.success('Sale marked as completed successfully!');
     } catch (error) {
       console.error("Error marking sale as complete:", error);
@@ -600,7 +614,10 @@ export default function SalesManagement() {
                   </th>
 
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    Payment Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Order Status
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -638,11 +655,21 @@ export default function SalesManagement() {
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${sale.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        sale.paymentStatus === 'received'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {sale.paymentStatus === 'received' ? 'Received' : 'Due'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        sale.status === 'completed' ? 'bg-blue-100 text-blue-800' :
                         sale.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                        {sale.status}
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {sale.status.charAt(0).toUpperCase() + sale.status.slice(1)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

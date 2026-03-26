@@ -1,5 +1,4 @@
 import { Reseller, Supplier, DigitalCode, TVBox, Sale, Purchase, ExchangeRates, SupportedCurrency, Subscription, Invoice } from '../types';
-import { getMonth, getYear } from 'date-fns';
 import { ensureNumber } from './numberUtils';
 
 // Helper function to get current year
@@ -8,29 +7,50 @@ export const getCurrentYear = (): number => new Date().getFullYear();
 // Helper function to get current month (0-indexed)
 export const getCurrentMonth = (): number => new Date().getMonth();
 
+/**
+ * Total revenue from COMPLETED sales only.
+ */
 export function calculateTotalRevenue(sales: Sale[]): number {
   if (!sales) return 0;
-  return sales.filter(sale => sale.status === 'completed').reduce((total, sale) => total + ensureNumber(sale.totalPrice), 0);
+  return sales
+    .filter(sale => sale.status === 'completed')
+    .reduce((total, sale) => total + ensureNumber(sale.totalPrice), 0);
 }
 
+/**
+ * Outstanding balances owed BY resellers TO us.
+ */
 export function calculateOutstandingReceivables(resellers: Reseller[]): number {
   if (!resellers) return 0;
   return resellers.reduce((total, reseller) => total + ensureNumber(reseller.outstandingBalance), 0);
 }
 
+/**
+ * Total expenses from COMPLETED purchases only.
+ */
 export function calculateTotalExpenses(purchases: Purchase[]): number {
   if (!purchases) return 0;
-  return purchases.filter(purchase => purchase.status === 'completed').reduce((total, purchase) => total + ensureNumber(purchase.totalAmount), 0);
+  return purchases
+    .filter(purchase => purchase.status === 'completed')
+    .reduce((total, purchase) => total + ensureNumber(purchase.totalAmount), 0);
 }
 
+/**
+ * Outstanding amounts WE owe to suppliers.
+ */
 export function calculateOutstandingPayables(suppliers: Supplier[]): number {
   if (!suppliers) return 0;
   return suppliers.reduce((total, supplier) => total + ensureNumber(supplier.amountOwed), 0);
 }
 
+/**
+ * Total profit from COMPLETED sales only (selling price minus purchase cost).
+ */
 export function calculateInventoryProfit(sales: Sale[]): number {
   if (!sales) return 0;
-  return sales.filter(sale => sale.status === 'completed').reduce((total, sale) => total + ensureNumber(sale.profit), 0);
+  return sales
+    .filter(sale => sale.status === 'completed')
+    .reduce((total, sale) => total + ensureNumber(sale.profit), 0);
 }
 
 export function calculateInventoryValue(digitalCodes: DigitalCode[], tvBoxes: TVBox[]): number {
@@ -103,14 +123,28 @@ export function calculateYearlyProfit(sales: Sale[], purchases: Purchase[], year
   return revenue - expenses;
 }
 
-export function calculateOutstandingAmount(sales: Sale[]): number {
+/**
+ * Outstanding amount from sales:
+ * Only sales where paymentStatus is 'due' (payment NOT yet received).
+ * This correctly represents money owed to us from sales transactions.
+ * Sales with paymentStatus 'received' are NOT outstanding, even if status is 'pending'.
+ */
+export function calculateOutstandingFromSales(sales: Sale[]): number {
   if (!sales) return 0;
   return sales
     .filter(sale =>
-      sale.paymentStatus === 'due' || // Unpaid invoice amounts
-      sale.status === 'pending' // Pending sales awaiting payment
+      sale.paymentStatus === 'due' &&
+      sale.status !== 'cancelled'
     )
     .reduce((total, sale) => total + ensureNumber(sale.totalPrice), 0);
+}
+
+/**
+ * Outstanding amount displayed in the Sales Management module.
+ * Same logic: only sales with payment NOT received.
+ */
+export function calculateOutstandingAmount(sales: Sale[]): number {
+  return calculateOutstandingFromSales(sales);
 }
 
 export function calculateSubscriptionRevenue(subscriptions: Subscription[]): number {
@@ -118,34 +152,45 @@ export function calculateSubscriptionRevenue(subscriptions: Subscription[]): num
   return subscriptions.reduce((total, sub) => sub.status === 'active' ? total + ensureNumber(sub.price) : total, 0);
 }
 
-export function calculateResellerCreditProfit(resellers: Reseller[]): number {
-  if (!resellers) return 0;
-  return resellers.reduce((total, reseller) => total + ensureNumber(reseller.outstandingBalance), 0);
+/**
+ * Reseller credit profit: only include positive outstanding balances (money owed to us by resellers).
+ * This is already covered by calculateOutstandingReceivables so it should NOT be added to net profit separately.
+ * Keeping this function but returning 0 to avoid double-counting.
+ */
+export function calculateResellerCreditProfit(_resellers: Reseller[]): number {
+  // Reseller outstanding balances are tracked separately in "Outstanding Receivables".
+  // Do NOT include here to avoid inflating Net Profit.
+  return 0;
 }
 
-export function calculateOutstandingFromSales(sales: Sale[]): number {
-  if (!sales) return 0;
-  return sales
-    .filter(sale =>
-      sale.paymentStatus === 'due' || // Unpaid invoice amounts
-      sale.status === 'pending' // Pending sales awaiting payment
-    )
-    .reduce((total, sale) => total + ensureNumber(sale.totalPrice), 0);
-}
-
+/**
+ * Total of all invoices (regardless of status).
+ */
 export function calculateTotalInvoicedAmount(invoices: Invoice[]): number {
   if (!invoices) return 0;
   return invoices.reduce((total, inv) => total + ensureNumber(inv.amount), 0);
 }
 
+/**
+ * Total amount from invoices with status 'paid'.
+ */
 export function calculateTotalPaidInvoices(invoices: Invoice[]): number {
   if (!invoices) return 0;
-  return invoices.filter(inv => inv.status === 'paid').reduce((total, inv) => total + ensureNumber(inv.amount), 0);
+  return invoices
+    .filter(inv => inv.status === 'paid')
+    .reduce((total, inv) => total + ensureNumber(inv.amount), 0);
 }
 
+/**
+ * Total amount from invoices with status 'pending'.
+ * NOTE: Invoices tied to sales with paymentStatus='received' should have been
+ * updated to 'paid'. If they haven't, this may still show them as pending.
+ */
 export function calculateTotalPendingInvoices(invoices: Invoice[]): number {
   if (!invoices) return 0;
-  return invoices.filter(inv => inv.status === 'pending').reduce((total, inv) => total + ensureNumber(inv.amount), 0);
+  return invoices
+    .filter(inv => inv.status === 'pending')
+    .reduce((total, inv) => total + ensureNumber(inv.amount), 0);
 }
 
 export function calculateNetProfit(totalRevenue: number, totalExpenses: number): number {
@@ -210,7 +255,7 @@ export function convertCurrency(
 export function formatCurrency(
   amount: number,
   currency: SupportedCurrency = 'DKK',
-  exchangeRates: ExchangeRates | null,
+  exchangeRates: ExchangeRates | null = null,
   displayCurrency?: SupportedCurrency
 ): string {
   let displayAmount = ensureNumber(amount);

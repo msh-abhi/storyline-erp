@@ -38,6 +38,7 @@ export default function PurchaseManagement() {
       supplierId: formData.supplierId,
       supplierName: supplier.name,
       productType: formData.productType,
+      productId: '',  // Purchases are not linked to specific inventory items by productId
       productName: formData.productName,
       quantity: formData.quantity,
       unitPrice: formData.unitPrice,
@@ -79,7 +80,7 @@ export default function PurchaseManagement() {
       productName: purchase.productName,
       quantity: purchase.quantity,
       unitPrice: purchase.unitPrice,
-      status: purchase.status
+      status: (purchase.status === 'cancelled' ? 'completed' : purchase.status) as 'completed' | 'pending'
     });
     setShowForm(true);
   };
@@ -94,7 +95,10 @@ export default function PurchaseManagement() {
     }
   };
 
-  const totalSpent = filteredPurchases.reduce((total, purchase) => total + purchase.totalAmount, 0);
+  // Only count COMPLETED purchases — matches how expenses are calculated on the dashboard
+  const totalSpent = filteredPurchases
+    .filter(p => p.status === 'completed')
+    .reduce((total, purchase) => total + purchase.totalAmount, 0);
   const totalPurchases = filteredPurchases.length;
   const pendingAmount = filteredPurchases
     .filter(p => p.status === 'pending')
@@ -131,7 +135,7 @@ export default function PurchaseManagement() {
           <div className="flex items-center space-x-3">
             <DollarSign className="h-8 w-8 text-red-600" />
             <div>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalSpent)}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalSpent, state.settings?.currency, state.exchangeRates, state.settings?.displayCurrency)}</p>
               <p className="text-sm text-gray-600">Total Spent</p>
             </div>
           </div>
@@ -140,7 +144,7 @@ export default function PurchaseManagement() {
           <div className="flex items-center space-x-3">
             <CreditCard className="h-8 w-8 text-amber-600" />
             <div>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(pendingAmount)}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(pendingAmount, state.settings?.currency, state.exchangeRates, state.settings?.displayCurrency)}</p>
               <p className="text-sm text-gray-600">Pending Payments</p>
             </div>
           </div>
@@ -268,7 +272,7 @@ export default function PurchaseManagement() {
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <p className="text-sm text-gray-600">
                     Total Amount: <span className="font-semibold text-gray-900">
-                      {formatCurrency(formData.quantity * formData.unitPrice)}
+                      {formatCurrency(formData.quantity * formData.unitPrice, state.settings?.currency, state.exchangeRates, state.settings?.displayCurrency)}
                     </span>
                   </p>
                 </div>
@@ -348,10 +352,10 @@ export default function PurchaseManagement() {
                       {purchase.quantity}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                      {formatCurrency(purchase.unitPrice)}
+                      {formatCurrency(purchase.unitPrice, state.settings?.currency, state.exchangeRates, state.settings?.displayCurrency)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900 font-medium">
-                      {formatCurrency(purchase.totalAmount)}
+                      {formatCurrency(purchase.totalAmount, state.settings?.currency, state.exchangeRates, state.settings?.displayCurrency)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {new Date(purchase.purchaseDate).toLocaleDateString()}

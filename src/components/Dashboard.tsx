@@ -15,17 +15,15 @@ import {
   Clock
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { ActiveSection, Sale, Reseller, Subscription, Invoice, ExchangeRates } from '../types';
+import { ActiveSection, ExchangeRates } from '../types';
 import {
   calculateTotalRevenue,
   calculateOutstandingReceivables,
   calculateTotalExpenses,
   calculateOutstandingPayables,
-  calculateInventoryProfit,
   calculateInventoryValue,
   formatCurrency,
   calculateSubscriptionRevenue,
-  calculateResellerCreditProfit,
   calculateOutstandingFromSales,
   calculateTotalInvoicedAmount,
   calculateTotalPaidInvoices,
@@ -56,16 +54,20 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
   const totalRevenue = calculateTotalRevenue(state.sales || []);
   const outstandingReceivables = calculateOutstandingReceivables(state.resellers || []);
   const totalExpenses = calculateTotalExpenses(state.purchases || []);
-  const inventoryProfit = calculateInventoryProfit(state.sales || []);
   const inventoryValue = calculateInventoryValue(state.digitalCodes || [], state.tvBoxes || []);
-  const netProfit = calculateNetProfit(totalRevenue, totalExpenses);
   const subscriptionRevenue = calculateSubscriptionRevenue(state.subscriptions || []);
-  const resellerCreditProfit = calculateResellerCreditProfit(state.resellers || []);
+  // Combined revenue = completed sales + active subscription revenue
+  const combinedRevenue = totalRevenue + subscriptionRevenue;
+  const netProfit = calculateNetProfit(combinedRevenue, totalExpenses);
+  // Outstanding from sales: only sales where payment has NOT been received
   const outstandingFromSales = calculateOutstandingFromSales(state.sales || []);
   const totalInvoicedAmount = calculateTotalInvoicedAmount(state.invoices || []);
   const totalPaidInvoices = calculateTotalPaidInvoices(state.invoices || []);
   const totalPendingInvoices = calculateTotalPendingInvoices(state.invoices || []);
   const totalOutstandingPayables = calculateOutstandingPayables(state.suppliers || []);
+  // Outstanding receivables = reseller balances + unpaid sales (invoices pending are a SUBSET of unpaid sales)
+  // We use outstandingFromSales as the single source of truth to avoid double-counting with invoices
+  const totalOutstandingReceivables = outstandingReceivables + outstandingFromSales;
 
 
   const displayCurrency = state.settings?.currency || 'DKK';
@@ -108,48 +110,50 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
   const stats = [
     {
       title: 'Total Revenue',
-      value: formatCurrency(totalRevenue + subscriptionRevenue + totalPaidInvoices, 'DKK', state.exchangeRates, displayCurrency),
+      // Completed sales revenue + active subscription monthly value
+      // (Paid invoices are already reflected in completed sales — do NOT add separately)
+      value: formatCurrency(combinedRevenue, 'DKK', state.exchangeRates, displayCurrency),
       icon: DollarSign,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50',
-      change: '+12.5%',
-      changeType: 'positive'
+      changeType: 'positive' as const
     },
     {
       title: 'Net Profit',
-      value: formatCurrency(netProfit + inventoryProfit + resellerCreditProfit, 'DKK', state.exchangeRates, displayCurrency),
+      // Revenue minus expenses (inventory profit is a breakdown of total revenue — not additive)
+      value: formatCurrency(netProfit, 'DKK', state.exchangeRates, displayCurrency),
       icon: netProfit >= 0 ? TrendingUp : TrendingDown,
       color: netProfit >= 0 ? 'text-emerald-600' : 'text-red-600',
       bgColor: netProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50',
-      change: netProfit >= 0 ? '+8.2%' : '-3.1%',
-      changeType: netProfit >= 0 ? 'positive' : 'negative'
+      changeType: (netProfit >= 0 ? 'positive' : 'negative') as 'positive' | 'negative'
     },
     {
       title: 'Total Expenses',
+      // Only COMPLETED purchases count as real expenses
       value: formatCurrency(totalExpenses, 'DKK', state.exchangeRates, displayCurrency),
       icon: TrendingDown,
       color: 'text-red-600',
       bgColor: 'bg-red-50',
-      change: '+5.2%',
-      changeType: 'negative'
+      changeType: 'negative' as const
     },
     {
       title: 'Outstanding Receivables',
-      value: formatCurrency(outstandingReceivables + outstandingFromSales + totalPendingInvoices, 'DKK', state.exchangeRates, displayCurrency),
+      // Reseller balances + unpaid sales (paymentStatus = 'due').
+      // Pending invoices are NOT added separately — they represent the same unpaid sales.
+      value: formatCurrency(totalOutstandingReceivables, 'DKK', state.exchangeRates, displayCurrency),
       icon: AlertCircle,
       color: 'text-amber-600',
       bgColor: 'bg-amber-50',
-      change: '-5.3%',
-      changeType: 'positive'
+      changeType: 'positive' as const
     },
     {
       title: 'Outstanding Payables',
+      // What we owe to suppliers
       value: formatCurrency(totalOutstandingPayables, 'DKK', state.exchangeRates, displayCurrency),
       icon: AlertCircle,
       color: 'text-red-600',
       bgColor: 'bg-red-50',
-      change: '+2.1%',
-      changeType: 'negative'
+      changeType: 'negative' as const
     },
     {
       title: 'Inventory Value',
@@ -157,44 +161,39 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
       icon: Package,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
-      change: '+15.7%',
-      changeType: 'positive'
+      changeType: 'positive' as const
     },
     {
-      title: 'Monthly Subscription Revenue',
+      title: 'Subscription Revenue',
       value: formatCurrency(subscriptionRevenue, 'DKK', state.exchangeRates, displayCurrency),
       icon: TrendingUp,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50',
-      change: '+22.4%',
-      changeType: 'positive'
+      changeType: 'positive' as const
     },
-    { // New Stat Card: Total Invoiced
+    {
       title: 'Total Invoiced',
       value: formatCurrency(totalInvoicedAmount, 'DKK', state.exchangeRates, displayCurrency),
       icon: FileText,
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50',
-      change: '+10.0%',
-      changeType: 'positive'
+      changeType: 'positive' as const
     },
-    { // New Stat Card: Paid Invoices
+    {
       title: 'Paid Invoices',
       value: formatCurrency(totalPaidInvoices, 'DKK', state.exchangeRates, displayCurrency),
       icon: CheckCircle,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
-      change: '+8.0%',
-      changeType: 'positive'
+      changeType: 'positive' as const
     },
-    { // New Stat Card: Pending Invoices
+    {
       title: 'Pending Invoices',
       value: formatCurrency(totalPendingInvoices, 'DKK', state.exchangeRates, displayCurrency),
       icon: Clock,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50',
-      change: '-2.0%',
-      changeType: 'negative'
+      changeType: 'negative' as const
     }
   ];
 
@@ -260,12 +259,11 @@ export default function Dashboard({ onSectionChange }: DashboardProps) {
                   <p className="text-sm font-medium text-slate-600">{stat.title}</p>
                   <p className="text-2xl font-bold text-slate-900 mt-2">{stat.value}</p>
                   <div className="flex items-center mt-2">
-                    <span className={`text-sm font-medium ${
-                      stat.changeType === 'positive' ? 'text-emerald-600' : 'text-red-600'
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      stat.changeType === 'positive' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
                     }`}>
-                      {stat.change}
+                      {stat.changeType === 'positive' ? '▲ Good' : '▼ Watch'}
                     </span>
-                    <span className="text-sm text-slate-500 ml-1">vs last month</span>
                   </div>
                 </div>
                 <div className={`p-3 rounded-xl ${stat.bgColor}`}>
