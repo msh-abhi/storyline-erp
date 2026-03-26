@@ -17,6 +17,13 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
-    allowedHosts: ['appdemo.tecnomaxx.com', 'app.storyline.help']
+    allowedHosts: ['appdemo.tecnomaxx.com', 'app.storyline.help'],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8888',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '/api'), // Keeps the /api prefix
+      },
+    },
   }
 });
