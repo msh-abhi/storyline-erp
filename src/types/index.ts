@@ -327,7 +327,8 @@ export type ActiveSection =
   | 'woocommerce-orders'
   | 'suppliers'
   | 'settings'
-  | 'integrations';
+  | 'integrations'
+  | 'billing';
 
 // --- App State and Actions ---
 

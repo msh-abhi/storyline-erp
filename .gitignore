@@ -28,3 +28,5 @@ dist-ssr
 .env
 .references_old
 .gemini
+# Local Netlify folder
+.netlify

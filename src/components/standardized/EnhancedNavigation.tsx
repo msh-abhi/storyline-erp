@@ -3,7 +3,8 @@ import {
   Home, Users, ShoppingCart, Package, DollarSign,
   FileText, Settings, TrendingUp, Target,
   Bell, Mail, Globe, ChevronRight, ChevronDown,
-  Zap, Shield, Building2, ShoppingBag, LogOut, ChevronLeft
+  Zap, Shield, Building2, ShoppingBag, LogOut, ChevronLeft,
+  CreditCard
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ActiveSection } from '../../types';
@@ -225,6 +226,14 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
           badge: 'core'
         },
         {
+          id: 'billing',
+          label: 'Billing & Subscription',
+          icon: CreditCard,
+          group: 'integrations',
+          description: 'Manage your retainer plan',
+          badge: 'billing'
+        },
+        {
           id: 'settings',
           label: 'System Settings',
           icon: Settings,
@@ -365,11 +374,12 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
                                 {item.label}
                               </span>
                               {item.badge && (
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${item.badge === 'core'
-                                    ? 'bg-purple-100 text-purple-800'
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    item.badge === 'core' ? 'bg-purple-100 text-purple-800'
+                                    : item.badge === 'billing' ? 'bg-amber-100 text-amber-700'
                                     : 'bg-green-100 text-green-800'
                                   }`}>
-                                  {item.badge}
+                                  {item.badge === 'billing' ? '💳' : item.badge}
                                 </span>
                               )}
                             </div>

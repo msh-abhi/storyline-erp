@@ -23,3 +23,9 @@
 [[scheduled_functions]]
   function = "supabase-heartbeat"
   schedule = "0 9 * * *"  # Daily at 9:00 AM UTC
+
+# Billing serverless functions (auto-registered via in-code config paths):
+#   /api/billing/stripe-checkout  -> stripe-checkout.mts
+#   /api/billing/stripe-webhook   -> stripe-webhook.mts
+#   /api/billing/paypal-checkout  -> paypal-checkout.mts
+#   /api/billing/paypal-capture   -> paypal-capture.mts

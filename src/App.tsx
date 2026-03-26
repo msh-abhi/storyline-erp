@@ -16,6 +16,7 @@ import WooCommerceOrders from './components/WooCommerceOrders';
 import Settings from './components/Settings';
 import InvoiceManagement from './components/InvoiceManagement';
 import LoginForm from './components/LoginForm'; // Existing admin login form
+import AdminBilling from './components/AdminBilling';
 
 // NEW: Standardized Components
 import EnhancedNavigation from './components/standardized/EnhancedNavigation';
@@ -85,6 +86,8 @@ function AdminAppContent() {
         return <WelcomeEmailManager />;
       case 'woocommerce-orders':
         return <WooCommerceOrders />;
+      case 'billing':
+        return <AdminBilling />;
       case 'settings':
         return <Settings />;
       case 'integrations':
